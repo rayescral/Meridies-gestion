@@ -6,6 +6,7 @@
 <title>MERIDIES — Gestion Centralisée</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -195,21 +196,6 @@ tr:hover td{background:var(--surface2);}
 </head>
 <body>
 
-<div id="lock-screen" style="position:fixed;inset:0;background:#12192B;z-index:9999;display:flex;align-items:center;justify-content:center;">
-  <div style="background:#1A2235;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:40px;width:360px;max-width:95vw;text-align:center;">
-    <div style="font-size:28px;font-weight:700;color:#C9A84C;letter-spacing:.12em;margin-bottom:6px;">MERIDIES</div>
-    <div style="font-size:12px;color:rgba(201,168,76,0.5);margin-bottom:32px;">Gestion centralisée</div>
-    <div style="font-size:15px;font-weight:600;color:#fff;margin-bottom:6px;">Accès sécurisé</div>
-    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px;">Entrez le mot de passe pour continuer</div>
-    <input type="password" id="lock-input" class="input" placeholder="Mot de passe..."
-      style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
-      onkeydown="if(event.key==='Enter')lockSubmit()">
-    <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
-    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Acceder</button>
-  </div>
-</div>
-
-
 <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
 <div class="layout">
@@ -260,6 +246,14 @@ tr:hover td{background:var(--surface2);}
 <!-- ==================== DASHBOARD ==================== -->
 <div class="page active" id="page-dashboard">
   <div class="kpi-grid" id="dash-kpis"></div>
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="card"><div class="card-header"><span class="card-title">CA par canal</span></div><div style="position:relative;height:200px;"><canvas id="ch1"></canvas></div></div>
+    <div class="card"><div class="card-header"><span class="card-title">Top designs</span></div><div style="position:relative;height:200px;"><canvas id="ch2"></canvas></div></div>
+  </div>
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="card"><div class="card-header"><span class="card-title">Etat des stocks</span></div><div style="position:relative;height:200px;"><canvas id="ch3"></canvas></div></div>
+    <div class="card"><div class="card-header"><span class="card-title">Ventes par taille</span></div><div style="position:relative;height:200px;"><canvas id="ch4"></canvas></div></div>
+  </div>
   <div class="grid2">
     <div class="card">
       <div class="card-header"><span class="card-title">Dernières ventes</span></div>
@@ -713,44 +707,45 @@ function getVendusByRef(ref) { return DB.ventes.filter(function(v){ return v.cod
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  var totalCat = DB.catalogue.length;
-  var totalVentes = DB.ventes.length;
-  var caTotal = DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var stockFiniTotal = DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
-  var dtfTotal = DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
-  var viergeTotal = DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
-  
-  document.getElementById('dash-kpis').innerHTML =
-    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+totalVentes+' ventes</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Produits au catalogue</div><div class="kpi-value">'+totalCat+'</div><div class="kpi-sub">SKUs (code × taille)</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">Stock produits finis</div><div class="kpi-value">'+stockFiniTotal+'</div><div class="kpi-sub">pièces prêtes à vendre</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Stock composants</div><div class="kpi-value">'+viergeTotal+' / '+dtfTotal+'</div><div class="kpi-sub">vierges / DTF designs</div></div>';
-  
-  // Last 10 sales
-  var last = DB.ventes.slice(-10).reverse();
-  var tbody = document.getElementById('dash-last-sales');
-  if(last.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Aucune vente enregistrée</td></tr>'; }
-  else {
-    tbody.innerHTML = last.map(function(v){
-      return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';
-    }).join('');
+  var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
+  var nbVentes=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
+  var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
+  var dtfTot=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
+  var viergeTot=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
+  var panier=nbVentes>0?caTotal/nbVentes:0;
+  document.getElementById('dash-kpis').innerHTML=
+    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbVentes+' pieces vendues</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+DB.ventes.length+' transactions</div></div>'+
+    '<div class="kpi kpi-success"><div class="kpi-label">Stock pret a vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTot+' / '+dtfTot+'</div><div class="kpi-sub">vierges / DTF</div></div>';
+  var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
+  function mkC(id,type,labels,data,colors,extra){
+    var el=document.getElementById(id);if(!el)return;
+    if(el._c){try{el._c.destroy();}catch(e){}}
+    if(!data||!data.length||data.every(function(d){return !d;})){
+      el.parentNode.innerHTML='<div class="empty-state" style="padding-top:50px;font-size:12px;">Enregistrez des ventes pour voir ce graphique</div>';return;
+    }
+    el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
   }
-  
-  // Stock alerts
-  var alerts = [];
-  DB.stockDTF.forEach(function(d){ var dispo=d.stock-getVendusByRef(d.ref); if(dispo<=d.seuil) alerts.push({name:d.nom,stock:dispo,type:'DTF'}); });
-  DB.stockVierge.forEach(function(v){ var total=v.xs+v.s+v.m+v.l+v.xl+v.xxl; if(total<=v.seuil) alerts.push({name:v.ref+' '+v.couleur,stock:total,type:'Vierge'}); });
-  var alertDiv = document.getElementById('dash-alerts');
-  if(alerts.length === 0) { alertDiv.innerHTML = '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>'; }
-  else {
-    alertDiv.innerHTML = alerts.map(function(a){
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">'+
-        '<div><span style="font-weight:600;font-size:13px;">'+a.name+'</span><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+
-        statusBadge(a.stock, 1)+
-      '</div>';
-    }).join('');
-  }
-  document.getElementById('nav-cat-count').textContent = totalCat;
+  var cs={};DB.ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
+  mkC('ch1','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
+  var ds={};DB.ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
+  var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+  mkC('ch2','bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
+  mkC('ch3','bar',['Produits finis','Vierges','DTF'],[stockFini,viergeTot,dtfTot],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
+  var ts={};DB.ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
+  var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
+  mkC('ch4','pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
+  var last=DB.ventes.slice(-10).reverse();
+  var tbody=document.getElementById('dash-last-sales');
+  tbody.innerHTML=last.length?last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join(''):'<tr><td colspan="4" class="empty-state">Aucune vente enregistree</td></tr>';
+  var alerts=[];
+  DB.stockFini.forEach(function(f){if(f.stock<=(f.seuil||2))alerts.push({name:f.designation+' '+f.taille,stock:f.stock,type:'Fini',seuil:f.seuil||2});});
+  DB.stockDTF.forEach(function(d){if((d.stock||0)<=(d.seuil||3))alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3});});
+  DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(t<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:t,type:'Vierge',seuil:v.seuil});});
+  var ad=document.getElementById('dash-alerts');
+  ad.innerHTML=alerts.length?alerts.map(function(a){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+statusBadge(a.stock,a.seuil)+'</div>';}).join(''):'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
+  document.getElementById('nav-cat-count').textContent = DB.catalogue.length;
 }
 
 // ============================================================
@@ -1519,11 +1514,16 @@ function resetAllData() {
 // ============================================================
 // Afficher un écran de chargement pendant la connexion Supabase
 document.addEventListener('DOMContentLoaded', function() {
-  loadDB(); // async - appelle renderAll() une fois les données chargées
+  // Charger localStorage immediatement pour ne pas bloquer
+  try { var d=JSON.parse(localStorage.getItem('meridies_db')); if(d&&d.catalogue&&d.catalogue.length>0) DB=Object.assign(DB,d); } catch(e) {}
+  if(DB.catalogue.length===0) initDefaultData();
+  renderAll();
+  // Supabase en arriere-plan
+  loadDB();
 });
 
 // ============================================================
-// MOT DE PASSE — modifier DEFAULT_PWD pour changer le mdp
+// MOT DE PASSE — changer DEFAULT_PWD pour modifier le mdp
 // ============================================================
 var DEFAULT_PWD = 'UmF5ZXNGcm9tU3BhY2UxMDopOm1lcmlkaWVz';
 
