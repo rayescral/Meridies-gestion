@@ -523,35 +523,51 @@ function setStatus(connected) {
 
 async function loadDB() {
   var loaded = false;
+  var localData = null;
+  var remoteData = null;
 
   try {
-    var res = await supabase.from('app_state').select('data').eq('id', 1).single();
+    var d = JSON.parse(localStorage.getItem('meridies_db'));
+    if (d && typeof d === 'object') {
+      localData = normalizeRestoredDB(d);
+    }
+  } catch(eLocal) {}
 
-    if (!res.error && res.data && res.data.data) {
-      DB = normalizeRestoredDB(res.data.data);
-      loaded = true;
+  if (localData) {
+    DB = localData;
+    loaded = true;
+    try {
+      await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
       setStatus(true);
       subscribeRealtime();
-    } else if (res.error && res.error.code !== 'PGRST116') {
-      throw res.error;
+    } catch(syncErr) {
+      console.warn('Sync Supabase impossible, données locales conservées', syncErr);
+      setStatus(false);
     }
-  } catch(e) {
-    console.warn('Supabase indisponible, fallback localStorage', e);
-    setStatus(false);
-  }
-
-  if (!loaded) {
+  } else {
     try {
-      var d = JSON.parse(localStorage.getItem('meridies_db'));
-      if (d && typeof d === 'object') {
-        DB = normalizeRestoredDB(d);
-        loaded = true;
+      var res = await supabase.from('app_state').select('data').eq('id', 1).single();
+      if (!res.error && res.data && res.data.data) {
+        remoteData = normalizeRestoredDB(res.data.data);
+      } else if (res.error && res.error.code !== 'PGRST116') {
+        throw res.error;
       }
-    } catch(e2) {}
+    } catch(eRemote) {
+      console.warn('Supabase indisponible, fallback localStorage', eRemote);
+      setStatus(false);
+    }
+
+    if (remoteData) {
+      DB = remoteData;
+      loaded = true;
+      try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(eSaveLocal) {}
+      setStatus(true);
+      subscribeRealtime();
+    }
   }
 
   if (!loaded) {
-    DB = normalizeRestoredDB(EMBEDDED_BACKUP);
+    DB = normalizeRestoredDB(CLEAN_RESET_BACKUP);
     try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e3) {}
     try {
       await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
@@ -1207,6 +1223,340 @@ function resetAllData() {
   if(!confirm('Confirmez la réinitialisation. Les ventes et bons de commande ajoutés après le backup seront supprimés.')) return;
   restoreCleanResetBackup(true);
   toast('Réinitialisation effectuée');
+}
+
+
+
+// ============================================================
+// PATCH BOUTONS / EXPORTS / MODALES / RÉCEPTION BC
+// ============================================================
+function renderBC(){ renderCommandes(); }
+
+function csvEsc(v){
+  if(v===undefined||v===null) return '';
+  var s=String(v);
+  return (s.indexOf(',')>-1 || s.indexOf('"')>-1 || s.indexOf('\n')>-1)
+    ? '"' + s.replace(/"/g,'""') + '"'
+    : s;
+}
+function dlCSV(csv, fn){
+  var b = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = fn;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function exportVentesCSV() {
+  if(!DB.ventes || DB.ventes.length===0){ toast('Aucune vente'); return; }
+  var lines = [['Date','Canal','Code','Désignation','Taille','Qté','PV','Total','N° Cde','Email']];
+  DB.ventes.forEach(function(v){
+    lines.push([
+      v.date || '', v.canal || '', v.code || '', v.designation || '', v.taille || '',
+      v.qte || 1, v.pv || 0, ((v.pv||0) * (v.qte||1)).toFixed(2), v.numCde || '', v.email || ''
+    ]);
+  });
+  dlCSV(lines.map(function(r){ return r.map(csvEsc).join(','); }).join('\r\n'), 'MERIDIES_Ventes_' + today() + '.csv');
+  toast('CSV ventes téléchargé');
+}
+
+function exportBCCSV(id){
+  var bc = DB.bonsCommande.find(function(b){ return b.id===id; });
+  if(!bc){ toast('BC introuvable'); return; }
+  var L = [
+    ['BON DE COMMANDE MERIDIES'],
+    ['N°', bc.id],
+    ['Date', formatDate(bc.date)],
+    ['Fournisseur', bc.fournisseur],
+    ['Statut', bc.statut],
+    [],
+    ['Ref','Désignation','Couleur','Taille','Qté cmdée','Qté reçue','Prix U','Montant']
+  ];
+  bc.articles.forEach(function(a){
+    L.push([a.ref,a.designation,a.couleur,a.taille,a.qte,a.qteRecue||0,(a.prix||0).toFixed(2),(a.montant||0).toFixed(2)]);
+  });
+  L.push([]);
+  L.push(['','','','','TOTAL', bc.totalQte || 0, '', (bc.total||0).toFixed(2)]);
+  dlCSV(L.map(function(r){ return r.map(csvEsc).join(','); }).join('\r\n'), 'MERIDIES_' + bc.id + '.csv');
+  toast('CSV BC téléchargé');
+}
+
+function exportAllBCExcel(){
+  if(!DB.bonsCommande || DB.bonsCommande.length===0){ toast('Aucun BC'); return; }
+  var L=[['N° BC','Date','Fournisseur','Statut','Ref','Désignation','Couleur','Taille','Qté','Reçu','Reste','Prix U','Montant','Total BC']];
+  DB.bonsCommande.forEach(function(bc){
+    (bc.articles||[]).forEach(function(a,i){
+      L.push([
+        bc.id,formatDate(bc.date),bc.fournisseur,bc.statut,a.ref,a.designation,a.couleur,a.taille,
+        a.qte,a.qteRecue||0,(a.qte||0)-(a.qteRecue||0),(a.prix||0).toFixed(2),(a.montant||0).toFixed(2),
+        i===0?(bc.total||0).toFixed(2):''
+      ]);
+    });
+  });
+  dlCSV(L.map(function(r){ return r.map(csvEsc).join(','); }).join('\r\n'), 'MERIDIES_Historique_BC_' + today() + '.csv');
+  toast('Export complet BC téléchargé');
+}
+
+function openAddProduct(){
+  openModal(
+    '<div class="modal-title">Ajouter un produit</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field"><label>Réf. design</label><input type="text" class="input" id="np-ref" placeholder="Ex: LP-0100"></div>' +
+      '<div class="field"><label>Code famille</label><input type="text" class="input" id="np-code" placeholder="Ex: LP-0100-001"></div>' +
+    '</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>' +
+      '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>' +
+    '</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field"><label>Tailles (virgules)</label><input type="text" class="input" id="np-tailles" value="XS,S,M,L"></div>' +
+      '<div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>' +
+    '</div>' +
+    '<div class="field" style="margin-bottom:14px;"><label>PA (€)</label><input type="number" class="input input-yellow" id="np-pa" value="0" step="0.01"></div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+      '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button>' +
+    '</div>'
+  );
+}
+function addProduct(){
+  var ref = document.getElementById('np-ref').value.trim();
+  var codeFam = document.getElementById('np-code').value.trim();
+  var design = document.getElementById('np-design').value.trim();
+  var couleur = document.getElementById('np-couleur').value.trim();
+  var tailles = document.getElementById('np-tailles').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  var pv = parseFloat(document.getElementById('np-pv').value) || 0;
+  var pa = parseFloat(document.getElementById('np-pa').value) || 0;
+  if(!ref || !codeFam || !design || !couleur || tailles.length===0){ toast('Champs incomplets'); return; }
+  tailles.forEach(function(t){
+    DB.catalogue.push({code: codeFam + '-' + t, ref: ref, design: design, couleur: couleur, designation: design + ' ' + couleur, taille: t, pv: pv, pa: pa});
+  });
+  saveDB(); initDatalists(); closeModal(); renderCatalogue(); toast('Produit ajouté');
+}
+
+function openAddStockVierge(){
+  openModal(
+    '<div class="modal-title">Entrée de stock vierge</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field"><label>Référence</label><input type="text" class="input" id="nsv-ref" placeholder="Ex: BY102"></div>' +
+      '<div class="field"><label>Couleur</label><input type="text" class="input" id="nsv-couleur" placeholder="Ex: Blanc"></div>' +
+    '</div>' +
+    '<div class="grid4" style="margin-bottom:14px;">' +
+      '<div class="field"><label>XS</label><input type="number" class="input" id="nsv-xs" value="0"></div>' +
+      '<div class="field"><label>S</label><input type="number" class="input" id="nsv-s" value="0"></div>' +
+      '<div class="field"><label>M</label><input type="number" class="input" id="nsv-m" value="0"></div>' +
+      '<div class="field"><label>L</label><input type="number" class="input" id="nsv-l" value="0"></div>' +
+    '</div>' +
+    '<div class="grid4" style="margin-bottom:14px;">' +
+      '<div class="field"><label>XL</label><input type="number" class="input" id="nsv-xl" value="0"></div>' +
+      '<div class="field"><label>XXL</label><input type="number" class="input" id="nsv-xxl" value="0"></div>' +
+      '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="nsv-pa" step="0.01" value="0"></div>' +
+      '<div class="field"><label>Seuil</label><input type="number" class="input" id="nsv-seuil" value="3"></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+      '<button class="btn btn-primary" onclick="addSV()">Ajouter</button>' +
+    '</div>'
+  );
+}
+function addSV(){
+  var ref = document.getElementById('nsv-ref').value.trim();
+  var couleur = document.getElementById('nsv-couleur').value.trim();
+  if(!ref || !couleur){ toast('Référence et couleur requises'); return; }
+  DB.stockVierge.push({
+    ref: ref, couleur: couleur,
+    xs: parseInt(document.getElementById('nsv-xs').value)||0,
+    s: parseInt(document.getElementById('nsv-s').value)||0,
+    m: parseInt(document.getElementById('nsv-m').value)||0,
+    l: parseInt(document.getElementById('nsv-l').value)||0,
+    xl: parseInt(document.getElementById('nsv-xl').value)||0,
+    xxl: parseInt(document.getElementById('nsv-xxl').value)||0,
+    enCommande: 0,
+    pa: parseFloat(document.getElementById('nsv-pa').value)||0,
+    seuil: parseInt(document.getElementById('nsv-seuil').value)||3
+  });
+  saveDB(); closeModal(); renderStockVierge(); toast('Stock vierge ajouté');
+}
+
+function openAddStockDTF() {
+  openModal(
+    '<div class="modal-title">Ajouter un design DTF</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Réf. Design</label><input type="text" class="input" id="nsd-ref" placeholder="Ex: LP-0100"></div>'+
+      '<div class="field"><label>Nom</label><input type="text" class="input" id="nsd-nom" placeholder="Ex: Lou Pescadou Rose"></div>'+
+    '</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Stock initial</label><input type="number" class="input" id="nsd-stock" value="0"></div>'+
+      '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="nsd-pa" step="0.01"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+      '<button class="btn btn-primary" onclick="addSD()">Ajouter</button></div>'
+  );
+}
+function addSD() {
+  DB.stockDTF.push({
+    ref: document.getElementById('nsd-ref').value,
+    nom: document.getElementById('nsd-nom').value,
+    stock: parseInt(document.getElementById('nsd-stock').value)||0,
+    pa: parseFloat(document.getElementById('nsd-pa').value)||0,
+    seuil: 3,
+    enCommande: 0
+  });
+  saveDB(); closeModal(); renderStockDTF(); toast('DTF ajouté');
+}
+
+function openAddStockFini(){
+  var opts = DB.catalogue.map(function(p){
+    return '<option value="'+p.code+'">'+p.code+' - '+p.designation+' '+p.taille+'</option>';
+  }).join('');
+  var vopts = DB.stockVierge.map(function(v,i){
+    var t=(v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0);
+    return '<option value="'+i+'">'+v.ref+' '+v.couleur+' (stock:'+t+')</option>';
+  }).join('');
+  openModal(
+    '<div class="modal-title">Assembler un produit fini</div><div class="modal-sub">Consomme 1 t-shirt vierge + 1 DTF</div>'+
+    '<div style="background:var(--info-bg);color:var(--info);padding:10px 12px;border-radius:var(--r);margin-bottom:14px;font-size:12px;">Le t-shirt vierge et le DTF seront retirés des stocks correspondants.</div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Produit fini</label><select class="select" id="nsf-code" onchange="onAssemblageChange()"><option value="">Choisir</option>'+opts+'</select></div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>T-shirt vierge</label><select class="select" id="nsf-vierge"><option value="">Choisir</option>'+vopts+'</select></div>'+
+      '<div class="field"><label>DTF (auto)</label><input type="text" class="input" id="nsf-dtf" readonly style="background:var(--surface2);"></div>'+
+    '</div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Quantité</label><input type="number" class="input input-yellow" id="nsf-qty" value="1" min="1"></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+      '<button class="btn btn-primary" onclick="addSF()">Assembler</button>'+
+    '</div>'
+  );
+}
+function onAssemblageChange(){
+  var code = document.getElementById('nsf-code').value;
+  var prod = DB.catalogue.find(function(p){ return p.code===code; });
+  if(!prod){ document.getElementById('nsf-dtf').value=''; return; }
+  var dtf = DB.stockDTF.find(function(d){ return d.ref===prod.ref; });
+  document.getElementById('nsf-dtf').value = dtf ? (dtf.nom + ' (dispo:' + (dtf.stock||0) + ')') : prod.ref;
+}
+function addSF(){
+  var code = document.getElementById('nsf-code').value;
+  var qty = parseInt(document.getElementById('nsf-qty').value)||0;
+  if(!code || qty<=0){ toast('Choisissez un article et une quantité'); return; }
+  var prod = DB.catalogue.find(function(p){ return p.code===code; });
+  if(!prod){ toast('Article introuvable'); return; }
+  var vi = parseInt(document.getElementById('nsf-vierge').value, 10);
+  if(isNaN(vi) || !DB.stockVierge[vi]){ toast('Choisissez un t-shirt vierge'); return; }
+  var vierge = DB.stockVierge[vi];
+  var tailleKey = String(prod.taille || '').toLowerCase();
+  if(!(tailleKey in vierge)){ toast('Taille non gérée sur ce stock vierge'); return; }
+  if((vierge[tailleKey]||0) < qty){ toast('Stock vierge insuffisant'); return; }
+  var dtf = DB.stockDTF.find(function(d){ return d.ref===prod.ref; });
+  if(!dtf || (dtf.stock||0) < qty){ toast('Stock DTF insuffisant'); return; }
+  vierge[tailleKey] -= qty;
+  dtf.stock -= qty;
+  var sf = DB.stockFini.find(function(f){ return f.code===prod.code; });
+  if(sf){ sf.stock += qty; }
+  else {
+    DB.stockFini.push({code: prod.code, ref: prod.ref, designation: prod.designation, design: prod.design, taille: prod.taille, pv: prod.pv, stock: qty, seuil: 2});
+  }
+  saveDB(); closeModal(); renderStockVierge(); renderStockDTF(); renderStockFini(); toast('Produit fini assemblé');
+}
+
+function ouvrirReception(id){
+  var bc=DB.bonsCommande.find(function(b){return b.id===id;}); if(!bc) return;
+  currentRecepBCId=id;
+  document.getElementById('recep-title').textContent='Réception — ' + bc.id;
+  document.getElementById('recep-sub').textContent=bc.fournisseur + ' · Commande du ' + formatDate(bc.date);
+  var html='';
+  bc.articles.forEach(function(a,i){
+    var reste=(a.qte||0)-(a.qteRecue||0);
+    var pct=Math.round(((a.qteRecue||0)/(a.qte||1))*100);
+    html += '<div style="background:var(--surface2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);">' +
+      '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">' + a.designation + ' — ' + (a.couleur||'') + ' ' + (a.taille||'') + '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap;">' +
+        '<span>Cmdé: <strong style="color:var(--text);">' + (a.qte||0) + '</strong></span>' +
+        '<span>Reçu: <strong style="color:var(--success);">' + (a.qteRecue||0) + '</strong></span>' +
+        '<span>Reste: <strong style="color:var(--warning);">' + reste + '</strong></span>' +
+        '<span style="margin-left:auto;">Réceptionner:</span>' +
+        '<input type="number" id="recv-'+i+'" min="0" max="'+reste+'" value="'+reste+'" class="input input-sm" style="width:60px;text-align:center;">' +
+        '<span>/ ' + reste + '</span>' +
+        '<div class="progress-bar-wrap"><div class="progress-bar" id="prog-'+i+'" style="width:'+pct+'%;"></div></div>' +
+      '</div></div>';
+  });
+  document.getElementById('recep-articles').innerHTML=html;
+  document.getElementById('modal-reception').classList.add('open');
+}
+function closeRecepModal(){
+  document.getElementById('modal-reception').classList.remove('open');
+  currentRecepBCId=null;
+}
+function confirmerReception(){
+  var bc=DB.bonsCommande.find(function(b){ return b.id===currentRecepBCId; });
+  if(!bc) return;
+  var dateR = today();
+  var recepDetail = [];
+  var totalRecu = 0;
+  bc.articles.forEach(function(a,i){
+    var reste = (a.qte||0) - (a.qteRecue||0);
+    var recv = parseInt(document.getElementById('recv-'+i).value)||0;
+    recv = Math.max(0, Math.min(recv, reste));
+    if(recv<=0) return;
+    a.qteRecue = (a.qteRecue||0) + recv;
+    totalRecu += recv;
+    recepDetail.push({ref: a.ref, designation: a.designation, taille: a.taille, qte: recv});
+    if((a.ref||'').indexOf('DTF-')===0){
+      var refDTF = (a.ref||'').replace(/^DTF-/, '');
+      var d = DB.stockDTF.find(function(x){ return x.ref===refDTF || x.ref===a.ref; });
+      if(d) d.enCommande = Math.max(0, (d.enCommande||0) - recv);
+    }
+  });
+  if(totalRecu<=0){ toast('Aucune quantité reçue'); return; }
+  if(!bc.receptions) bc.receptions = [];
+  bc.receptions.push({ date: dateR, total: totalRecu, articles: recepDetail });
+  bc.totalQteRecue = (bc.articles||[]).reduce(function(s,a){ return s + (a.qteRecue||0); }, 0);
+  var allDone = (bc.articles||[]).every(function(a){ return (a.qteRecue||0) >= (a.qte||0); });
+  bc.statut = allDone ? 'LIVRÉ' : 'PARTIEL';
+  saveDB(); closeRecepModal(); renderCommandes(); toast('Réception enregistrée');
+}
+
+function imprimerBC(id){
+  var bc = DB.bonsCommande.find(function(b){ return b.id===id; });
+  if(!bc){ toast('BC introuvable'); return; }
+  var rows = (bc.articles||[]).map(function(a){
+    return '<tr>' +
+      '<td>' + (a.ref||'') + '</td>' +
+      '<td>' + (a.designation||'') + '</td>' +
+      '<td>' + (a.couleur||'') + '</td>' +
+      '<td class="c">' + (a.taille||'') + '</td>' +
+      '<td class="r">' + (a.qte||0) + '</td>' +
+      '<td class="r">' + fmt(a.prix||0) + '</td>' +
+      '<td class="r">' + fmt(a.montant||0) + '</td>' +
+    '</tr>';
+  }).join('');
+  var html =
+    '<div class="pdf-doc">' +
+      '<div class="pdf-header">' +
+        '<div><div class="pdf-brand">MERIDIES</div><div class="pdf-brand-sub">Bon de commande fournisseur</div></div>' +
+        '<div><div class="pdf-bc-num">' + bc.id + '</div><div class="pdf-bc-date">Date: ' + formatDate(bc.date) + '</div></div>' +
+      '</div>' +
+      '<div class="pdf-body">' +
+        '<div class="pdf-grid">' +
+          '<div><div class="pdf-section-title">Fournisseur</div><div class="pdf-field"><div class="pdf-field-value">' + (bc.fournisseur||'') + '</div></div><div class="pdf-field"><div class="pdf-field-label">Email</div><div class="pdf-field-value">' + (bc.email||'—') + '</div></div></div>' +
+          '<div><div class="pdf-section-title">Commande</div><div class="pdf-field"><div class="pdf-field-label">Livraison souhaitée</div><div class="pdf-field-value">' + formatDate(bc.livraison) + '</div></div><div class="pdf-field"><div class="pdf-field-label">Paiement</div><div class="pdf-field-value">' + (bc.paiement||'—') + '</div></div></div>' +
+        '</div>' +
+        (bc.commentaire ? '<div class="pdf-comment">' + bc.commentaire + '</div>' : '') +
+        '<table class="pdf-table"><thead><tr><th>Ref</th><th>Désignation</th><th>Couleur</th><th class="c">Taille</th><th class="r">Qté</th><th class="r">Prix U</th><th class="r">Montant</th></tr></thead><tbody>' +
+          rows +
+          '<tr class="pdf-total-row"><td colspan="4"><strong>TOTAL</strong></td><td class="r"><strong>' + (bc.totalQte||0) + '</strong></td><td></td><td class="r"><strong>' + fmt(bc.total||0) + '</strong></td></tr>' +
+        '</tbody></table>' +
+      '</div>' +
+      '<div class="pdf-footer"><div class="pdf-footer-note">MERIDIES — Généré le ' + new Date().toLocaleDateString('fr-FR') + '</div><div style="text-align:right;"><div class="pdf-sign-label">Signature fournisseur</div><div class="pdf-sign-box"></div></div></div>' +
+    '</div>';
+  var prev = document.getElementById('pdf-preview');
+  prev.innerHTML = html;
+  prev.style.display = 'block';
+  window.print();
+  setTimeout(function(){ prev.style.display='none'; prev.innerHTML=''; }, 500);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
