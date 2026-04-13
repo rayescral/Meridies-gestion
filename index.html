@@ -1174,45 +1174,29 @@ function resetAllData() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  if (sessionStorage.getItem('meridies_authed') !== '1') {
-    document.getElementById('lock-screen').style.display = 'flex';
-    setTimeout(function(){ var el=document.getElementById('lock-input'); if(el)el.focus(); }, 100);
-    return;
-  }
-  document.getElementById('lock-screen').style.display = 'none';
-  loadDB();
-  startInactivityTimer();
+  document.getElementById('lock-screen').style.display = 'flex';
+  setTimeout(function(){ var el=document.getElementById('lock-input'); if(el)el.focus(); }, 100);
 });
 
 var DEFAULT_PWD = 'UmF5ZXNGcm9tU3BhY2UxMDopOm1lcmlkaWVz';
+var _dbLoadedAfterAuth = false;
 function lockSubmit() {
   var input = document.getElementById('lock-input').value;
   var errEl = document.getElementById('lock-error');
   if (!input) { errEl.textContent = 'Entrez le mot de passe'; return; }
   if (btoa(input + ':meridies') === DEFAULT_PWD) {
-    sessionStorage.setItem('meridies_authed', '1');
+    errEl.textContent = '';
     document.getElementById('lock-screen').style.display = 'none';
-    loadDB();
-    startInactivityTimer();
+    if (!_dbLoadedAfterAuth) {
+      _dbLoadedAfterAuth = true;
+      loadDB();
+    }
   } else {
     errEl.textContent = 'Mot de passe incorrect';
     document.getElementById('lock-input').value = '';
     document.getElementById('lock-input').focus();
   }
 }
-var _inactTimer = null;
-function startInactivityTimer() {
-  clearTimeout(_inactTimer);
-  _inactTimer = setTimeout(function() {
-    sessionStorage.removeItem('meridies_authed');
-    document.getElementById('lock-screen').style.display = 'flex';
-    document.getElementById('lock-input').value = '';
-    document.getElementById('lock-error').textContent = 'Session expiree apres 5 min. Reconnectez-vous.';
-    setTimeout(function(){ document.getElementById('lock-input').focus(); }, 100);
-  }, 5 * 60 * 1000);
-}
-function resetInactivity() { if (sessionStorage.getItem('meridies_authed') === '1') startInactivityTimer(); }
-['click','keydown','mousemove','touchstart','scroll'].forEach(function(evt) { document.addEventListener(evt, resetInactivity, true); });
 </script>
 </body>
 </html>
