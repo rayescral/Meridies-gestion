@@ -754,7 +754,7 @@ function renderCatalogue() {
     return '<tr><td class="mono">'+p.code+'</td><td>'+p.design+'</td><td style="font-weight:600;">'+p.designation+'</td><td>'+p.couleur+'</td><td class="c">'+p.taille+'</td>'+
       '<td class="r mono">'+fmt(p.pv)+'</td><td class="r mono">'+((p.pa>0)?fmt(p.pa):'<span style="color:var(--hint)">—</span>')+'</td>'+
       '<td class="r"><span class="badge '+margeClass+'">'+marge+'</span></td>'+
-      '<td><button class="btn-icon" onclick="editProduct('+i+')" title="Modifier">✏️</button></td></tr>';
+      '<td style="display:flex;gap:4px;"><button class="btn-icon" onclick="editProduct('+i+')" title="Modifier">✏️</button><button class="btn-icon" onclick="deleteProduct('+i+')" title="Supprimer" style="color:var(--danger);">🗑</button></td></tr>';
   }).join('');
 }
 function editProduct(idx) {
@@ -774,7 +774,76 @@ function editProduct(idx) {
 function saveProduct(idx) {
   DB.catalogue[idx].pv = parseFloat(document.getElementById('edit-pv').value) || 0;
   DB.catalogue[idx].pa = parseFloat(document.getElementById('edit-pa').value) || 0;
+
   saveDB(); closeModal(); renderCatalogue(); toast('Produit mis à jour');
+}
+
+function deleteProduct(idx) {
+  var p = DB.catalogue[idx];
+  if(!confirm('Supprimer ' + p.code + ' du catalogue ?')) return;
+  DB.catalogue.splice(idx, 1);
+  saveDB(); renderCatalogue(); toast('Produit supprimé');
+}
+
+function openAddProduct() {
+  var cb = ['XS','S','M','L','XL','XXL','U'].map(function(t) {
+    var checked = ['XS','S','M','L'].indexOf(t) > -1 ? ' checked' : '';
+    return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" class="np-taille" value="'+t+'"'+checked+'> '+t+'</label>';
+  }).join('');
+  openModal(
+    '<div class="modal-title">Nouveau produit</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field"><label>Nom du design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>' +
+      '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>' +
+    '</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field"><label>Référence (ex: LP-0700)</label><input type="text" class="input" id="np-ref" placeholder="LP-0700"></div>' +
+      '<div class="field"><label>Prix de vente (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>' +
+    '</div>' +
+    '<div class="field" style="margin-bottom:18px;"><label>Tailles disponibles</label>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">' + cb + '</div></div>' +
+    '<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:10px 12px;border-radius:var(--r);margin-bottom:14px;">Un design DTF sera automatiquement créé dans le stock DTF si la référence n'existe pas encore.</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+      '<button class="btn btn-primary" onclick="addProduct()">Créer le produit</button>' +
+    '</div>'
+  );
+}
+
+function addProduct() {
+  var design  = document.getElementById('np-design').value.trim();
+  var couleur = document.getElementById('np-couleur').value.trim();
+  var ref     = document.getElementById('np-ref').value.trim().toUpperCase();
+  var pv      = parseFloat(document.getElementById('np-pv').value) || 35;
+  var tailles = Array.from(document.querySelectorAll('.np-taille:checked')).map(function(cb){ return cb.value; });
+
+  if (!design || !couleur || !ref) { toast('Remplissez tous les champs obligatoires'); return; }
+  if (!tailles.length) { toast('Sélectionnez au moins une taille'); return; }
+
+  // Générer un ID de famille unique
+  var existing = DB.catalogue.filter(function(p){ return p.ref === ref; });
+  var famId = existing.length > 0 ? existing[0].code.split('-')[2] : String(DB.catalogue.length + 1).padStart(3, '0');
+
+  var added = 0;
+  tailles.forEach(function(t) {
+    var code = ref + '-' + famId + '-' + t;
+    if (!DB.catalogue.find(function(p){ return p.code === code; })) {
+      DB.catalogue.push({
+        code: code, ref: ref, design: design, couleur: couleur,
+        designation: design + ' ' + couleur, taille: t, pv: pv, pa: 0
+      });
+      added++;
+    }
+  });
+
+  // Créer l'entrée DTF si elle n'existe pas
+  if (!DB.stockDTF.find(function(d){ return d.ref === ref; })) {
+    DB.stockDTF.push({ ref: ref, nom: design + ' ' + couleur, stock: 0, pa: 0, seuil: 3, enCommande: 0 });
+    toast(added + ' produit(s) créé(s) — Design DTF ajouté automatiquement');
+  } else {
+    toast(added + ' produit(s) créé(s) dans le catalogue');
+  }
+  saveDB(); closeModal(); renderCatalogue();
 }
 
 // ============================================================
