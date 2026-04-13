@@ -1140,12 +1140,25 @@ function addTodo() {
 // ============================================================
 // GLOBAL & INIT
 // ============================================================
-function exportAllData() { /*...*/ }
+function exportAllData() {
+  var json = JSON.stringify(DB, null, 2);
+  var blob = new Blob([json], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'MERIDIES_backup_' + today() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 0);
+  toast('Sauvegarde complète téléchargée');
+}
 function resetAllData() {
-  if(!confirm('⚠️ Restaurer les données du backup intégré ?\nLes données actuelles seront remplacées.')) return;
-  if(!confirm('Confirmez la restauration du backup MERIDIES.')) return;
+  if(!confirm('⚠️ Supprimer uniquement les nouvelles données saisies depuis le backup ?\nLes données de base restaurées seront conservées.')) return;
+  if(!confirm('Confirmez la réinitialisation : retour à l'état du backup MERIDIES.')) return;
   restoreEmbeddedBackup(true);
-  toast('Backup restauré');
+  toast('Données réinitialisées à partir du backup');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
