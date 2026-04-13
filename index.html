@@ -195,6 +195,19 @@ tr:hover td{background:var(--surface2);}
 </style>
 </head>
 <body>
+<div id="lock-screen" style="position:fixed;inset:0;background:#12192B;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1A2235;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:40px;width:360px;max-width:95vw;text-align:center;">
+    <div style="font-size:28px;font-weight:700;color:#C9A84C;letter-spacing:.12em;margin-bottom:6px;">MERIDIES</div>
+    <div style="font-size:12px;color:rgba(201,168,76,0.5);margin-bottom:32px;">Gestion centralisee</div>
+    <div style="font-size:15px;font-weight:600;color:#fff;margin-bottom:6px;">Acces securise</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px;">Entrez le mot de passe pour continuer</div>
+    <input type="password" id="lock-input" class="input" placeholder="Mot de passe..."
+      style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
+      onkeydown="if(event.key==='Enter')lockSubmit()">
+    <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
+    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Acceder</button>
+  </div>
+</div>
 
 <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
@@ -256,7 +269,7 @@ tr:hover td{background:var(--surface2);}
   </div>
   <div class="grid2">
     <div class="card">
-      <div class="card-header"><span class="card-title">Dernières ventes</span></div>
+      <div class="card-header"><span class="card-title">Dernieres ventes</span></div>
       <div class="table-wrap"><table><thead><tr><th>Date</th><th>Article</th><th>Canal</th><th class="r">PV</th></tr></thead><tbody id="dash-last-sales"></tbody></table></div>
     </div>
     <div class="card">
@@ -744,7 +757,7 @@ function renderDashboard() {
   DB.stockDTF.forEach(function(d){if((d.stock||0)<=(d.seuil||3))alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3});});
   DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(t<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:t,type:'Vierge',seuil:v.seuil});});
   var ad=document.getElementById('dash-alerts');
-  ad.innerHTML=alerts.length?alerts.map(function(a){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+statusBadge(a.stock,a.seuil)+'</div>';}).join(''):'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
+  ad.innerHTML=alerts.length?alerts.map(function(a){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+statusBadge(a.stock,a.seuil||1)+'</div>';}).join(''):'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
   document.getElementById('nav-cat-count').textContent = DB.catalogue.length;
 }
 
@@ -1514,14 +1527,13 @@ function resetAllData() {
 // ============================================================
 // Afficher un écran de chargement pendant la connexion Supabase
 document.addEventListener('DOMContentLoaded', function() {
-  // Charger localStorage immediatement pour ne pas bloquer
+  // Charger localStorage immediatement - pas de blocage
   try { var d=JSON.parse(localStorage.getItem('meridies_db')); if(d&&d.catalogue&&d.catalogue.length>0) DB=Object.assign(DB,d); } catch(e) {}
   if(DB.catalogue.length===0) initDefaultData();
   renderAll();
   // Supabase en arriere-plan
   loadDB();
 });
-
 // ============================================================
 // MOT DE PASSE — changer DEFAULT_PWD pour modifier le mdp
 // ============================================================
@@ -1548,6 +1560,7 @@ function lockSubmit() {
     setTimeout(function(){ document.getElementById('lock-input').focus(); }, 100);
   }
 })();
+
 </script>
 </body>
 </html>
