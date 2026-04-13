@@ -1099,45 +1099,16 @@ function addTodo() {
 // GLOBAL & INIT
 // ============================================================
 function exportAllData() { /*...*/ }
-async function resetAllData() {
-  var ok = confirm("Cette action va supprimer toutes les données de test enregistrées sur le site et remettre l'application à zéro. Continuer ?");
-  if (!ok) return;
-
-  try {
-    DB = {
-      catalogue: [],
-      stockVierge: [],
-      stockDTF: [],
-      stockFini: [],
-      ventes: [],
-      fournisseurs: [],
-      bonsCommande: [],
-      todos: []
-    };
-
-    try { localStorage.removeItem('meridies_db'); } catch(e) {}
-
-    initDefaultData();
-
-    try {
-      await supabase.from('app_state').upsert({
-        id: 1,
-        data: DB,
-        updated_at: new Date().toISOString()
-      });
-      setStatus(true);
-    } catch (syncErr) {
-      setStatus(false);
-    }
-
-    initDatalists();
-    renderAll();
-    goTo('dashboard');
-    toast('✅ Données réinitialisées');
-  } catch (e) {
-    console.error('Erreur de réinitialisation', e);
-    toast('Erreur lors de la réinitialisation');
-  }
+function resetAllData() {
+  if(!confirm('⚠️ Réinitialiser les données de test ?\nLes données saisies seront supprimées, puis les données par défaut seront rechargées.')) return;
+  if(!confirm('Confirmez la réinitialisation des données de test.')) return;
+  localStorage.removeItem('meridies_db');
+  DB = {catalogue:[],stockVierge:[],stockDTF:[],stockFini:[],ventes:[],fournisseurs:[],bonsCommande:[],todos:[]};
+  initDefaultData();
+  initDatalists();
+  renderAll();
+  goTo('dashboard');
+  toast('Données de test réinitialisées');
 }
 
 document.addEventListener('DOMContentLoaded', function() {
