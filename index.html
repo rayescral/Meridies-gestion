@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MERIDIES — Gestion Centralisée</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -193,6 +191,7 @@ tr:hover td{background:var(--surface2);}
 #pdf-preview{display:none;}
 
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -482,202 +481,32 @@ var DB = {
 };
 
 // ============================================================
-// SUPABASE — SYNC EN ARRIERE-PLAN (n'bloque jamais l'app)
+// SAUVEGARDE LOCALE
 // ============================================================
-var SUPA_URL = 'https://twsuchpzsytlourrjjgg.supabase.co';
-var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3c3VjaHB6c3l0bG91cnJqamdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTc4NTYsImV4cCI6MjA5MTQ3Mzg1Nn0.tb0DyVe6-jwdIWR0kqLy6Np8YSM-B-fOZ-szAHgvJrE';
-var _supa = null;
-try { _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY); } catch(e) { console.warn('Supabase init failed'); }
-
 function setStatus(s) {
   var el = document.getElementById('sync-status');
-  if (!el) return;
-  if (s === true)  { el.textContent = '🟢 Synchronisé';   el.style.color = '#059669'; }
-  if (s === false) { el.textContent = '🔴 Local (offline)'; el.style.color = '#DC2626'; }
-  if (s === 'load'){ el.textContent = '⏳ Connexion...';  el.style.color = 'rgba(201,168,76,0.7)'; }
+  if(el) { el.textContent = '💾 Données locales'; el.style.color = 'rgba(201,168,76,0.7)'; }
 }
-
-// Chargement : localStorage en priorité → rendu immédiat → Supabase en fond
 function loadDB() {
-  // 1. Charger depuis localStorage instantanément
-  try {
-    var d = JSON.parse(localStorage.getItem('meridies_db'));
-    if (d && d.catalogue && d.catalogue.length > 0) DB = Object.assign(DB, d);
-  } catch(e) {}
-  if (DB.catalogue.length === 0) initDefaultData();
-
-  // 2. Rendre l'app immédiatement (navigation fonctionnelle)
+  try { var d=JSON.parse(localStorage.getItem('meridies_db')); if(d&&d.catalogue&&d.catalogue.length>0) DB=Object.assign(DB,d); } catch(e) {}
+  if(DB.catalogue.length===0) initDefaultData();
   renderAll();
-
-  // 3. Supabase en arrière-plan sans bloquer
-  if (!_supa) { setStatus(false); return; }
-  setStatus('load');
-  _supa.from('app_state').select('data').eq('id', 1).single()
-    .then(function(res) {
-      if (res.error && res.error.code === 'PGRST116') {
-        // Table vide : envoyer les données locales
-        return _supa.from('app_state').insert({ id: 1, data: DB });
-      } else if (!res.error && res.data && res.data.data) {
-        var remote = res.data.data;
-        if (remote.catalogue && remote.catalogue.length > 0) {
-          DB = Object.assign(DB, remote);
-          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-          renderAll();
-        }
-      }
-      setStatus(true);
-      _subscribeRealtime();
-    })
-    .catch(function(e) {
-      console.warn('Supabase indisponible:', e.message || e);
-      setStatus(false);
-    });
 }
-
 function saveDB() {
-  // Toujours sauvegarder en local d'abord
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  // Puis Supabase en fond
-  if (!_supa) return;
-  _supa.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
-    .then(function(r) { setStatus(!r.error); })
-    .catch(function() { setStatus(false); });
 }
-
-function _subscribeRealtime() {
-  if (!_supa) return;
-  _supa.channel('meridies_live')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
-      if (payload.new && payload.new.data) {
-        DB = Object.assign(DB, payload.new.data);
-        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-        renderAll();
-        toast('🔄 Données mises à jour par un autre utilisateur');
-      }
-    }).subscribe();
-}
-
 function renderAll() {
   try {
-    if (typeof renderDashboard === 'function') renderDashboard();
-    if (typeof renderCatalogue === 'function') renderCatalogue();
-    if (typeof renderStockVierge === 'function') renderStockVierge();
-    if (typeof renderStockDTF === 'function') renderStockDTF();
-    if (typeof renderStockFini === 'function') renderStockFini();
-    if (typeof renderVentes === 'function') renderVentes();
-    if (typeof renderCommandes === 'function') renderCommandes();
-    if (typeof renderFournisseurs === 'function') renderFournisseurs();
-    if (typeof renderTodos === 'function') renderTodos();
-  } catch(e) { console.error('renderAll error:', e); }
-}
-
-function initDefaultData() {
-  // Pre-populate catalogue from DATABASE
-  var products = [
-    {code:"LP-0100-001",ref:"LP-0100",design:"Lou Pescadou",couleur:"Rose",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0200-001",ref:"LP-0200",design:"Lou Pescadou",couleur:"Bleu",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0300-001",ref:"LP-0300",design:"Lou Pescadou",couleur:"Vert",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0400-001",ref:"LP-0400",design:"Lou Pescadou",couleur:"Violet",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0500-001",ref:"LP-0500",design:"Lou Pescadou",couleur:"Blanc",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0600-001",ref:"LP-0600",design:"Lou Pescadou",couleur:"Marron",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0500-002",ref:"LI-0500",design:"Li d'elo dóu Sud",couleur:"Blanc",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0700-002",ref:"LI-0700",design:"Li d'elo dóu Sud",couleur:"Noir",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0300-002",ref:"LI-0300",design:"Li d'elo dóu Sud",couleur:"Vert",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0900-002",ref:"LI-0900",design:"Li d'elo dóu Sud",couleur:"Jaune",tailles:["XS","S","M","L"],pv:35},
-    {code:"MT-0200-003",ref:"MT-0200",design:"Mercatus",couleur:"Bleu",tailles:["XS","S","M","L"],pv:35},
-    {code:"MT-0700-003",ref:"MT-0700",design:"Mercatus",couleur:"Noir",tailles:["XS","S","M","L"],pv:35},
-    {code:"ML-1300-004",ref:"ML-1300",design:"Massilia",couleur:"Bleu ciel / Blanc",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"ML-2100-004",ref:"ML-2100",design:"Massilia",couleur:"Bleu ciel / Bleu",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"ML-1400-004",ref:"ML-1400",design:"Massilia",couleur:"Blanc / Bleu",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"ML-1500-004",ref:"ML-1500",design:"Massilia",couleur:"Bleu marine / Blanc",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"LM-1600-006",ref:"LM-1600",design:"Lou Mistrau",couleur:"Blanc / Rose",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-1400-006",ref:"LM-1400",design:"Lou Mistrau",couleur:"Blanc / Bleu",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-1800-006",ref:"LM-1800",design:"Lou Mistrau",couleur:"Blanc / Vert",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-1900-006",ref:"LM-1900",design:"Lou Mistrau",couleur:"Noir / Blanc",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-2000-006",ref:"LM-2000",design:"Lou Mistrau",couleur:"Noir / Rose",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"CP-0200-005",ref:"CP-0200",design:"Capèu",couleur:"Bleu",tailles:["U"],pv:30},
-    {code:"CP-0300-005",ref:"CP-0300",design:"Capèu",couleur:"Vert",tailles:["U"],pv:30},
-    {code:"CP-1200-005",ref:"CP-1200",design:"Capèu",couleur:"Beige",tailles:["U"],pv:30},
-    {code:"LS-0700-007",ref:"LS-0700",design:"Lou Serein",couleur:"Noir",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"LS-0500-007",ref:"LS-0500",design:"Lou Serein",couleur:"Blanc",tailles:["XS","S","M","L","XL"],pv:35},
-  ];
-  // Expand into individual SKUs
-  products.forEach(function(p) {
-    p.tailles.forEach(function(t) {
-      DB.catalogue.push({
-        code: p.code + '-' + t,
-        ref: p.ref,
-        design: p.design,
-        couleur: p.couleur,
-        designation: p.design + ' ' + p.couleur,
-        taille: t,
-        pv: p.pv,
-        pa: 0
-      });
-    });
-  });
-  // Stock vierge
-  DB.stockVierge = [
-    {ref:"T135",couleur:"Noir",xs:0,s:3,m:2,l:2,xl:0,xxl:0,pa:9.00,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Bleu Marine",xs:3,s:2,m:2,l:0,xl:0,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Bleu Ciel",xs:2,s:2,m:2,l:0,xl:0,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Beige",xs:4,s:4,m:2,l:1,xl:0,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Blanc",xs:4,s:1,m:1,l:1,xl:1,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"E220",couleur:"Noir",xs:3,s:2,m:3,l:2,xl:0,xxl:0,pa:8.88,seuil:3,enCommande:0},
-    {ref:"E220",couleur:"Blanc",xs:0,s:2,m:1,l:2,xl:0,xxl:0,pa:8.88,seuil:3,enCommande:0},
-    {ref:"Pull",couleur:"Noir",xs:2,s:2,m:2,l:0,xl:1,xxl:0,pa:21.60,seuil:2,enCommande:0},
-    {ref:"Pull",couleur:"Blanc",xs:1,s:0,m:0,l:1,xl:0,xxl:0,pa:21.60,seuil:2,enCommande:0},
-    {ref:"Brut",couleur:"Beige",xs:0,s:2,m:0,l:0,xl:0,xxl:0,pa:15.00,seuil:2,enCommande:0},
-  ];
-  // Stock DTF
-  DB.stockDTF = [
-    {ref:"LP-0100",nom:"Lou Pescadou Rose",stock:6,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0200",nom:"Lou Pescadou Bleu",stock:2,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0300",nom:"Lou Pescadou Vert",stock:17,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0400",nom:"Lou Pescadou Violet",stock:1,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0500",nom:"Lou Pescadou Blanc",stock:2,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0600",nom:"Lou Pescadou Marron",stock:7,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0500",nom:"Li d'elo dóu Sud Blanc",stock:11,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0700",nom:"Li d'elo dóu Sud Noir",stock:5,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0300",nom:"Li d'elo dóu Sud Vert",stock:11,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0900",nom:"Li d'elo dóu Sud Jaune",stock:9,pa:0,seuil:3,enCommande:0},
-    {ref:"MT-0200",nom:"Mercatus Bleu",stock:10,pa:0,seuil:3,enCommande:0},
-    {ref:"MT-0700",nom:"Mercatus Noir",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-1300",nom:"Massilia Blanc",stock:5,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-2100",nom:"Massilia Bleu ciel / Bleu",stock:13,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-1400",nom:"Massilia Bleu",stock:13,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-1500",nom:"Massilia Bleu marine / Blanc",stock:5,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1600",nom:"Lou Mistrau Blanc / Rose",stock:3,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1400",nom:"Lou Mistrau Blanc / Bleu",stock:1,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1800",nom:"Lou Mistrau Blanc / Vert",stock:3,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1900",nom:"Lou Mistrau Noir / Blanc",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-2000",nom:"Lou Mistrau Noir / Rose",stock:4,pa:0,seuil:3,enCommande:0},
-    {ref:"CP-0200",nom:"Capèu Bleu",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"CP-0300",nom:"Capèu Vert",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"CP-1200",nom:"Capèu Beige",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"LS-0700",nom:"Lou Serein Noir",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"LS-0500",nom:"Lou Serein Blanc",stock:0,pa:0,seuil:3,enCommande:0},
-  ];
-  // Fournisseurs
-  DB.fournisseurs = [
-    {nom:"Influence 13",contact:"contact@influence13.fr",produits:"T-shirt",rdv:true,devis:false,notes:""},
-    {nom:"CDP13",contact:"",produits:"T-shirt",rdv:true,devis:false,notes:""},
-    {nom:"Cottonmade",contact:"",produits:"T-shirt",rdv:false,devis:false,notes:""},
-    {nom:"Alibaba",contact:"",produits:"Chemise",rdv:false,devis:false,notes:"Plusieurs fournisseurs"},
-  ];
-  // Todos
-  DB.todos = [
-    {owner:"Quentin",task:"S'inscrire marché La Ciotat 2026",prio:"A",due:"2026-03-31",status:"TERMINER"},
-    {owner:"Eliott",task:"S'occuper des fournisseurs",prio:"A",due:"",status:"EN COURS"},
-    {owner:"Quentin",task:"Faire la matrice automatisée pour le stock",prio:"B",due:"",status:"TERMINER"},
-    {owner:"Seb",task:"Plan d'action TikTok + planning",prio:"B",due:"2026-04-09",status:"A TRAITER"},
-    {owner:"Quentin / Eliott",task:"Calculer coûts de revient 2026",prio:"A",due:"",status:"EN ATTENTE"},
-    {owner:"Seb",task:"Stratégie de com + support lancement drop",prio:"A",due:"2026-04-09",status:"A TRAITER"},
-    {owner:"Quentin / Eliott",task:"Stock + prévisions 2026 (~300 pièces)",prio:"A",due:"",status:"A TRAITER"},
-    {owner:"Quentin",task:"Devis Alibaba (sur mesure + échantillons)",prio:"A",due:"",status:"A TRAITER"},
-    {owner:"Seb",task:"Créer modèle bon de commande fournisseur",prio:"A",due:"2026-04-07",status:"TERMINER"},
-  ];
-  saveDB();
+    if(typeof renderDashboard==='function') renderDashboard();
+    if(typeof renderCatalogue==='function') renderCatalogue();
+    if(typeof renderStockVierge==='function') renderStockVierge();
+    if(typeof renderStockDTF==='function') renderStockDTF();
+    if(typeof renderStockFini==='function') renderStockFini();
+    if(typeof renderVentes==='function') renderVentes();
+    if(typeof renderCommandes==='function') renderCommandes();
+    if(typeof renderFournisseurs==='function') renderFournisseurs();
+    if(typeof renderTodos==='function') renderTodos();
+  } catch(e) { console.error('renderAll:',e); }
 }
 
 // ============================================================
@@ -734,57 +563,39 @@ function renderDashboard() {
   var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
   var nbVentes=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
   var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
-  var dtfTotal=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
-  var viergeTotal=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
+  var dtf=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
+  var vierge=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
   var panier=nbVentes>0?caTotal/nbVentes:0;
-
   document.getElementById('dash-kpis').innerHTML=
     '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbVentes+' pièces vendues</div></div>'+
     '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+DB.ventes.length+' transactions</div></div>'+
     '<div class="kpi kpi-success"><div class="kpi-label">Stock prêt à vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTotal+' / '+dtfTotal+'</div><div class="kpi-sub">vierges / DTF</div></div>';
-
-  function mkChart(id, type, labels, data, colors, opts) {
-    var el=document.getElementById(id); if(!el) return;
-    if(el._ch){try{el._ch.destroy();}catch(e){}} 
-    if(!data||data.length===0||data.every(function(d){return d===0;})){
-      el.parentNode.innerHTML='<div class="empty-state" style="padding-top:50px;font-size:12px;">Aucune donnée</div>'; return;
-    }
-    el._ch=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},opts||{})});
-  }
+    '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+vierge+' / '+dtf+'</div><div class="kpi-sub">vierges / DTF</div></div>';
   var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
-
-  // Graphique 1 : CA par canal
+  function ch(id,type,labels,data,colors,extra){
+    var el=document.getElementById(id);if(!el)return;
+    if(el._c){try{el._c.destroy();}catch(e){}}
+    if(!data.length||data.every(function(d){return !d;})){el.parentNode.innerHTML='<div class="empty-state" style="padding-top:50px;font-size:12px;">Enregistrez des ventes pour voir ce graphique</div>';return;}
+    el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
+  }
   var cs={};DB.ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
-  mkChart('chart-canaux','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
-
-  // Graphique 2 : Top designs
+  ch('chart-canaux','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
   var ds={};DB.ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
-  var dArr=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-  mkChart('chart-designs','bar',dArr.map(function(d){return d[0];}),dArr.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
-
-  // Graphique 3 : État des stocks
-  mkChart('chart-stocks','bar',['Produits finis','T-shirts vierges','DTF'],[stockFini,viergeTotal,dtfTotal],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
-
-  // Graphique 4 : Ventes par taille
+  var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+  ch('chart-designs','bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
+  ch('chart-stocks','bar',['Produits finis','Vierges','DTF'],[stockFini,vierge,dtf],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
   var ts={};DB.ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
-  var tArr=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
-  mkChart('chart-tailles','pie',tArr,tArr.map(function(t){return ts[t];}),C.slice(0,tArr.length));
-
-  // Dernières ventes
+  var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
+  ch('chart-tailles','pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
   var last=DB.ventes.slice(-10).reverse();
   var tbody=document.getElementById('dash-last-sales');
-  tbody.innerHTML=last.length===0?'<tr><td colspan="4" class="empty-state">Aucune vente enregistrée</td></tr>':
-    last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join('');
-
-  // Alertes
+  tbody.innerHTML=last.length?last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join(''):'<tr><td colspan="4" class="empty-state">Aucune vente enregistrée</td></tr>';
   var alerts=[];
   DB.stockFini.forEach(function(f){if(f.stock<=(f.seuil||2))alerts.push({name:f.designation+' '+f.taille,stock:f.stock,type:'Fini',seuil:f.seuil||2});});
   DB.stockDTF.forEach(function(d){if((d.stock||0)<=(d.seuil||3))alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3});});
   DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(t<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:t,type:'Vierge',seuil:v.seuil});});
   var ad=document.getElementById('dash-alerts');
-  ad.innerHTML=alerts.length===0?'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>':
-    alerts.map(function(a){var cls=a.stock<=0?'badge-danger':'badge-warn';return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+' · seuil: '+a.seuil+'</span></div><span class="badge '+cls+'">'+(a.stock<=0?'RUPTURE':'Stock bas')+' ('+a.stock+')</span></div>';}).join('');
+  ad.innerHTML=alerts.length?alerts.map(function(a){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+' · seuil: '+a.seuil+'</span></div><span class="badge '+(a.stock<=0?'badge-danger':'badge-warn')+'">'+(a.stock<=0?'RUPTURE':'Stock bas')+' ('+a.stock+')</span></div>';}).join(''):'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
   document.getElementById('nav-cat-count').textContent = DB.catalogue.length;
 }
 
@@ -831,25 +642,12 @@ function saveProduct(idx) {
 // CATALOGUE — AJOUT PRODUIT
 // ============================================================
 function openAddProduct() {
-  var tailles=['XS','S','M','L','XL','XXL','U'];
-  var checkboxes=tailles.map(function(t){
-    var checked=['XS','S','M','L'].indexOf(t)>-1?' checked':'';
-    return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" class="np-taille" value="'+t+'"'+checked+'> '+t+'</label>';
-  }).join('');
+  var cb=['XS','S','M','L','XL','XXL','U'].map(function(t){return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" class="np-taille" value="'+t+'"'+(['XS','S','M','L'].indexOf(t)>-1?' checked':'')+'> '+t+'</label>';}).join('');
   openModal('<div class="modal-title">Ajouter un produit au catalogue</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>'+
-      '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>'+
-    '</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Réf. (ex: LP-0700)</label><input type="text" class="input" id="np-ref" placeholder="LP-0700"></div>'+
-      '<div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>'+
-    '</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Tailles</label>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'+checkboxes+'</div></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button></div>');
+    '<div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div><div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div></div>'+
+    '<div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Réf. (ex: LP-0700)</label><input type="text" class="input" id="np-ref" placeholder="LP-0700"></div><div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div></div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Tailles</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'+cb+'</div></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="addProduct()">Ajouter</button></div>');
 }
 function addProduct() {
   var design=document.getElementById('np-design').value.trim();
@@ -859,19 +657,18 @@ function addProduct() {
   var tailles=Array.from(document.querySelectorAll('.np-taille:checked')).map(function(cb){return cb.value;});
   if(!design||!couleur||!ref){toast('Remplissez tous les champs');return;}
   if(!tailles.length){toast('Sélectionnez au moins une taille');return;}
-  var famId=String(DB.catalogue.filter(function(p){return p.ref===ref;}).length||DB.catalogue.length+1).padStart(3,'0');
+  var famId=String(DB.catalogue.length+1).padStart(3,'0');
   var added=0;
   tailles.forEach(function(t){
     var code=ref+'-'+famId+'-'+t;
     if(!DB.catalogue.find(function(p){return p.code===code;})){
-      DB.catalogue.push({code:code,ref:ref,design:design,couleur:couleur,designation:design+' '+couleur,taille:t,pv:pv,pa:0});
-      added++;
+      DB.catalogue.push({code:code,ref:ref,design:design,couleur:couleur,designation:design+' '+couleur,taille:t,pv:pv,pa:0});added++;
     }
   });
   if(!DB.stockDTF.find(function(d){return d.ref===ref;}))
     DB.stockDTF.push({ref:ref,nom:design+' '+couleur,stock:0,pa:0,seuil:3,enCommande:0});
-  saveDB(); closeModal(); renderCatalogue();
-  toast(added+' produit(s) ajouté(s) au catalogue');
+  saveDB();closeModal();renderCatalogue();
+  toast(added+' produit(s) ajouté(s)');
 }
 
 // ============================================================
@@ -931,31 +728,30 @@ function addSV() {
 // STOCK DTF
 // ============================================================
 function renderStockDTF() {
-  var tot=0,val=0,alerts=0,cmd=0;
-  DB.stockDTF.forEach(function(d){tot+=(d.stock||0);val+=(d.stock||0)*(d.pa||0);if((d.stock||0)<=(d.seuil||3))alerts++;cmd+=(d.enCommande||0);});
+  var tot=0,val=0,al=0,cmd=0;
+  DB.stockDTF.forEach(function(d){tot+=(d.stock||0);val+=(d.stock||0)*(d.pa||0);if((d.stock||0)<=(d.seuil||3))al++;cmd+=(d.enCommande||0);});
   document.getElementById('sd-kpis').innerHTML=
     '<div class="kpi"><div class="kpi-label">Designs</div><div class="kpi-value">'+DB.stockDTF.length+'</div></div>'+
     '<div class="kpi kpi-success"><div class="kpi-label">DTF disponibles</div><div class="kpi-value">'+tot+'</div><div class="kpi-sub">Valeur: '+fmt(val)+'</div></div>'+
     '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+cmd+'</div><div class="kpi-sub">Projeté: '+(tot+cmd)+'</div></div>'+
-    '<div class="kpi '+(alerts>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes stock bas</div><div class="kpi-value">'+alerts+'</div></div>';
+    '<div class="kpi '+(al>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes</div><div class="kpi-value">'+al+'</div></div>';
   var tbody=document.getElementById('sd-body');
   if(!DB.stockDTF.length){tbody.innerHTML='<tr><td colspan="11" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td></tr>';return;}
   tbody.innerHTML=DB.stockDTF.map(function(d,i){
     var finis=DB.stockFini.filter(function(f){var p=DB.catalogue.find(function(x){return x.code===f.code;});return p&&p.ref===d.ref;}).reduce(function(s,f){return s+(f.stock||0);},0);
     var dispo=d.stock||0,proj=dispo+(d.enCommande||0);
     var cls=dispo<=0?'badge-danger':dispo<=(d.seuil||3)?'badge-warn':'badge-ok';
-    var txt=dispo<=0?'RUPTURE':dispo<=(d.seuil||3)?'BAS':'OK';
     return '<tr>'+
       '<td class="mono" style="font-size:11px;">'+d.ref+'</td>'+
       '<td style="font-weight:600;">'+d.nom+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="updateSD('+i+','stock',this.value)"></td>'+
-      '<td class="c mono" style="color:var(--gold);font-weight:600;">'+(d.enCommande||0)+'</td>'+
+      '<td class="c mono" style="color:var(--gold);">'+(d.enCommande||0)+'</td>'+
       '<td class="c mono" style="font-weight:700;color:var(--success);">'+proj+'</td>'+
       '<td class="c mono" style="color:var(--muted);">'+finis+'</td>'+
       '<td class="r"><input type="number" class="input-sm input-yellow" style="width:60px;text-align:right;" value="'+(d.pa||'')+'" step="0.01" placeholder="0.00" onchange="updateSD('+i+','pa',this.value)"></td>'+
       '<td class="r mono">'+fmt(dispo*(d.pa||0))+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+(d.seuil||3)+'" onchange="updateSD('+i+','seuil',this.value)"></td>'+
-      '<td><span class="badge '+cls+'">'+txt+'</span></td>'+
+      '<td><span class="badge '+cls+'">'+(dispo<=0?'RUPTURE':dispo<=(d.seuil||3)?'BAS':'OK')+'</span></td>'+
       '<td><button class="btn-icon" onclick="deleteSD('+i+')">🗑</button></td></tr>';
   }).join('');
 }
