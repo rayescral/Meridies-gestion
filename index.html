@@ -1099,17 +1099,7 @@ function addTodo() {
 // GLOBAL & INIT
 // ============================================================
 function exportAllData() { /*...*/ }
-function resetAllData() {
-  if(!confirm('⚠️ Réinitialiser les données de test ?\nLes données saisies seront supprimées, puis les données par défaut seront rechargées.')) return;
-  if(!confirm('Confirmez la réinitialisation des données de test.')) return;
-  localStorage.removeItem('meridies_db');
-  DB = {catalogue:[],stockVierge:[],stockDTF:[],stockFini:[],ventes:[],fournisseurs:[],bonsCommande:[],todos:[]};
-  initDefaultData();
-  initDatalists();
-  renderAll();
-  goTo('dashboard');
-  toast('Données de test réinitialisées');
-}
+function resetAllData() { /*...*/ }
 
 document.addEventListener('DOMContentLoaded', function() {
   if (sessionStorage.getItem('meridies_authed') !== '1') {
