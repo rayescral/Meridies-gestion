@@ -205,7 +205,7 @@ tr:hover td{background:var(--surface2);}
       style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
       onkeydown="if(event.key==='Enter')lockSubmit()">
     <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
-    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Accéder →</button>
+    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Acceder</button>
   </div>
 </div>
 
@@ -241,8 +241,6 @@ tr:hover td{background:var(--surface2);}
     <div class="nav-section">Outils</div>
     <div class="nav-item" onclick="goTo('cout-revient')"><span class="icon">🧮</span>Coût de revient</div>
     <div class="nav-item" onclick="goTo('todo')"><span class="icon">✏️</span>Tâches</div>
-    <div class="nav-section">Compte</div>
-    <div class="nav-item" onclick="goTo('parametres')"><span class="icon">⚙️</span>Paramètres</div>
   </nav>
   <div class="sidebar-footer">Meridies Brand © 2026<br>Données stockées localement</div>
 </div>
@@ -459,27 +457,6 @@ tr:hover td{background:var(--surface2);}
       </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Owner</th><th>Tâche</th><th>Priorité</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody id="todo-body"></tbody></table></div>
-  </div>
-</div>
-
-<!-- ==================== PARAMETRES ==================== -->
-<div class="page" id="page-parametres">
-  <div class="card" style="max-width:480px;">
-    <div class="card-header"><span class="card-title">⚙️ Changer le mot de passe</span></div>
-    <div class="field" style="margin-bottom:14px;">
-      <label>Mot de passe actuel</label>
-      <input type="password" class="input" id="param-pwd-actuel" placeholder="Mot de passe actuel">
-    </div>
-    <div class="field" style="margin-bottom:14px;">
-      <label>Nouveau mot de passe</label>
-      <input type="password" class="input" id="param-pwd-new" placeholder="Nouveau mot de passe (min. 4 caractères)">
-    </div>
-    <div class="field" style="margin-bottom:20px;">
-      <label>Confirmer le nouveau mot de passe</label>
-      <input type="password" class="input" id="param-pwd-confirm" placeholder="Confirmer le nouveau mot de passe">
-    </div>
-    <div id="param-msg" style="font-size:12px;margin-bottom:14px;min-height:16px;"></div>
-    <button class="btn btn-primary" onclick="changerMotDePasse()">Enregistrer le nouveau mot de passe</button>
   </div>
 </div>
 
@@ -701,7 +678,7 @@ function goTo(page) {
     'dashboard':'Tableau de bord','catalogue':'Catalogue produits','stock-vierge':'Stock T-shirts vierges',
     'stock-dtf':'Stock DTF Designs','stock-fini':'Stock Produits finis','saisie-vente':'Saisie des ventes',
     'stats':'Statistiques','fournisseurs':'Fournisseurs','commandes':'Bons de commande',
-    'cout-revient':'Coût de revient','todo':'Tâches','parametres':'Paramètres'
+    'cout-revient':'Coût de revient','todo':'Tâches'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   // Render
@@ -709,7 +686,7 @@ function goTo(page) {
     'dashboard':renderDashboard,'catalogue':renderCatalogue,'stock-vierge':renderStockVierge,
     'stock-dtf':renderStockDTF,'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
     'stats':renderStats,'fournisseurs':renderFournisseurs,'commandes':renderCommandes,
-    'cout-revient':renderCoutRevient,'todo':renderTodos,'parametres':function(){}
+    'cout-revient':renderCoutRevient,'todo':renderTodos
   };
   if(renderers[page]) renderers[page]();
   document.querySelector('.sidebar').classList.remove('open');
@@ -1546,22 +1523,17 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================================
-// PROTECTION MOT DE PASSE
+// MOT DE PASSE — modifier DEFAULT_PWD pour changer le mdp
 // ============================================================
-var DEFAULT_PWD = 'c2FsdXQ6bWVyaWRpZXM='; // mot de passe par défaut: salut
-
-function getPwd() {
-  return localStorage.getItem('meridies_pwd') || DEFAULT_PWD;
-}
+var DEFAULT_PWD = 'UmF5ZXNGcm9tU3BhY2UxMDopOm1lcmlkaWVz';
 
 function lockSubmit() {
   var input = document.getElementById('lock-input').value;
   var errEl = document.getElementById('lock-error');
   if (!input) { errEl.textContent = 'Entrez le mot de passe'; return; }
-  if (btoa(input + ':meridies') === getPwd()) {
+  if (btoa(input + ':meridies') === DEFAULT_PWD) {
     sessionStorage.setItem('meridies_authed', '1');
     document.getElementById('lock-screen').style.display = 'none';
-    errEl.textContent = '';
   } else {
     errEl.textContent = 'Mot de passe incorrect';
     document.getElementById('lock-input').value = '';
@@ -1569,44 +1541,13 @@ function lockSubmit() {
   }
 }
 
-function changerMotDePasse() {
-  var actuel  = document.getElementById('param-pwd-actuel').value;
-  var nouveau = document.getElementById('param-pwd-new').value;
-  var confirm = document.getElementById('param-pwd-confirm').value;
-  var msgEl   = document.getElementById('param-msg');
-
-  if (btoa(actuel + ':meridies') !== getPwd()) {
-    msgEl.style.color = '#DC2626';
-    msgEl.textContent = 'Mot de passe actuel incorrect';
-    return;
-  }
-  if (nouveau.length < 4) {
-    msgEl.style.color = '#DC2626';
-    msgEl.textContent = 'Le nouveau mot de passe doit faire au moins 4 caractères';
-    return;
-  }
-  if (nouveau !== confirm) {
-    msgEl.style.color = '#DC2626';
-    msgEl.textContent = 'Les deux mots de passe ne correspondent pas';
-    return;
-  }
-  localStorage.setItem('meridies_pwd', btoa(nouveau + ':meridies'));
-  msgEl.style.color = '#059669';
-  msgEl.textContent = 'Mot de passe modifié avec succès !';
-  document.getElementById('param-pwd-actuel').value = '';
-  document.getElementById('param-pwd-new').value = '';
-  document.getElementById('param-pwd-confirm').value = '';
-}
-
-// Vérification au chargement
 (function() {
   if (sessionStorage.getItem('meridies_authed') === '1') {
     document.getElementById('lock-screen').style.display = 'none';
   } else {
-    document.getElementById('lock-input').focus();
+    setTimeout(function(){ document.getElementById('lock-input').focus(); }, 100);
   }
 })();
-
 </script>
 </body>
 </html>
