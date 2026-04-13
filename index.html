@@ -1100,7 +1100,7 @@ function addTodo() {
 // ============================================================
 function exportAllData() { /*...*/ }
 async function resetAllData() {
-  var ok = confirm('Cette action va supprimer toutes les données de test enregistrées sur le site et remettre l'application à zéro. Continuer ?');
+  var ok = confirm("Cette action va supprimer toutes les données de test enregistrées sur le site et remettre l'application à zéro. Continuer ?");
   if (!ok) return;
 
   try {
@@ -1119,25 +1119,24 @@ async function resetAllData() {
 
     initDefaultData();
 
-    await supabase.from('app_state').upsert({
-      id: 1,
-      data: DB,
-      updated_at: new Date().toISOString()
-    });
+    try {
+      await supabase.from('app_state').upsert({
+        id: 1,
+        data: DB,
+        updated_at: new Date().toISOString()
+      });
+      setStatus(true);
+    } catch (syncErr) {
+      setStatus(false);
+    }
 
     initDatalists();
     renderAll();
     goTo('dashboard');
     toast('✅ Données réinitialisées');
-    setStatus(true);
   } catch (e) {
     console.error('Erreur de réinitialisation', e);
-    try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(err) {}
-    initDatalists();
-    renderAll();
-    goTo('dashboard');
-    toast('✅ Données réinitialisées en local');
-    setStatus(false);
+    toast('Erreur lors de la réinitialisation');
   }
 }
 
