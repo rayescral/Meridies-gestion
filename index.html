@@ -247,24 +247,12 @@ tr:hover td{background:var(--surface2);}
 <div class="page active" id="page-dashboard">
   <div class="kpi-grid" id="dash-kpis"></div>
   <div class="grid2" style="margin-bottom:16px;">
-    <div class="card">
-      <div class="card-header"><span class="card-title">📈 CA par canal</span></div>
-      <div style="position:relative;height:220px;"><canvas id="chart-canaux"></canvas></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">🏆 Top designs</span></div>
-      <div style="position:relative;height:220px;"><canvas id="chart-designs"></canvas></div>
-    </div>
+    <div class="card"><div class="card-header"><span class="card-title">📈 CA par canal</span></div><div style="position:relative;height:200px;"><canvas id="chart-canaux"></canvas></div></div>
+    <div class="card"><div class="card-header"><span class="card-title">🏆 Top designs</span></div><div style="position:relative;height:200px;"><canvas id="chart-designs"></canvas></div></div>
   </div>
   <div class="grid2" style="margin-bottom:16px;">
-    <div class="card">
-      <div class="card-header"><span class="card-title">📦 État des stocks</span></div>
-      <div style="position:relative;height:220px;"><canvas id="chart-stocks"></canvas></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">👕 Ventes par taille</span></div>
-      <div style="position:relative;height:220px;"><canvas id="chart-tailles"></canvas></div>
-    </div>
+    <div class="card"><div class="card-header"><span class="card-title">📦 État des stocks</span></div><div style="position:relative;height:200px;"><canvas id="chart-stocks"></canvas></div></div>
+    <div class="card"><div class="card-header"><span class="card-title">👕 Ventes par taille</span></div><div style="position:relative;height:200px;"><canvas id="chart-tailles"></canvas></div></div>
   </div>
   <div class="grid2">
     <div class="card">
@@ -494,69 +482,93 @@ var DB = {
 };
 
 // ============================================================
-// SUPABASE CONFIG
+// SUPABASE — SYNC EN ARRIERE-PLAN (n'bloque jamais l'app)
 // ============================================================
 var SUPA_URL = 'https://twsuchpzsytlourrjjgg.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3c3VjaHB6c3l0bG91cnJqamdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTc4NTYsImV4cCI6MjA5MTQ3Mzg1Nn0.tb0DyVe6-jwdIWR0kqLy6Np8YSM-B-fOZ-szAHgvJrE';
-var supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+var _supa = null;
+try { _supa = window.supabase.createClient(SUPA_URL, SUPA_KEY); } catch(e) { console.warn('Supabase init failed'); }
 
-function setStatus(connected) {
+function setStatus(s) {
   var el = document.getElementById('sync-status');
   if (!el) return;
-  if (connected) { el.textContent = '🟢 Synchronisé'; el.style.color = '#059669'; }
-  else { el.textContent = '🔴 Hors ligne'; el.style.color = '#DC2626'; }
+  if (s === true)  { el.textContent = '🟢 Synchronisé';   el.style.color = '#059669'; }
+  if (s === false) { el.textContent = '🔴 Local (offline)'; el.style.color = '#DC2626'; }
+  if (s === 'load'){ el.textContent = '⏳ Connexion...';  el.style.color = 'rgba(201,168,76,0.7)'; }
 }
 
-async function loadDB() {
+// Chargement : localStorage en priorité → rendu immédiat → Supabase en fond
+function loadDB() {
+  // 1. Charger depuis localStorage instantanément
   try {
-    var res = await supabase.from('app_state').select('data').eq('id', 1).single();
-    if (res.error && res.error.code === 'PGRST116') {
-      initDefaultData();
-      await supabase.from('app_state').insert({ id: 1, data: DB });
-    } else if (res.error) {
-      throw res.error;
-    } else {
-      DB = Object.assign(DB, res.data.data);
-      if (DB.catalogue.length === 0) initDefaultData();
-    }
-    setStatus(true);
-    subscribeRealtime();
-  } catch(e) {
-    console.warn('Supabase indisponible, fallback localStorage', e);
-    try { var d = JSON.parse(localStorage.getItem('meridies_db')); if(d) DB = Object.assign(DB, d); } catch(e2) {}
-    if (DB.catalogue.length === 0) initDefaultData();
-    setStatus(false);
-  }
+    var d = JSON.parse(localStorage.getItem('meridies_db'));
+    if (d && d.catalogue && d.catalogue.length > 0) DB = Object.assign(DB, d);
+  } catch(e) {}
+  if (DB.catalogue.length === 0) initDefaultData();
+
+  // 2. Rendre l'app immédiatement (navigation fonctionnelle)
   renderAll();
+
+  // 3. Supabase en arrière-plan sans bloquer
+  if (!_supa) { setStatus(false); return; }
+  setStatus('load');
+  _supa.from('app_state').select('data').eq('id', 1).single()
+    .then(function(res) {
+      if (res.error && res.error.code === 'PGRST116') {
+        // Table vide : envoyer les données locales
+        return _supa.from('app_state').insert({ id: 1, data: DB });
+      } else if (!res.error && res.data && res.data.data) {
+        var remote = res.data.data;
+        if (remote.catalogue && remote.catalogue.length > 0) {
+          DB = Object.assign(DB, remote);
+          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+          renderAll();
+        }
+      }
+      setStatus(true);
+      _subscribeRealtime();
+    })
+    .catch(function(e) {
+      console.warn('Supabase indisponible:', e.message || e);
+      setStatus(false);
+    });
 }
 
 function saveDB() {
+  // Toujours sauvegarder en local d'abord
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
-    .then(function(r){ setStatus(!r.error); }).catch(function(){ setStatus(false); });
+  // Puis Supabase en fond
+  if (!_supa) return;
+  _supa.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
+    .then(function(r) { setStatus(!r.error); })
+    .catch(function() { setStatus(false); });
 }
 
-function subscribeRealtime() {
-  supabase.channel('meridies_sync')
+function _subscribeRealtime() {
+  if (!_supa) return;
+  _supa.channel('meridies_live')
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
       if (payload.new && payload.new.data) {
         DB = Object.assign(DB, payload.new.data);
+        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
         renderAll();
-        toast('🔄 Données mises à jour en temps réel');
+        toast('🔄 Données mises à jour par un autre utilisateur');
       }
     }).subscribe();
 }
 
 function renderAll() {
-  if (typeof renderDashboard === 'function') renderDashboard();
-  if (typeof renderCatalogue === 'function') renderCatalogue();
-  if (typeof renderStockVierge === 'function') renderStockVierge();
-  if (typeof renderStockDTF === 'function') renderStockDTF();
-  if (typeof renderStockFini === 'function') renderStockFini();
-  if (typeof renderVentes === 'function') renderVentes();
-  if (typeof renderBC === 'function') renderBC();
-  if (typeof renderFournisseurs === 'function') renderFournisseurs();
-  if (typeof renderTodos === 'function') renderTodos();
+  try {
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderCatalogue === 'function') renderCatalogue();
+    if (typeof renderStockVierge === 'function') renderStockVierge();
+    if (typeof renderStockDTF === 'function') renderStockDTF();
+    if (typeof renderStockFini === 'function') renderStockFini();
+    if (typeof renderVentes === 'function') renderVentes();
+    if (typeof renderCommandes === 'function') renderCommandes();
+    if (typeof renderFournisseurs === 'function') renderFournisseurs();
+    if (typeof renderTodos === 'function') renderTodos();
+  } catch(e) { console.error('renderAll error:', e); }
 }
 
 function initDefaultData() {
@@ -719,71 +731,61 @@ function getVendusByRef(ref) { return DB.ventes.filter(function(v){ return v.cod
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  var totalCat = DB.catalogue.length;
-  var totalVentes = DB.ventes.length;
-  var caTotal = DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var stockFiniTotal = DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
-  var dtfTotal = DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
-  var viergeTotal = DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
-  var nbVentes = DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
-  var panierMoyen = nbVentes > 0 ? caTotal/nbVentes : 0;
+  var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
+  var nbVentes=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
+  var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
+  var dtfTotal=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
+  var viergeTotal=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
+  var panier=nbVentes>0?caTotal/nbVentes:0;
 
-  document.getElementById('dash-kpis').innerHTML =
+  document.getElementById('dash-kpis').innerHTML=
     '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbVentes+' pièces vendues</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panierMoyen)+'</div><div class="kpi-sub">'+totalVentes+' transactions</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">Stock prêt à vendre</div><div class="kpi-value">'+stockFiniTotal+'</div><div class="kpi-sub">produits finis</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+DB.ventes.length+' transactions</div></div>'+
+    '<div class="kpi kpi-success"><div class="kpi-label">Stock prêt à vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
     '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTotal+' / '+dtfTotal+'</div><div class="kpi-sub">vierges / DTF</div></div>';
 
-  var canalStats={};
-  DB.ventes.forEach(function(v){var k=v.canal||'Autre';if(!canalStats[k])canalStats[k]=0;canalStats[k]+=(v.pv||0)*(v.qte||1);});
-  var canalLabels=Object.keys(canalStats), canalData=canalLabels.map(function(k){return canalStats[k];});
-  var colors=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C'];
-  var ctx1=document.getElementById('chart-canaux');
-  if(ctx1){
-    if(ctx1._ch)ctx1._ch.destroy();
-    if(canalData.length>0){ctx1._ch=new Chart(ctx1,{type:'doughnut',data:{labels:canalLabels,datasets:[{data:canalData,backgroundColor:colors.slice(0,canalLabels.length),borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}},tooltip:{callbacks:{label:function(c){return c.label+': '+fmt(c.parsed);}}}}}}); }
-    else{ctx1.parentNode.innerHTML='<div class="empty-state" style="padding-top:60px;">Aucune vente</div>';}
+  function mkChart(id, type, labels, data, colors, opts) {
+    var el=document.getElementById(id); if(!el) return;
+    if(el._ch){try{el._ch.destroy();}catch(e){}} 
+    if(!data||data.length===0||data.every(function(d){return d===0;})){
+      el.parentNode.innerHTML='<div class="empty-state" style="padding-top:50px;font-size:12px;">Aucune donnée</div>'; return;
+    }
+    el._ch=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},opts||{})});
   }
+  var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
 
-  var designStats={};
-  DB.ventes.forEach(function(v){var d=v.design||'Autre';if(!designStats[d])designStats[d]=0;designStats[d]+=(v.qte||1);});
-  var dSorted=Object.entries(designStats).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-  var ctx2=document.getElementById('chart-designs');
-  if(ctx2){
-    if(ctx2._ch)ctx2._ch.destroy();
-    if(dSorted.length>0){ctx2._ch=new Chart(ctx2,{type:'bar',data:{labels:dSorted.map(function(d){return d[0];}),datasets:[{label:'Pièces',data:dSorted.map(function(d){return d[1];}),backgroundColor:'#C9A84C',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}}});}
-    else{ctx2.parentNode.innerHTML='<div class="empty-state" style="padding-top:60px;">Aucune vente</div>';}
-  }
+  // Graphique 1 : CA par canal
+  var cs={};DB.ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
+  mkChart('chart-canaux','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
 
-  var ctx3=document.getElementById('chart-stocks');
-  if(ctx3){
-    if(ctx3._ch)ctx3._ch.destroy();
-    ctx3._ch=new Chart(ctx3,{type:'bar',data:{labels:['Produits finis','T-shirts vierges','DTF designs'],datasets:[{data:[stockFiniTotal,viergeTotal,dtfTotal],backgroundColor:['#059669','#2563EB','#C9A84C'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}});
-  }
+  // Graphique 2 : Top designs
+  var ds={};DB.ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
+  var dArr=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+  mkChart('chart-designs','bar',dArr.map(function(d){return d[0];}),dArr.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
 
-  var tailleStats={};
-  DB.ventes.forEach(function(v){var t=v.taille||'?';if(!tailleStats[t])tailleStats[t]=0;tailleStats[t]+=(v.qte||1);});
-  var tailles=['XS','S','M','L','XL','XXL','U'].filter(function(t){return tailleStats[t];});
-  var ctx4=document.getElementById('chart-tailles');
-  if(ctx4){
-    if(ctx4._ch)ctx4._ch.destroy();
-    if(tailles.length>0){ctx4._ch=new Chart(ctx4,{type:'pie',data:{labels:tailles,datasets:[{data:tailles.map(function(t){return tailleStats[t];}),backgroundColor:colors,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}}}}});}
-    else{ctx4.parentNode.innerHTML='<div class="empty-state" style="padding-top:60px;">Aucune vente</div>';}
-  }
+  // Graphique 3 : État des stocks
+  mkChart('chart-stocks','bar',['Produits finis','T-shirts vierges','DTF'],[stockFini,viergeTotal,dtfTotal],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
 
+  // Graphique 4 : Ventes par taille
+  var ts={};DB.ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
+  var tArr=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
+  mkChart('chart-tailles','pie',tArr,tArr.map(function(t){return ts[t];}),C.slice(0,tArr.length));
+
+  // Dernières ventes
   var last=DB.ventes.slice(-10).reverse();
   var tbody=document.getElementById('dash-last-sales');
-  if(last.length===0){tbody.innerHTML='<tr><td colspan="4" class="empty-state">Aucune vente enregistrée</td></tr>';}
-  else{tbody.innerHTML=last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join('');}
+  tbody.innerHTML=last.length===0?'<tr><td colspan="4" class="empty-state">Aucune vente enregistrée</td></tr>':
+    last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join('');
 
+  // Alertes
   var alerts=[];
   DB.stockFini.forEach(function(f){if(f.stock<=(f.seuil||2))alerts.push({name:f.designation+' '+f.taille,stock:f.stock,type:'Fini',seuil:f.seuil||2});});
   DB.stockDTF.forEach(function(d){if((d.stock||0)<=(d.seuil||3))alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3});});
-  DB.stockVierge.forEach(function(v){var tot=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(tot<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:tot,type:'Vierge',seuil:v.seuil});});
-  var alertDiv=document.getElementById('dash-alerts');
-  if(alerts.length===0){alertDiv.innerHTML='<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';}
-  else{alertDiv.innerHTML=alerts.map(function(a){var cls=a.stock<=0?'badge-danger':'badge-warn';var txt=a.stock<=0?'RUPTURE':'Stock bas';return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><span style="font-weight:600;font-size:13px;">'+a.name+'</span><br><span style="font-size:11px;color:var(--muted);">'+a.type+' · seuil: '+a.seuil+'</span></div><span class="badge '+cls+'">'+txt+' ('+a.stock+')</span></div>';}).join('');}
-  document.getElementById('nav-cat-count').textContent = totalCat;
+  DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(t<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:t,type:'Vierge',seuil:v.seuil});});
+  var ad=document.getElementById('dash-alerts');
+  ad.innerHTML=alerts.length===0?'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>':
+    alerts.map(function(a){var cls=a.stock<=0?'badge-danger':'badge-warn';return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+' · seuil: '+a.seuil+'</span></div><span class="badge '+cls+'">'+(a.stock<=0?'RUPTURE':'Stock bas')+' ('+a.stock+')</span></div>';}).join('');
+  document.getElementById('nav-cat-count').textContent = DB.catalogue.length;
 }
 
 // ============================================================
@@ -829,30 +831,25 @@ function saveProduct(idx) {
 // CATALOGUE — AJOUT PRODUIT
 // ============================================================
 function openAddProduct() {
-  openModal(
-    '<div class="modal-title">Ajouter un produit au catalogue</div>'+
+  var tailles=['XS','S','M','L','XL','XXL','U'];
+  var checkboxes=tailles.map(function(t){
+    var checked=['XS','S','M','L'].indexOf(t)>-1?' checked':'';
+    return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" class="np-taille" value="'+t+'"'+checked+'> '+t+'</label>';
+  }).join('');
+  openModal('<div class="modal-title">Ajouter un produit au catalogue</div>'+
     '<div class="grid2" style="margin-bottom:14px;">'+
       '<div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>'+
       '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>'+
     '</div>'+
     '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Réf. (ex: LP-0100)</label><input type="text" class="input" id="np-ref" placeholder="LP-0100"></div>'+
+      '<div class="field"><label>Réf. (ex: LP-0700)</label><input type="text" class="input" id="np-ref" placeholder="LP-0700"></div>'+
       '<div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>'+
     '</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Tailles disponibles</label>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="XS" checked> XS</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="S" checked> S</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="M" checked> M</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="L" checked> L</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="XL"> XL</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="XXL"> XXL</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="U"> U</label>'+
-    '</div></div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Tailles</label>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'+checkboxes+'</div></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
       '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button></div>'
-  );
+      '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button></div>');
 }
 function addProduct() {
   var design=document.getElementById('np-design').value.trim();
@@ -861,9 +858,8 @@ function addProduct() {
   var pv=parseFloat(document.getElementById('np-pv').value)||35;
   var tailles=Array.from(document.querySelectorAll('.np-taille:checked')).map(function(cb){return cb.value;});
   if(!design||!couleur||!ref){toast('Remplissez tous les champs');return;}
-  if(tailles.length===0){toast('Sélectionnez au moins une taille');return;}
-  var existingFam=DB.catalogue.find(function(p){return p.ref===ref;});
-  var famId=existingFam?existingFam.code.split('-')[2]:String(DB.catalogue.length+1).padStart(3,'0');
+  if(!tailles.length){toast('Sélectionnez au moins une taille');return;}
+  var famId=String(DB.catalogue.filter(function(p){return p.ref===ref;}).length||DB.catalogue.length+1).padStart(3,'0');
   var added=0;
   tailles.forEach(function(t){
     var code=ref+'-'+famId+'-'+t;
@@ -872,11 +868,10 @@ function addProduct() {
       added++;
     }
   });
-  if(!DB.stockDTF.find(function(d){return d.ref===ref;})){
+  if(!DB.stockDTF.find(function(d){return d.ref===ref;}))
     DB.stockDTF.push({ref:ref,nom:design+' '+couleur,stock:0,pa:0,seuil:3,enCommande:0});
-    toast(added+' SKU(s) + DTF ajoutés');
-  } else { toast(added+' SKU(s) ajoutés au catalogue'); }
   saveDB(); closeModal(); renderCatalogue();
+  toast(added+' produit(s) ajouté(s) au catalogue');
 }
 
 // ============================================================
@@ -936,19 +931,18 @@ function addSV() {
 // STOCK DTF
 // ============================================================
 function renderStockDTF() {
-  var totalStock=0,totalVal=0,alertCount=0;
-  DB.stockDTF.forEach(function(d){totalStock+=(d.stock||0);totalVal+=(d.stock||0)*(d.pa||0);if((d.stock||0)<=(d.seuil||3))alertCount++;});
-  var totalCmd=0; DB.stockDTF.forEach(function(d){totalCmd+=(d.enCommande||0);});
-  document.getElementById('sd-kpis').innerHTML =
+  var tot=0,val=0,alerts=0,cmd=0;
+  DB.stockDTF.forEach(function(d){tot+=(d.stock||0);val+=(d.stock||0)*(d.pa||0);if((d.stock||0)<=(d.seuil||3))alerts++;cmd+=(d.enCommande||0);});
+  document.getElementById('sd-kpis').innerHTML=
     '<div class="kpi"><div class="kpi-label">Designs</div><div class="kpi-value">'+DB.stockDTF.length+'</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">DTF disponibles</div><div class="kpi-value">'+totalStock+'</div><div class="kpi-sub">Valeur: '+fmt(totalVal)+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd+'</div><div class="kpi-sub">Projeté: '+(totalStock+totalCmd)+'</div></div>'+
-    '<div class="kpi '+(alertCount>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes stock bas</div><div class="kpi-value">'+alertCount+'</div></div>';
+    '<div class="kpi kpi-success"><div class="kpi-label">DTF disponibles</div><div class="kpi-value">'+tot+'</div><div class="kpi-sub">Valeur: '+fmt(val)+'</div></div>'+
+    '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+cmd+'</div><div class="kpi-sub">Projeté: '+(tot+cmd)+'</div></div>'+
+    '<div class="kpi '+(alerts>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes stock bas</div><div class="kpi-value">'+alerts+'</div></div>';
   var tbody=document.getElementById('sd-body');
-  if(DB.stockDTF.length===0){tbody.innerHTML='<tr><td colspan="11" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td></tr>';return;}
+  if(!DB.stockDTF.length){tbody.innerHTML='<tr><td colspan="11" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td></tr>';return;}
   tbody.innerHTML=DB.stockDTF.map(function(d,i){
-    var utilises=DB.stockFini.filter(function(f){var cat=DB.catalogue.find(function(p){return p.code===f.code;});return cat&&cat.ref===d.ref;}).reduce(function(s,f){return s+(f.stock||0);},0);
-    var dispo=d.stock||0, projete=dispo+(d.enCommande||0);
+    var finis=DB.stockFini.filter(function(f){var p=DB.catalogue.find(function(x){return x.code===f.code;});return p&&p.ref===d.ref;}).reduce(function(s,f){return s+(f.stock||0);},0);
+    var dispo=d.stock||0,proj=dispo+(d.enCommande||0);
     var cls=dispo<=0?'badge-danger':dispo<=(d.seuil||3)?'badge-warn':'badge-ok';
     var txt=dispo<=0?'RUPTURE':dispo<=(d.seuil||3)?'BAS':'OK';
     return '<tr>'+
@@ -956,8 +950,8 @@ function renderStockDTF() {
       '<td style="font-weight:600;">'+d.nom+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="updateSD('+i+','stock',this.value)"></td>'+
       '<td class="c mono" style="color:var(--gold);font-weight:600;">'+(d.enCommande||0)+'</td>'+
-      '<td class="c mono" style="font-weight:700;color:var(--success);">'+projete+'</td>'+
-      '<td class="c mono" style="color:var(--muted);">'+utilises+'</td>'+
+      '<td class="c mono" style="font-weight:700;color:var(--success);">'+proj+'</td>'+
+      '<td class="c mono" style="color:var(--muted);">'+finis+'</td>'+
       '<td class="r"><input type="number" class="input-sm input-yellow" style="width:60px;text-align:right;" value="'+(d.pa||'')+'" step="0.01" placeholder="0.00" onchange="updateSD('+i+','pa',this.value)"></td>'+
       '<td class="r mono">'+fmt(dispo*(d.pa||0))+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+(d.seuil||3)+'" onchange="updateSD('+i+','seuil',this.value)"></td>'+
@@ -1591,9 +1585,7 @@ function resetAllData() {
 // INIT
 // ============================================================
 // Afficher un écran de chargement pendant la connexion Supabase
-document.addEventListener('DOMContentLoaded', function() {
-  loadDB(); // async - appelle renderAll() une fois les données chargées
-});
+loadDB();
 </script>
 </body>
 </html>
