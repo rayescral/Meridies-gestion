@@ -195,6 +195,21 @@ tr:hover td{background:var(--surface2);}
 </head>
 <body>
 
+<div id="lock-screen" style="display:none;position:fixed;inset:0;background:#12192B;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1A2235;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:40px;width:360px;max-width:95vw;text-align:center;">
+    <div style="font-size:28px;font-weight:700;color:#C9A84C;letter-spacing:.12em;margin-bottom:6px;">MERIDIES</div>
+    <div style="font-size:12px;color:rgba(201,168,76,0.5);margin-bottom:32px;">Gestion centralisée</div>
+    <div id="lock-title" style="font-size:15px;font-weight:600;color:#fff;margin-bottom:6px;">Accès sécurisé</div>
+    <div id="lock-sub" style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px;">Entrez le mot de passe pour continuer</div>
+    <input type="password" id="lock-input" class="input" placeholder="Mot de passe..."
+      style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
+      onkeydown="if(event.key==='Enter')lockSubmit()">
+    <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
+    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Accéder →</button>
+  </div>
+</div>
+
+
 <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
 <div class="layout">
@@ -754,7 +769,7 @@ function renderCatalogue() {
     return '<tr><td class="mono">'+p.code+'</td><td>'+p.design+'</td><td style="font-weight:600;">'+p.designation+'</td><td>'+p.couleur+'</td><td class="c">'+p.taille+'</td>'+
       '<td class="r mono">'+fmt(p.pv)+'</td><td class="r mono">'+((p.pa>0)?fmt(p.pa):'<span style="color:var(--hint)">—</span>')+'</td>'+
       '<td class="r"><span class="badge '+margeClass+'">'+marge+'</span></td>'+
-      '<td style="display:flex;gap:4px;"><button class="btn-icon" onclick="editProduct('+i+')" title="Modifier">✏️</button><button class="btn-icon" onclick="deleteProduct('+i+')" title="Supprimer" style="color:var(--danger);">🗑</button></td></tr>';
+      '<td><button class="btn-icon" onclick="editProduct('+i+')" title="Modifier">✏️</button></td></tr>';
   }).join('');
 }
 function editProduct(idx) {
@@ -775,88 +790,6 @@ function saveProduct(idx) {
   DB.catalogue[idx].pv = parseFloat(document.getElementById('edit-pv').value) || 0;
   DB.catalogue[idx].pa = parseFloat(document.getElementById('edit-pa').value) || 0;
   saveDB(); closeModal(); renderCatalogue(); toast('Produit mis à jour');
-}
-
-function deleteProduct(idx) {
-  var p = DB.catalogue[idx];
-  if (!confirm('Supprimer ' + p.code + ' ?')) return;
-  DB.catalogue.splice(idx, 1);
-  saveDB(); renderCatalogue(); toast('Produit supprime');
-}
-
-function openAddProduct() {
-  var couleursList = ['Noir','Blanc','Rose','Bleu','Vert','Violet','Marron','Beige','Jaune','Rouge','Gris','Bleu Marine','Bleu Ciel'];
-  var cbCouleurs = couleursList.map(function(col) {
-    return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;padding:3px 8px;border:1px solid var(--border);border-radius:6px;">' +
-           '<input type="checkbox" class="np-col" value="' + col + '"> ' + col + '</label>';
-  }).join('');
-  var cbTailles = ['XS','S','M','L','XL','XXL','U'].map(function(t) {
-    var chk = ['XS','S','M','L'].indexOf(t) > -1 ? ' checked' : '';
-    return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;">' +
-           '<input type="checkbox" class="np-tai" value="' + t + '"' + chk + '> ' + t + '</label>';
-  }).join('');
-  openModal(
-    '<div class="modal-title">Nouveau produit</div>' +
-    '<div class="grid2" style="margin-bottom:14px;">' +
-      '<div class="field"><label>Nom du design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>' +
-      '<div class="field"><label>Reference (ex: LP-0700)</label><input type="text" class="input" id="np-ref" placeholder="LP-0700"></div>' +
-    '</div>' +
-    '<div class="field" style="margin-bottom:12px;"><label>Couleurs</label>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">' + cbCouleurs + '</div>' +
-    '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">' +
-      '<input type="text" class="input input-sm" id="np-col-custom" placeholder="Autre couleur..." style="flex:1;">' +
-      '<button class="btn btn-secondary btn-sm" onclick="ajouterCouleur()">+ Ajouter</button>' +
-    '</div></div>' +
-    '<div class="field" style="margin-bottom:12px;"><label>Tailles</label>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">' + cbTailles + '</div></div>' +
-    '<div class="field" style="margin-bottom:14px;"><label>Prix de vente (euros)</label>' +
-      '<input type="number" class="input" id="np-pv" value="35" step="0.01" style="width:150px;"></div>' +
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
-      '<button class="btn btn-primary" onclick="creerProduit()">Creer les produits</button>' +
-    '</div>'
-  );
-}
-
-function ajouterCouleur() {
-  var val = document.getElementById('np-col-custom').value.trim();
-  if (!val) return;
-  var zone = document.querySelector('.np-col');
-  if (!zone) return;
-  var container = zone.parentNode;
-  var lbl = document.createElement('label');
-  lbl.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;padding:3px 8px;border:1px solid var(--border);border-radius:6px;';
-  lbl.innerHTML = '<input type="checkbox" class="np-col" value="' + val + '" checked> ' + val;
-  container.appendChild(lbl);
-  document.getElementById('np-col-custom').value = '';
-}
-
-function creerProduit() {
-  var design  = document.getElementById('np-design').value.trim();
-  var ref     = document.getElementById('np-ref').value.trim().toUpperCase();
-  var pv      = parseFloat(document.getElementById('np-pv').value) || 35;
-  var couleurs = Array.from(document.querySelectorAll('.np-col:checked')).map(function(el){ return el.value; });
-  var tailles  = Array.from(document.querySelectorAll('.np-tai:checked')).map(function(el){ return el.value; });
-  if (!design || !ref) { toast('Remplissez le design et la reference'); return; }
-  if (!couleurs.length) { toast('Selectionnez au moins une couleur'); return; }
-  if (!tailles.length)  { toast('Selectionnez au moins une taille'); return; }
-  var total = 0;
-  couleurs.forEach(function(couleur) {
-    var famId = String(DB.catalogue.length + 1).padStart(3, '0');
-    tailles.forEach(function(t) {
-      var code = ref + '-' + famId + '-' + t;
-      if (!DB.catalogue.find(function(p){ return p.code === code; })) {
-        DB.catalogue.push({ code:code, ref:ref, design:design, couleur:couleur,
-          designation:design + ' ' + couleur, taille:t, pv:pv, pa:0 });
-        total++;
-      }
-    });
-    var dtfNom = design + ' ' + couleur;
-    if (!DB.stockDTF.find(function(d){ return d.nom === dtfNom; }))
-      DB.stockDTF.push({ ref:ref, nom:dtfNom, stock:0, pa:0, seuil:3, enCommande:0 });
-  });
-  saveDB(); closeModal(); renderCatalogue();
-  toast(total + ' SKU(s) crees pour ' + couleurs.length + ' couleur(s)');
 }
 
 // ============================================================
@@ -1588,6 +1521,66 @@ function resetAllData() {
 document.addEventListener('DOMContentLoaded', function() {
   loadDB(); // async - appelle renderAll() une fois les données chargées
 });
+
+// ============================================================
+// PROTECTION PAR MOT DE PASSE
+// ============================================================
+(function() {
+  var lockEl = document.getElementById('lock-screen');
+  var stored = localStorage.getItem('meridies_pwd');
+  var authed = sessionStorage.getItem('meridies_authed');
+
+  // Déjà authentifié dans cette session
+  if (authed === '1') { lockEl.style.display = 'none'; return; }
+
+  // Afficher l'écran de verrouillage
+  lockEl.style.display = 'flex';
+  document.getElementById('lock-screen').style.display = 'flex';
+
+  if (!stored) {
+    // Première visite : créer le mot de passe
+    document.getElementById('lock-title').textContent = 'Première connexion';
+    document.getElementById('lock-sub').textContent = 'Choisissez votre mot de passe (il sera demandé à chaque visite)';
+    document.querySelector('#lock-screen button').textContent = 'Définir le mot de passe →';
+  }
+})();
+
+function lockSubmit() {
+  var input = document.getElementById('lock-input').value;
+  var errEl = document.getElementById('lock-error');
+  var stored = localStorage.getItem('meridies_pwd');
+
+  if (!input) { errEl.textContent = 'Entrez un mot de passe'; return; }
+
+  if (!stored) {
+    // Première fois : enregistrer le mot de passe
+    if (input.length < 4) { errEl.textContent = 'Minimum 4 caractères'; return; }
+    // Stockage simple (hashé avec btoa pour ne pas laisser en clair)
+    localStorage.setItem('meridies_pwd', btoa(input + ':meridies'));
+    sessionStorage.setItem('meridies_authed', '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    errEl.textContent = '';
+  } else {
+    // Vérifier le mot de passe
+    if (btoa(input + ':meridies') === stored) {
+      sessionStorage.setItem('meridies_authed', '1');
+      document.getElementById('lock-screen').style.display = 'none';
+      errEl.textContent = '';
+    } else {
+      errEl.textContent = 'Mot de passe incorrect';
+      document.getElementById('lock-input').value = '';
+      document.getElementById('lock-input').focus();
+    }
+  }
+}
+
+// Fonction pour changer le mot de passe (depuis la console si besoin)
+function changerMotDePasse() {
+  localStorage.removeItem('meridies_pwd');
+  sessionStorage.removeItem('meridies_authed');
+  location.reload();
+}
+
 </script>
 </body>
 </html>
