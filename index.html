@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MERIDIES — Gestion Centralisée</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -202,6 +203,7 @@ tr:hover td{background:var(--surface2);}
   <div class="sidebar-brand">
     <h1>MERIDIES</h1>
     <p>Gestion centralisée</p>
+    <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.03em;">⏳ Connexion...</p>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">Principal</div>
@@ -470,11 +472,71 @@ var DB = {
   todos: []
 };
 
-function loadDB() {
-  try { var d = JSON.parse(localStorage.getItem('meridies_db')); if(d) DB = Object.assign(DB, d); } catch(e) {}
-  if(DB.catalogue.length === 0) initDefaultData();
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+var SUPA_URL = 'https://twsuchpzsytlourrjjgg.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3c3VjaHB6c3l0bG91cnJqamdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTc4NTYsImV4cCI6MjA5MTQ3Mzg1Nn0.tb0DyVe6-jwdIWR0kqLy6Np8YSM-B-fOZ-szAHgvJrE';
+var supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+function setStatus(connected) {
+  var el = document.getElementById('sync-status');
+  if (!el) return;
+  if (connected) { el.textContent = '🟢 Synchronisé'; el.style.color = '#059669'; }
+  else { el.textContent = '🔴 Hors ligne'; el.style.color = '#DC2626'; }
 }
-function saveDB() { try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {} }
+
+async function loadDB() {
+  try {
+    var res = await supabase.from('app_state').select('data').eq('id', 1).single();
+    if (res.error && res.error.code === 'PGRST116') {
+      initDefaultData();
+      await supabase.from('app_state').insert({ id: 1, data: DB });
+    } else if (res.error) {
+      throw res.error;
+    } else {
+      DB = Object.assign(DB, res.data.data);
+      if (DB.catalogue.length === 0) initDefaultData();
+    }
+    setStatus(true);
+    subscribeRealtime();
+  } catch(e) {
+    console.warn('Supabase indisponible, fallback localStorage', e);
+    try { var d = JSON.parse(localStorage.getItem('meridies_db')); if(d) DB = Object.assign(DB, d); } catch(e2) {}
+    if (DB.catalogue.length === 0) initDefaultData();
+    setStatus(false);
+  }
+  renderAll();
+}
+
+function saveDB() {
+  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+  supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
+    .then(function(r){ setStatus(!r.error); }).catch(function(){ setStatus(false); });
+}
+
+function subscribeRealtime() {
+  supabase.channel('meridies_sync')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
+      if (payload.new && payload.new.data) {
+        DB = Object.assign(DB, payload.new.data);
+        renderAll();
+        toast('🔄 Données mises à jour en temps réel');
+      }
+    }).subscribe();
+}
+
+function renderAll() {
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderCatalogue === 'function') renderCatalogue();
+  if (typeof renderStockVierge === 'function') renderStockVierge();
+  if (typeof renderStockDTF === 'function') renderStockDTF();
+  if (typeof renderStockFini === 'function') renderStockFini();
+  if (typeof renderVentes === 'function') renderVentes();
+  if (typeof renderBC === 'function') renderBC();
+  if (typeof renderFournisseurs === 'function') renderFournisseurs();
+  if (typeof renderTodos === 'function') renderTodos();
+}
 
 function initDefaultData() {
   // Pre-populate catalogue from DATABASE
@@ -1440,8 +1502,10 @@ function resetAllData() {
 // ============================================================
 // INIT
 // ============================================================
-loadDB();
-renderDashboard();
+// Afficher un écran de chargement pendant la connexion Supabase
+document.addEventListener('DOMContentLoaded', function() {
+  loadDB(); // async - appelle renderAll() une fois les données chargées
+});
 </script>
 </body>
 </html>
