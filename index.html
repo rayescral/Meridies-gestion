@@ -1,1606 +1,577 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MERIDIES — Gestion Centralisée</title>
+<title>MERIDIES — ERP Centralisé</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --noir:#12192B;--noir2:#1A2235;--noir3:#222D42;
-  --gold:#C9A84C;--gold-dim:rgba(201,168,76,0.15);--gold-text:rgba(201,168,76,0.7);
-  --surface:#FFFFFF;--surface2:#F7F8FA;--surface3:#EEF0F4;
-  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.15);
-  --text:#12192B;--muted:#6B7280;--hint:#9CA3AF;
-  --success:#059669;--success-bg:#ECFDF5;
-  --warning:#D97706;--warning-bg:#FFFBEB;
-  --danger:#DC2626;--danger-bg:#FEF2F2;
-  --info:#2563EB;--info-bg:#EFF6FF;
-  --r:10px;--r-lg:14px;
-  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
-  --shadow-lg:0 4px 12px rgba(0,0,0,0.08);
+:root {
+  --noir:#12192B; --noir2:#1A2235; --gold:#C9A84C; --gold-dim:rgba(201,168,76,0.15); --gold-text:rgba(201,168,76,0.7);
+  --surface:#FFFFFF; --surface2:#F7F8FA; --surface3:#EEF0F4;
+  --border:rgba(0,0,0,0.08); --border2:rgba(0,0,0,0.15);
+  --text:#12192B; --muted:#6B7280; --hint:#9CA3AF;
+  --success:#059669; --success-bg:#ECFDF5; --warning:#D97706; --warning-bg:#FFFBEB; --danger:#DC2626; --danger-bg:#FEF2F2; --info:#2563EB; --info-bg:#EFF6FF;
+  --r:10px; --r-lg:14px; --shadow:0 1px 3px rgba(0,0,0,0.06);
 }
-body{font-family:'DM Sans',system-ui,sans-serif;background:#F0F1F5;color:var(--text);min-height:100vh;}
+[data-theme="dark"] {
+  --surface:#1E293B; --surface2:#0F172A; --surface3:#334155;
+  --border:rgba(255,255,255,0.1); --border2:rgba(255,255,255,0.2);
+  --text:#F8FAFC; --muted:#94A3B8; --hint:#64748B;
+  --success-bg:rgba(5,150,105,0.15); --warning-bg:rgba(217,119,6,0.15); --danger-bg:rgba(220,38,38,0.15); --info-bg:rgba(37,99,235,0.15);
+  --gold:#D4AF37;
+}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--surface2);color:var(--text);min-height:100vh;}
 .mono{font-family:'JetBrains Mono',monospace;}
 
-/* ===== SIDEBAR ===== */
+/* LAYOUT & SIDEBAR */
 .layout{display:flex;min-height:100vh;}
-.sidebar{width:220px;background:var(--noir);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s;}
+.sidebar{width:220px;background:var(--noir);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
 .sidebar-brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.06);}
 .sidebar-brand h1{font-size:18px;font-weight:700;color:var(--gold);letter-spacing:.12em;}
-.sidebar-brand p{font-size:10px;color:var(--gold-text);margin-top:2px;letter-spacing:.05em;}
+.sidebar-brand p{font-size:10px;color:var(--gold-text);margin-top:2px;}
 .sidebar-nav{flex:1;padding:12px 10px;overflow-y:auto;}
 .nav-section{font-size:9px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:.12em;padding:12px 10px 6px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;}
-.nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.55);font-size:12px;font-weight:500;margin-bottom:2px;}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
 .nav-item.active{background:var(--gold-dim);color:var(--gold);font-weight:600;}
-.nav-item .icon{font-size:16px;width:20px;text-align:center;}
-.nav-item .badge-nav{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:99px;font-weight:700;background:rgba(201,168,76,0.2);color:var(--gold);}
-.sidebar-footer{padding:12px 14px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;color:rgba(255,255,255,0.2);}
 
-/* ===== MAIN ===== */
-.main{margin-left:220px;flex:1;min-height:100vh;}
+/* MAIN & TOPBAR */
+.main{margin-left:220px;flex:1;}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;}
-.topbar-title{font-size:16px;font-weight:700;color:var(--text);}
-.topbar-actions{display:flex;gap:8px;align-items:center;}
+.topbar-search{position:relative;width:300px;}
+.topbar-search input{width:100%;padding:8px 12px 8px 32px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;}
+.search-res{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);max-height:300px;overflow-y:auto;display:none;z-index:100;}
+.search-res div{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border2);}
+.search-res div:hover{background:var(--surface2);}
 .content{padding:24px 28px;}
 
-/* ===== CARDS ===== */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:16px;box-shadow:var(--shadow);}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+/* CARDS & TABLES */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:16px;}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;}
 .card-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;}
-.card-sm{padding:14px 16px;}
-
-/* ===== KPI ===== */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--shadow);}
-.kpi-label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;}
-.kpi-value{font-size:26px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;}
-.kpi-sub{font-size:11px;color:var(--hint);margin-top:4px;}
-.kpi-accent .kpi-value{color:var(--gold);}
-.kpi-success .kpi-value{color:var(--success);}
-.kpi-warning .kpi-value{color:var(--warning);}
-
-/* ===== TABLE ===== */
-.table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;}
-th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
-th.r{text-align:right;}
-td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
-td.r{text-align:right;}
-td.c{text-align:center;}
-td.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);}
+th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--border);}
+td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;}
+.r{text-align:right;} .c{text-align:center;}
 tr:hover td{background:var(--surface2);}
 
-/* ===== FORMS ===== */
-.field{display:flex;flex-direction:column;gap:4px;}
-.field label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
-.input,.select{font-size:13px;padding:8px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:'DM Sans',sans-serif;width:100%;transition:border-color .15s;}
-.input:focus,.select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim);}
-.input-sm{padding:5px 8px;font-size:12px;}
-.input-yellow{background:#FFFEF5;border-color:#E8D88C;}
+/* FORMS & BUTTONS */
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.field label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;}
+.input,.select{font-size:13px;padding:8px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);width:100%;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-
-/* ===== BUTTONS ===== */
-.btn{padding:8px 18px;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn{padding:8px 18px;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;border:none;}
 .btn-primary{background:var(--gold);color:var(--noir);}
-.btn-primary:hover{opacity:.9;transform:translateY(-1px);}
-.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border2);}
-.btn-secondary:hover{background:var(--surface2);}
-.btn-success{background:var(--success);color:#fff;}
-.btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(220,38,38,0.15);}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
 .btn-sm{padding:5px 12px;font-size:11px;}
-.btn-xs{padding:3px 8px;font-size:10px;border-radius:6px;}
-.btn-icon{width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;font-size:14px;}
-
-/* ===== BADGES ===== */
-.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;}
+.badge{padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;}
 .badge-ok{background:var(--success-bg);color:var(--success);}
 .badge-warn{background:var(--warning-bg);color:var(--warning);}
 .badge-danger{background:var(--danger-bg);color:var(--danger);}
-.badge-info{background:var(--info-bg);color:var(--info);}
-.badge-neutral{background:var(--surface3);color:var(--muted);}
 
-/* ===== TOAST ===== */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--noir);color:var(--gold);padding:12px 20px;border-radius:var(--r);font-size:13px;font-weight:500;border:1px solid rgba(201,168,76,0.2);box-shadow:var(--shadow-lg);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;}
-.toast.show{transform:translateY(0);opacity:1;}
+/* KANBAN */
+.kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:10px;}
+.k-col{flex:1;min-width:250px;background:var(--surface2);border-radius:var(--r);padding:12px;}
+.k-col-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:12px;display:flex;justify-content:space-between;}
+.k-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;cursor:grab;box-shadow:var(--shadow);}
+.k-card:active{cursor:grabbing;}
 
-/* ===== MODAL ===== */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+/* STARS */
+.stars{color:var(--gold);font-size:14px;}
+
+.page{display:none;} .page.active{display:block;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;}
+.kpi-label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;}
+.kpi-value{font-size:24px;font-weight:700;font-family:'JetBrains Mono';}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--surface);border-radius:var(--r-lg);padding:28px;width:520px;max-width:95vw;box-shadow:0 16px 48px rgba(0,0,0,0.2);}
-.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
-.modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
-
-/* ===== SECTIONS ===== */
-.page{display:none;}
-.page.active{display:block;}
-.empty-state{text-align:center;padding:48px 20px;color:var(--hint);font-size:13px;}
-.empty-state .icon{font-size:32px;margin-bottom:8px;opacity:.5;}
-.section-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-
-/* ===== STOCK BAR ===== */
-.stock-bar{height:6px;border-radius:3px;background:var(--surface3);overflow:hidden;}
-.stock-bar-fill{height:100%;border-radius:3px;transition:width .3s;}
-.stock-bar-fill.ok{background:var(--success);}
-.stock-bar-fill.warn{background:var(--warning);}
-.stock-bar-fill.danger{background:var(--danger);}
-
-/* ===== SEARCH ===== */
-.search-box{position:relative;}
-.search-box input{padding-left:32px;}
-.search-box::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.4;}
-
-/* ===== TABS INLINE ===== */
-.tabs-inline{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--border);}
-.tab-inline{padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
-.tab-inline.active{color:var(--gold);border-bottom-color:var(--gold);}
-.tab-inline:hover:not(.active){color:var(--text);}
-
-/* ===== RESPONSIVE ===== */
-.mobile-toggle{display:none;position:fixed;top:14px;left:14px;z-index:200;width:36px;height:36px;border-radius:8px;background:var(--noir);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:18px;cursor:pointer;align-items:center;justify-content:center;}
-@media(max-width:768px){
-  .sidebar{transform:translateX(-100%);}
-  .sidebar.open{transform:translateX(0);}
-  .main{margin-left:0;}
-  .mobile-toggle{display:flex;}
-  .kpi-grid{grid-template-columns:1fr 1fr;}
-  .grid2,.grid3,.grid4{grid-template-columns:1fr;}
-  .content{padding:16px;}
-}
-
-/* ===== PDF PRINT ===== */
-.pdf-doc{max-width:780px;margin:0 auto;background:#fff;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:#12192B;}
-.pdf-header{background:#12192B;padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;border-radius:var(--r-lg) var(--r-lg) 0 0;}
-.pdf-brand{font-size:22px;font-weight:700;color:#C9A84C;letter-spacing:.12em;}
-.pdf-brand-sub{font-size:10px;color:rgba(201,168,76,0.6);margin-top:2px;}
-.pdf-bc-num{font-size:14px;font-weight:700;color:#C9A84C;font-family:'JetBrains Mono',monospace;}
-.pdf-bc-date{font-size:10px;color:rgba(201,168,76,0.6);margin-top:2px;}
-.pdf-body{padding:20px 24px;}
-.pdf-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
-.pdf-section-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #eee;}
-.pdf-field{margin-bottom:6px;}
-.pdf-field-label{font-size:9px;color:#999;}
-.pdf-field-value{font-size:12px;font-weight:600;}
-.pdf-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
-.pdf-table th{padding:8px 10px;background:#12192B;color:#C9A84C;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;text-align:left;}
-.pdf-table th.r{text-align:right;}
-.pdf-table td{padding:7px 10px;border-bottom:1px solid #f0f0f0;font-size:11px;}
-.pdf-table td.r{text-align:right;font-family:'JetBrains Mono',monospace;}
-.pdf-table td.c{text-align:center;}
-.pdf-table tr:nth-child(even) td{background:#fafafa;}
-.pdf-total-row td{font-weight:700;border-top:2px solid #C9A84C;background:#f5e6c0!important;}
-.pdf-footer{background:#f8f8f5;padding:12px 24px;border-top:1px solid #eee;display:flex;justify-content:space-between;align-items:center;}
-.pdf-footer-note{font-size:9px;color:#aaa;}
-.pdf-sign-label{font-size:9px;color:#999;}
-.pdf-sign-box{width:160px;height:50px;border:1px dashed #ccc;border-radius:4px;margin-top:4px;}
-.pdf-comment{background:#fef9e7;border-left:3px solid #C9A84C;padding:8px 12px;border-radius:4px;font-size:11px;margin-bottom:16px;}
-.progress-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
-.progress-bar{height:100%;background:var(--gold);border-radius:3px;transition:width .3s;}
-@media print{
-  body{background:#fff!important;padding:0!important;}
-  .layout>.sidebar,.main>.topbar,.no-print{display:none!important;}
-  .main{margin-left:0!important;}
-  .page{display:none!important;}
-  #pdf-preview{display:block!important;}
-  .content{padding:0!important;}
-}
-#pdf-preview{display:none;}
-
+.modal{background:var(--surface);padding:24px;border-radius:var(--r-lg);width:500px;max-width:90vw;}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--gold);color:var(--noir);padding:12px 20px;border-radius:8px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9999;}
+.toast.show{opacity:1;}
 </style>
 </head>
 <body>
-<div id="lock-screen" style="position:fixed;inset:0;background:#12192B;z-index:9999;display:flex;align-items:center;justify-content:center;">
-  <div style="background:#1A2235;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:40px;width:360px;max-width:95vw;text-align:center;">
-    <div style="font-size:28px;font-weight:700;color:#C9A84C;letter-spacing:.12em;margin-bottom:6px;">MERIDIES</div>
-    <div style="font-size:12px;color:rgba(201,168,76,0.5);margin-bottom:32px;">Gestion centralisee</div>
-    <div style="font-size:15px;font-weight:600;color:#fff;margin-bottom:6px;">Acces securise</div>
-    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px;">Entrez le mot de passe pour continuer</div>
-    <input type="password" id="lock-input" class="input" placeholder="Mot de passe..."
-      style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
-      onkeydown="if(event.key==='Enter')lockSubmit()">
-    <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
-    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Acceder</button>
-  </div>
-</div>
-
-<button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
 <div class="layout">
-<!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
   <div class="sidebar-brand">
     <h1>MERIDIES</h1>
-    <p>Gestion centralisée</p>
-    <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.03em;">⏳ Connexion...</p>
+    <p>ERP Centralisé</p>
+    <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;color:var(--muted);">⏳ Init...</p>
   </div>
   <nav class="sidebar-nav">
-    <div class="nav-section">Principal</div>
-    <div class="nav-item active" onclick="goTo('dashboard')"><span class="icon">📊</span>Tableau de bord</div>
-    <div class="nav-item" onclick="goTo('catalogue')"><span class="icon">📦</span>Catalogue<span class="badge-nav" id="nav-cat-count">0</span></div>
+    <div class="nav-section">Pilotage</div>
+    <div class="nav-item active" onclick="goTo('dashboard')">📊 Tableau de bord</div>
+    <div class="nav-item" onclick="goTo('agenda')">📅 Agenda & Relances</div>
+    <div class="nav-item" onclick="goTo('treso')">💶 Trésorerie</div>
     
-    <div class="nav-section">Stocks</div>
-    <div class="nav-item" onclick="goTo('stock-vierge')"><span class="icon">👕</span>T-shirts vierges</div>
-    <div class="nav-item" onclick="goTo('stock-dtf')"><span class="icon">🎨</span>DTF Designs</div>
-    <div class="nav-item" onclick="goTo('stock-fini')"><span class="icon">✅</span>Produits finis</div>
+    <div class="nav-section">Catalogue & Stocks</div>
+    <div class="nav-item" onclick="goTo('catalogue')">📦 Catalogue / Drops</div>
+    <div class="nav-item" onclick="goTo('stock-vierge')">👕 T-shirts vierges</div>
+    <div class="nav-item" onclick="goTo('stock-dtf')">🎨 DTF Designs</div>
+    <div class="nav-item" onclick="goTo('stock-fini')">✅ Produits finis</div>
     
-    <div class="nav-section">Ventes</div>
-    <div class="nav-item" onclick="goTo('saisie-vente')"><span class="icon">🛒</span>Saisie vente</div>
-    <div class="nav-item" onclick="goTo('stats')"><span class="icon">📈</span>Statistiques</div>
+    <div class="nav-section">Commercial</div>
+    <div class="nav-item" onclick="goTo('saisie-vente')">🛒 Ventes & Saisie</div>
+    <div class="nav-item" onclick="goTo('marches')">⛺ Journal Marchés</div>
+    <div class="nav-item" onclick="goTo('sav')">🔄 SAV & Retours</div>
     
-    <div class="nav-section">Achats</div>
-    <div class="nav-item" onclick="goTo('fournisseurs')"><span class="icon">🏭</span>Fournisseurs</div>
-    <div class="nav-item" onclick="goTo('commandes')"><span class="icon">📋</span>Bons de commande</div>
-    
-    <div class="nav-section">Outils</div>
-    <div class="nav-item" onclick="goTo('cout-revient')"><span class="icon">🧮</span>Coût de revient</div>
-    <div class="nav-item" onclick="goTo('todo')"><span class="icon">✏️</span>Tâches</div>
+    <div class="nav-section">Achats & Opérationnel</div>
+    <div class="nav-item" onclick="goTo('fournisseurs')">🏭 Fournisseurs</div>
+    <div class="nav-item" onclick="goTo('commandes')">📋 Bons de commande</div>
+    <div class="nav-item" onclick="goTo('todo')">📋 Kanban (Tâches)</div>
   </nav>
-  <div class="sidebar-footer">Meridies Brand © 2026<br>Données stockées localement</div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
 <div class="topbar">
-  <div class="topbar-title" id="page-title">Tableau de bord</div>
-  <div class="topbar-actions">
-    <button class="btn btn-secondary btn-sm" onclick="exportAllData()">⬇ Exporter tout</button>
-    <button class="btn btn-danger btn-sm" onclick="resetAllData()">🗑 Réinitialiser</button>
+  <div style="display:flex;align-items:center;gap:20px;">
+    <div class="topbar-title" id="page-title" style="font-weight:700;font-size:16px;">Tableau de bord</div>
+    <div class="topbar-search">
+      <input type="text" placeholder="Recherche globale (Alt+S)..." id="global-search" oninput="doSearch(this.value)">
+      <div class="search-res" id="search-results"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-secondary btn-sm" onclick="toggleTheme()">🌗 Thème</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇ Export complet</button>
   </div>
 </div>
 
 <div class="content">
 
-<!-- ==================== DASHBOARD ==================== -->
 <div class="page active" id="page-dashboard">
   <div class="kpi-grid" id="dash-kpis"></div>
-  <div class="grid2" style="margin-bottom:16px;">
-    <div class="card"><div class="card-header"><span class="card-title">CA par canal</span></div><div style="position:relative;height:200px;"><canvas id="ch1"></canvas></div></div>
-    <div class="card"><div class="card-header"><span class="card-title">Top designs</span></div><div style="position:relative;height:200px;"><canvas id="ch2"></canvas></div></div>
-  </div>
-  <div class="grid2" style="margin-bottom:16px;">
-    <div class="card"><div class="card-header"><span class="card-title">Etat des stocks</span></div><div style="position:relative;height:200px;"><canvas id="ch3"></canvas></div></div>
-    <div class="card"><div class="card-header"><span class="card-title">Ventes par taille</span></div><div style="position:relative;height:200px;"><canvas id="ch4"></canvas></div></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Objectif du mois</span></div>
+      <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <input type="number" id="obj-val" class="input" placeholder="Objectif CA €" onchange="updateObj(this.value)">
+      </div>
+      <div style="background:var(--surface3);height:12px;border-radius:6px;overflow:hidden;">
+        <div id="obj-bar" style="background:var(--gold);height:100%;width:0%;transition:width .5s;"></div>
+      </div>
+      <div style="text-align:right;font-size:11px;margin-top:4px;color:var(--muted);" id="obj-text">0%</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Bloc-notes Rapide</span></div>
+      <textarea id="dash-notes" class="input" style="height:100px;resize:none;" placeholder="Idées, urgences..." oninput="DB.notes=this.value;saveDB()"></textarea>
+    </div>
   </div>
   <div class="grid2">
     <div class="card">
-      <div class="card-header"><span class="card-title">Dernieres ventes</span></div>
-      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Article</th><th>Canal</th><th class="r">PV</th></tr></thead><tbody id="dash-last-sales"></tbody></table></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">Alertes stock</span></div>
+      <div class="card-header"><span class="card-title">Alertes Stock</span></div>
       <div id="dash-alerts"></div>
     </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Dernières Activités</span></div>
+      <div id="dash-logs" style="font-size:12px;max-height:200px;overflow-y:auto;"></div>
+    </div>
   </div>
 </div>
 
-<!-- ==================== CATALOGUE ==================== -->
 <div class="page" id="page-catalogue">
   <div class="card">
-    <div class="card-header">
-      <span class="card-title">Catalogue produits finis (<span id="cat-count">0</span>)</span>
-      <div class="section-actions">
-        <input type="text" class="input input-sm" placeholder="Rechercher..." style="width:200px;" oninput="filterCatalogue(this.value)">
-        <button class="btn btn-primary btn-sm" onclick="openAddProduct()">+ Ajouter un produit</button>
-      </div>
+    <div class="card-header"><span class="card-title">Catalogue / Drops</span>
+      <button class="btn btn-primary btn-sm">+ Nouveau produit</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Code Article</th><th>Design</th><th>Désignation</th><th>Couleur</th><th>Taille</th><th class="r">PV (€)</th><th class="r">PA (€)</th><th class="r">Marge</th><th></th></tr></thead><tbody id="cat-body"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Code</th><th>Design</th><th>Désignation</th><th>Taille</th><th class="r">PV (€)</th></tr></thead><tbody id="cat-body"></tbody></table></div>
   </div>
 </div>
 
-<!-- ==================== STOCK VIERGE ==================== -->
-<div class="page" id="page-stock-vierge">
-  <div class="kpi-grid" id="sv-kpis" style="grid-template-columns:repeat(3,1fr);"></div>
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Stock T-shirts vierges</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddStockVierge()">+ Entrée de stock</button>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Référence</th><th>Couleur</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>XXL</th><th class="r">Total</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sv-body"></tbody></table></div>
-  </div>
-</div>
-
-<!-- ==================== STOCK DTF ==================== -->
-<div class="page" id="page-stock-dtf">
-  <div class="kpi-grid" id="sd-kpis" style="grid-template-columns:repeat(3,1fr);"></div>
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Stock DTF (Designs)</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddStockDTF()">+ Entrée de stock</button>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Réf. Design</th><th>Désignation</th><th class="c">Stock</th><th class="c">En cde</th><th class="c">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th class="c">Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sd-body"></tbody></table></div>
-  </div>
-</div>
-
-<!-- ==================== STOCK FINI ==================== -->
-<div class="page" id="page-stock-fini">
-  <div class="kpi-grid" id="sf-kpis" style="grid-template-columns:repeat(3,1fr);"></div>
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Stock Produits finis (prêts à vendre)</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddStockFini()">+ Assembler un produit</button>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Code Article</th><th>Désignation</th><th>Taille</th><th>Stock</th><th class="r">PV (€)</th><th class="r">Valeur PV</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sf-body"></tbody></table></div>
-  </div>
-</div>
-
-<!-- ==================== SAISIE VENTE ==================== -->
 <div class="page" id="page-saisie-vente">
   <div class="card">
-    <div class="card-header"><span class="card-title">Enregistrer une vente</span></div>
-    <div class="grid3" style="margin-bottom:16px;">
-      <div class="field"><label>Canal de vente</label><select class="select" id="vente-canal"><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option></select></div>
-      <div class="field"><label>Code Article</label><select class="select" id="vente-code" onchange="onVenteCodeChange()"><option value="">— Choisir —</option></select></div>
-      <div class="field"><label>Date</label><input type="date" class="input" id="vente-date"></div>
-    </div>
-    <div class="grid4" style="margin-bottom:16px;">
-      <div class="field"><label>Désignation</label><input type="text" class="input" id="vente-desig" readonly style="background:var(--surface2);"></div>
-      <div class="field"><label>Taille</label><input type="text" class="input" id="vente-taille" readonly style="background:var(--surface2);"></div>
-      <div class="field"><label>PV (€)</label><input type="text" class="input mono" id="vente-pv" readonly style="background:var(--surface2);"></div>
-      <div class="field"><label>Quantité</label><input type="number" class="input input-yellow" id="vente-qte" value="1" min="1"></div>
-    </div>
-    <div class="grid2" style="margin-bottom:16px;">
-      <div class="field"><label>N° Commande (web)</label><input type="text" class="input" id="vente-numcde" placeholder="Ex: #1080"></div>
-      <div class="field"><label>Email client (web)</label><input type="email" class="input" id="vente-email" placeholder="client@email.com"></div>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-secondary" onclick="clearVenteForm()">Annuler</button>
-      <button class="btn btn-primary" onclick="enregistrerVente()">✓ Enregistrer la vente</button>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">Historique des ventes</span>
-      <div class="section-actions">
-        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:120px;"><option value="">Tous canaux</option><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option></select>
-        <button class="btn btn-secondary btn-sm" onclick="exportVentesCSV()">⬇ Export CSV</button>
+    <div class="card-header"><span class="card-title">Saisir une vente</span></div>
+    <div class="grid3">
+      <div class="field"><label>Canal</label><select id="v-canal" class="select"><option>Marché</option><option>Web</option></select></div>
+      <div class="field"><label>Article</label>
+        <input list="dl-articles" id="v-code" class="input" placeholder="Taper réf ou nom..." onchange="onVenteArticle()">
+        <datalist id="dl-articles"></datalist>
       </div>
+      <div class="field"><label>Qté</label><input type="number" id="v-qte" class="input" value="1"></div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Canal</th><th>Code Article</th><th>Désignation</th><th>Taille</th><th class="r">Qté</th><th class="r">PV (€)</th><th class="r">Total</th><th>N° Cde</th><th></th></tr></thead><tbody id="ventes-body"></tbody></table></div>
-  </div>
-</div>
-
-<!-- ==================== STATISTIQUES ==================== -->
-<div class="page" id="page-stats">
-  <div class="kpi-grid" id="stats-kpis"></div>
-  <div class="grid2">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Top designs (CA)</span></div>
-      <div id="stats-designs"></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">Répartition par taille</span></div>
-      <div id="stats-tailles"></div>
-    </div>
+    <button class="btn btn-primary" onclick="saveVente()">Valider la vente</button>
   </div>
   <div class="card">
-    <div class="card-header"><span class="card-title">Répartition par canal</span></div>
-    <div id="stats-canaux"></div>
+    <div class="card-header"><span class="card-title">Historique</span></div>
+    <table><thead><tr><th>Date</th><th>Canal</th><th>Article</th><th class="r">Qté</th><th class="r">Total</th></tr></thead><tbody id="ventes-body"></tbody></table>
   </div>
 </div>
 
-<!-- ==================== FOURNISSEURS ==================== -->
 <div class="page" id="page-fournisseurs">
   <div class="card">
-    <div class="card-header"><span class="card-title">Base fournisseurs</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddFournisseur()">+ Ajouter</button>
+    <div class="card-header"><span class="card-title">Base Fournisseurs</span>
+      <button class="btn btn-primary btn-sm" onclick="openFournModal()">+ Ajouter</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Contact</th><th>Produits</th><th>RDV</th><th>Devis</th><th class="r">Prix moyen</th><th>Notes</th><th></th></tr></thead><tbody id="fourn-body"></tbody></table></div>
+    <table><thead><tr><th>Nom</th><th>Types Produits</th><th>Note Globale</th><th>Détail (Q/P/D/C)</th><th class="r">Commandes</th><th class="r">Engagé €</th><th>Actions</th></tr></thead><tbody id="fourn-body"></tbody></table>
   </div>
 </div>
 
-<!-- ==================== BONS DE COMMANDE ==================== -->
 <div class="page" id="page-commandes">
-  <div class="kpi-grid" id="bc-kpis"></div>
   <div class="card">
-    <div class="card-header"><span class="card-title">Nouveau bon de commande</span></div>
-    <div class="grid3" style="margin-bottom:14px;">
-      <div class="field"><label>N° Bon de commande</label><div class="mono" id="bc-num" style="padding:8px 12px;background:var(--surface2);border-radius:var(--r);font-weight:600;">—</div></div>
-      <div class="field"><label>Date commande</label><input type="date" class="input" id="bc-date"></div>
-      <div class="field"><label>Livraison souhaitée</label><input type="date" class="input" id="bc-livraison"></div>
-    </div>
-    <div class="grid3" style="margin-bottom:14px;">
-      <div class="field"><label>Fournisseur</label><select class="select" id="bc-fournisseur" onchange="onBCFournChange()"><option value="">— Choisir —</option></select></div>
-      <div class="field"><label>Email contact</label><input type="email" class="input" id="bc-email" placeholder="auto ou saisir"></div>
-      <div class="field"><label>Conditions paiement</label><select class="select" id="bc-paiement"><option value="Comptant">Comptant</option><option value="30j">30 jours</option><option value="Virement">Virement à réception</option></select></div>
-    </div>
-    <div class="field" style="margin-bottom:14px;"><label>Commentaire</label><input type="text" class="input" id="bc-comment" placeholder="Remarques..."></div>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th style="min-width:220px;">Article (composant)</th><th>Désignation</th><th>Couleur</th><th>Taille</th><th>Qté</th><th class="r">Prix U HT</th><th class="r">Montant HT</th><th></th></tr></thead><tbody id="bc-lines"></tbody></table></div>
-    <button class="btn btn-secondary btn-sm" onclick="addBCLine()" style="margin-top:8px;width:100%;border-style:dashed;">+ Ajouter un article</button>
-    <div style="display:flex;gap:16px;align-items:center;justify-content:space-between;margin-top:14px;padding:14px;background:var(--noir);border-radius:var(--r);flex-wrap:wrap;">
-      <div style="display:flex;gap:20px;">
-        <div><span style="font-size:10px;color:rgba(201,168,76,0.6);text-transform:uppercase;font-weight:700;">Lignes</span><br><span class="mono" style="font-size:16px;color:var(--gold);font-weight:700;" id="bc-total-lines">0</span></div>
-        <div><span style="font-size:10px;color:rgba(201,168,76,0.6);text-transform:uppercase;font-weight:700;">Qté totale</span><br><span class="mono" style="font-size:16px;color:var(--gold);font-weight:700;" id="bc-total-qty">0</span></div>
-        <div><span style="font-size:10px;color:rgba(201,168,76,0.6);text-transform:uppercase;font-weight:700;">Total HT</span><br><span class="mono" style="font-size:18px;color:var(--gold);font-weight:700;" id="bc-total">0,00 €</span></div>
+    <div class="card-header"><span class="card-title">Nouveau Bon de Commande</span></div>
+    <div class="grid3">
+      <div class="field"><label>Fournisseur</label><select id="bc-fourn" class="select"></select></div>
+      <div class="field"><label>Article</label>
+        <input list="dl-composants" id="bc-art" class="input" placeholder="Réf composant..." onchange="onBCArtChange()">
+        <datalist id="dl-composants"></datalist>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary btn-sm" onclick="resetBCForm()">Réinitialiser</button>
-        <button class="btn btn-primary" onclick="validerBC()">Valider et enregistrer</button>
-      </div>
+      <div class="field"><label>Taille (si vierge)</label><select id="bc-taille" class="select"><option value="">-</option><option>S</option><option>M</option><option>L</option></select></div>
     </div>
+    <div class="grid3">
+      <div class="field"><label>Qté</label><input type="number" id="bc-qte" class="input" value="10"></div>
+      <div class="field"><label>Prix U HT</label><input type="number" id="bc-prix" class="input" step="0.01"></div>
+      <div class="field"><label>&nbsp;</label><button class="btn btn-secondary" onclick="addBCLine()">Ajouter ligne</button></div>
+    </div>
+    <table style="margin:10px 0;"><thead><tr><th>Art</th><th>Taille</th><th class="r">Qté</th><th class="r">Total HT</th></tr></thead><tbody id="bc-lines"></tbody></table>
+    <button class="btn btn-primary" onclick="saveBC()">Enregistrer le BC</button>
   </div>
   <div class="card">
-    <div class="card-header"><span class="card-title">Historique des bons de commande</span>
-      <button class="btn btn-secondary btn-sm" onclick="exportAllBCExcel()">⬇ Export CSV</button>
+    <div class="card-header"><span class="card-title">Historique BC</span>
+       <select id="bc-filter" class="select" style="width:150px" onchange="renderBC()"><option value="">Tous</option><option>EN ATTENTE</option><option>LIVRÉ</option></select>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>N° BC</th><th>Date</th><th>Fournisseur</th><th>Articles</th><th class="r">Cmdé</th><th class="r">Reçu</th><th class="r">Reste</th><th class="r">Total HT</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="bc-hist-body"></tbody></table></div>
-  </div>
-</div>
-<div id="pdf-preview" class="no-print"></div>
-<!-- MODAL RÉCEPTION -->
-<div class="modal-overlay" id="modal-reception">
-  <div class="modal" style="width:560px;">
-    <div class="modal-title" id="recep-title">Réception</div>
-    <div class="modal-sub" id="recep-sub"></div>
-    <div style="font-size:11px;color:var(--info);background:var(--info-bg);padding:8px 12px;border-radius:var(--r);margin-bottom:14px;">Si la livraison est incomplète, le bon passera en <strong>PARTIEL</strong>. Vous pourrez enregistrer la suite plus tard.</div>
-    <div id="recep-articles"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-      <button class="btn btn-secondary" onclick="closeRecepModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="confirmerReception()">Enregistrer la réception</button>
-    </div>
+    <table><thead><tr><th>N°</th><th>Date</th><th>Fournisseur</th><th class="r">Total</th><th>Statut</th></tr></thead><tbody id="bc-hist"></tbody></table>
   </div>
 </div>
 
-<!-- ==================== COUT DE REVIENT ==================== -->
-<div class="page" id="page-cout-revient">
-  <div class="card">
-    <div class="card-header"><span class="card-title">Calcul du coût de revient par produit</span></div>
-    <div class="table-wrap"><table><thead><tr><th>Réf. Design</th><th>Désignation</th><th>PA T-shirt</th><th>PA DTF</th><th>Marquage</th><th class="r">Coût Revient</th><th class="r">PV</th><th class="r">Marge €</th><th class="r">Marge %</th><th></th></tr></thead><tbody id="cr-body"></tbody></table></div>
-    <button class="btn btn-primary btn-sm" onclick="addCRLine()" style="margin-top:8px;">+ Ajouter une ligne</button>
-  </div>
-</div>
-
-<!-- ==================== TODO ==================== -->
 <div class="page" id="page-todo">
-  <div class="card">
-    <div class="card-header"><span class="card-title">Gestion des tâches</span>
-      <div class="section-actions">
-        <select class="select input-sm" id="todo-filter" onchange="renderTodos()" style="width:120px;"><option value="">Toutes</option><option value="A TRAITER">A traiter</option><option value="EN COURS">En cours</option><option value="EN ATTENTE">En attente</option><option value="TERMINER">Terminé</option></select>
-        <button class="btn btn-primary btn-sm" onclick="openAddTodo()">+ Nouvelle tâche</button>
+  <div class="card" style="background:transparent;border:none;padding:0;">
+    <div class="card-header" style="background:var(--surface);padding:16px;border-radius:var(--r);"><span class="card-title">Tâches (Kanban)</span>
+      <button class="btn btn-primary btn-sm" onclick="openTodoModal()">+ Tâche</button>
+    </div>
+    <div class="kanban">
+      <div class="k-col" id="col-TODO" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <div class="k-col-title">À Traiter <span id="c-TODO">0</span></div>
+      </div>
+      <div class="k-col" id="col-DOING" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <div class="k-col-title">En Cours <span id="c-DOING">0</span></div>
+      </div>
+      <div class="k-col" id="col-WAIT" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <div class="k-col-title">En Attente <span id="c-WAIT">0</span></div>
+      </div>
+      <div class="k-col" id="col-DONE" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <div class="k-col-title">Terminé <span id="c-DONE">0</span></div>
       </div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Owner</th><th>Tâche</th><th>Priorité</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody id="todo-body"></tbody></table></div>
   </div>
 </div>
 
-</div><!-- /content -->
-</div><!-- /main -->
-</div><!-- /layout -->
-
-<div class="toast" id="toast"></div>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="modal">
-  <div class="modal" id="modal-content"></div>
+<div class="page" id="page-treso">
+  <div class="kpi-grid">
+    <div class="kpi kpi-success"><div class="kpi-label">Entrées M-en-cours</div><div class="kpi-value" id="t-in">0 €</div></div>
+    <div class="kpi kpi-warning"><div class="kpi-label">Sorties M-en-cours</div><div class="kpi-value" id="t-out">0 €</div></div>
+    <div class="kpi kpi-accent"><div class="kpi-label">Solde Période</div><div class="kpi-value" id="t-solde">0 €</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Flux de Trésorerie</span> <button class="btn btn-primary btn-sm" onclick="addTreso()">+ Flux</button></div>
+    <table><thead><tr><th>Date</th><th>Type</th><th>Motif</th><th class="r">Montant</th></tr></thead><tbody id="treso-body"></tbody></table>
+  </div>
 </div>
+
+<div class="page" id="page-marches">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Journal des Marchés</span> <button class="btn btn-primary btn-sm" onclick="addMarche()">+ Session</button></div>
+    <table><thead><tr><th>Date</th><th>Lieu</th><th>Météo</th><th class="r">CA Généré</th><th>Notes / Top ventes</th></tr></thead><tbody id="marches-body"></tbody></table>
+  </div>
+</div>
+
+<div class="page" id="page-sav">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Retours & SAV</span> <button class="btn btn-primary btn-sm" onclick="addSAV()">+ Dossier SAV</button></div>
+    <table><thead><tr><th>Date</th><th>Client</th><th>Article</th><th>Motif</th><th>Statut</th></tr></thead><tbody id="sav-body"></tbody></table>
+  </div>
+</div>
+
+<div class="page" id="page-agenda">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Prochaines Échéances</span></div>
+    <div id="agenda-list"></div>
+  </div>
+</div>
+
+<div class="page" id="page-stock-vierge"><div class="card">En cours d'importation... (Voir base locale)</div></div>
+<div class="page" id="page-stock-dtf"><div class="card">En cours d'importation...</div></div>
+<div class="page" id="page-stock-fini"><div class="card">En cours d'importation...</div></div>
+
+</div></div></div>
+
+<div class="toast" id="toast">Action réussie</div>
+<div class="modal-overlay" id="modal"><div class="modal" id="modal-content"></div></div>
 
 <script>
-// ============================================================
-// DATA STORE
-// ============================================================
-var DB = {
-  catalogue: [],
-  stockVierge: [],
-  stockDTF: [],
-  stockFini: [],
-  ventes: [],
-  fournisseurs: [],
+// INITIAL DATA STRUCTURE
+let DB = {
+  catalogue: [{code:"LP-0100", designation:"Lou Pescadou", taille:"M", pv:35}],
+  composants: [{ref:"DTF-LP", type:"DTF", nom:"DTF Lou Pescadou"}, {ref:"T135", type:"Vierge", nom:"T-Shirt Noir"}],
+  fournisseurs: [
+    {nom:"Influence 13", types:"T-shirts, Pulls", notes:{q:4, p:3, d:5, c:4}}
+  ],
   bonsCommande: [],
-  coutRevient: [],
-  todos: []
+  ventes: [],
+  todos: [{id:1, txt:"Préparer drop Été", status:"TODO"}, {id:2, txt:"Appeler CDP13", status:"DOING"}],
+  treso: [], marches: [], sav: [], logs: [], notes: "", objMois: 5000
 };
 
-// ============================================================
-// SUPABASE CONFIG
-// ============================================================
-var SUPA_URL = 'https://twsuchpzsytlourrjjgg.supabase.co';
-var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3c3VjaHB6c3l0bG91cnJqamdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4OTc4NTYsImV4cCI6MjA5MTQ3Mzg1Nn0.tb0DyVe6-jwdIWR0kqLy6Np8YSM-B-fOZ-szAHgvJrE';
-var supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-
-function setStatus(connected) {
-  var el = document.getElementById('sync-status');
-  if (!el) return;
-  if (connected) { el.textContent = '🟢 Synchronisé'; el.style.color = '#059669'; }
-  else { el.textContent = '🔴 Hors ligne'; el.style.color = '#DC2626'; }
+// LOAD / SAVE
+function loadDB() {
+  let saved = localStorage.getItem('meridies_v2');
+  if(saved) DB = Object.assign(DB, JSON.parse(saved));
+  
+  // Init Theme
+  if(localStorage.getItem('theme')==='dark') document.documentElement.setAttribute('data-theme', 'dark');
+  
+  document.getElementById('dash-notes').value = DB.notes;
+  document.getElementById('obj-val').value = DB.objMois;
+  renderAll();
+  logActivity("Système initialisé");
+}
+function saveDB() {
+  localStorage.setItem('meridies_v2', JSON.stringify(DB));
+}
+function logActivity(msg) {
+  DB.logs.unshift({d: new Date().toLocaleString('fr-FR'), m: msg});
+  if(DB.logs.length > 50) DB.logs.pop();
+  saveDB(); renderLogs();
 }
 
-async function loadDB() {
-  try {
-    var res = await supabase.from('app_state').select('data').eq('id', 1).single();
-    if (res.error && res.error.code === 'PGRST116') {
-      initDefaultData();
-      await supabase.from('app_state').insert({ id: 1, data: DB });
-    } else if (res.error) {
-      throw res.error;
-    } else {
-      DB = Object.assign(DB, res.data.data);
-      if (DB.catalogue.length === 0) initDefaultData();
-    }
-    setStatus(true);
-    subscribeRealtime();
-  } catch(e) {
-    console.warn('Supabase indisponible, fallback localStorage', e);
-    try { var d = JSON.parse(localStorage.getItem('meridies_db')); if(d) DB = Object.assign(DB, d); } catch(e2) {}
-    if (DB.catalogue.length === 0) initDefaultData();
-    setStatus(false);
-  }
+// NAVIGATION
+function goTo(page) {
+  document.querySelectorAll('.page, .nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelector(`[onclick="goTo('${page}')"]`).classList.add('active');
   renderAll();
 }
 
-function saveDB() {
-  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
-    .then(function(r){ setStatus(!r.error); }).catch(function(){ setStatus(false); });
+// UI HELPERS
+function toast(msg) {
+  let t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
 }
-
-function subscribeRealtime() {
-  supabase.channel('meridies_sync')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
-      if (payload.new && payload.new.data) {
-        DB = Object.assign(DB, payload.new.data);
-        renderAll();
-        toast('🔄 Données mises à jour en temps réel');
-      }
-    }).subscribe();
+function toggleTheme() {
+  let doc = document.documentElement;
+  let isDark = doc.getAttribute('data-theme') === 'dark';
+  doc.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('theme', isDark ? 'light' : 'dark');
 }
+function closeM() { document.getElementById('modal').classList.remove('open'); }
 
+// RENDERS
 function renderAll() {
-  if (typeof renderDashboard === 'function') renderDashboard();
-  if (typeof renderCatalogue === 'function') renderCatalogue();
-  if (typeof renderStockVierge === 'function') renderStockVierge();
-  if (typeof renderStockDTF === 'function') renderStockDTF();
-  if (typeof renderStockFini === 'function') renderStockFini();
-  if (typeof renderVentes === 'function') renderVentes();
-  if (typeof renderBC === 'function') renderBC();
-  if (typeof renderFournisseurs === 'function') renderFournisseurs();
-  if (typeof renderTodos === 'function') renderTodos();
+  renderCat(); renderVentes(); renderFourn(); renderBC(); renderTodos(); renderTreso(); renderMarches(); renderSAV(); renderAgenda(); updateDashboard();
 }
 
-function initDefaultData() {
-  // Pre-populate catalogue from DATABASE
-  var products = [
-    {code:"LP-0100-001",ref:"LP-0100",design:"Lou Pescadou",couleur:"Rose",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0200-001",ref:"LP-0200",design:"Lou Pescadou",couleur:"Bleu",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0300-001",ref:"LP-0300",design:"Lou Pescadou",couleur:"Vert",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0400-001",ref:"LP-0400",design:"Lou Pescadou",couleur:"Violet",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0500-001",ref:"LP-0500",design:"Lou Pescadou",couleur:"Blanc",tailles:["XS","S","M","L"],pv:35},
-    {code:"LP-0600-001",ref:"LP-0600",design:"Lou Pescadou",couleur:"Marron",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0500-002",ref:"LI-0500",design:"Li d'elo dóu Sud",couleur:"Blanc",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0700-002",ref:"LI-0700",design:"Li d'elo dóu Sud",couleur:"Noir",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0300-002",ref:"LI-0300",design:"Li d'elo dóu Sud",couleur:"Vert",tailles:["XS","S","M","L"],pv:35},
-    {code:"LI-0900-002",ref:"LI-0900",design:"Li d'elo dóu Sud",couleur:"Jaune",tailles:["XS","S","M","L"],pv:35},
-    {code:"MT-0200-003",ref:"MT-0200",design:"Mercatus",couleur:"Bleu",tailles:["XS","S","M","L"],pv:35},
-    {code:"MT-0700-003",ref:"MT-0700",design:"Mercatus",couleur:"Noir",tailles:["XS","S","M","L"],pv:35},
-    {code:"ML-1300-004",ref:"ML-1300",design:"Massilia",couleur:"Bleu ciel / Blanc",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"ML-2100-004",ref:"ML-2100",design:"Massilia",couleur:"Bleu ciel / Bleu",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"ML-1400-004",ref:"ML-1400",design:"Massilia",couleur:"Blanc / Bleu",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"ML-1500-004",ref:"ML-1500",design:"Massilia",couleur:"Bleu marine / Blanc",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"LM-1600-006",ref:"LM-1600",design:"Lou Mistrau",couleur:"Blanc / Rose",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-1400-006",ref:"LM-1400",design:"Lou Mistrau",couleur:"Blanc / Bleu",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-1800-006",ref:"LM-1800",design:"Lou Mistrau",couleur:"Blanc / Vert",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-1900-006",ref:"LM-1900",design:"Lou Mistrau",couleur:"Noir / Blanc",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"LM-2000-006",ref:"LM-2000",design:"Lou Mistrau",couleur:"Noir / Rose",tailles:["XS","S","M","L","XL"],pv:55},
-    {code:"CP-0200-005",ref:"CP-0200",design:"Capèu",couleur:"Bleu",tailles:["U"],pv:30},
-    {code:"CP-0300-005",ref:"CP-0300",design:"Capèu",couleur:"Vert",tailles:["U"],pv:30},
-    {code:"CP-1200-005",ref:"CP-1200",design:"Capèu",couleur:"Beige",tailles:["U"],pv:30},
-    {code:"LS-0700-007",ref:"LS-0700",design:"Lou Serein",couleur:"Noir",tailles:["XS","S","M","L","XL"],pv:35},
-    {code:"LS-0500-007",ref:"LS-0500",design:"Lou Serein",couleur:"Blanc",tailles:["XS","S","M","L","XL"],pv:35},
-  ];
-  // Expand into individual SKUs
-  products.forEach(function(p) {
-    p.tailles.forEach(function(t) {
-      DB.catalogue.push({
-        code: p.code + '-' + t,
-        ref: p.ref,
-        design: p.design,
-        couleur: p.couleur,
-        designation: p.design + ' ' + p.couleur,
-        taille: t,
-        pv: p.pv,
-        pa: 0
-      });
-    });
-  });
-  // Stock vierge
-  DB.stockVierge = [
-    {ref:"T135",couleur:"Noir",xs:0,s:3,m:2,l:2,xl:0,xxl:0,pa:9.00,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Bleu Marine",xs:3,s:2,m:2,l:0,xl:0,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Bleu Ciel",xs:2,s:2,m:2,l:0,xl:0,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Beige",xs:4,s:4,m:2,l:1,xl:0,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"BY102",couleur:"Blanc",xs:4,s:1,m:1,l:1,xl:1,xxl:0,pa:8.50,seuil:3,enCommande:0},
-    {ref:"E220",couleur:"Noir",xs:3,s:2,m:3,l:2,xl:0,xxl:0,pa:8.88,seuil:3,enCommande:0},
-    {ref:"E220",couleur:"Blanc",xs:0,s:2,m:1,l:2,xl:0,xxl:0,pa:8.88,seuil:3,enCommande:0},
-    {ref:"Pull",couleur:"Noir",xs:2,s:2,m:2,l:0,xl:1,xxl:0,pa:21.60,seuil:2,enCommande:0},
-    {ref:"Pull",couleur:"Blanc",xs:1,s:0,m:0,l:1,xl:0,xxl:0,pa:21.60,seuil:2,enCommande:0},
-    {ref:"Brut",couleur:"Beige",xs:0,s:2,m:0,l:0,xl:0,xxl:0,pa:15.00,seuil:2,enCommande:0},
-  ];
-  // Stock DTF
-  DB.stockDTF = [
-    {ref:"LP-0100",nom:"Lou Pescadou Rose",stock:6,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0200",nom:"Lou Pescadou Bleu",stock:2,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0300",nom:"Lou Pescadou Vert",stock:17,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0400",nom:"Lou Pescadou Violet",stock:1,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0500",nom:"Lou Pescadou Blanc",stock:2,pa:0,seuil:3,enCommande:0},
-    {ref:"LP-0600",nom:"Lou Pescadou Marron",stock:7,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0500",nom:"Li d'elo dóu Sud Blanc",stock:11,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0700",nom:"Li d'elo dóu Sud Noir",stock:5,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0300",nom:"Li d'elo dóu Sud Vert",stock:11,pa:0,seuil:3,enCommande:0},
-    {ref:"LI-0900",nom:"Li d'elo dóu Sud Jaune",stock:9,pa:0,seuil:3,enCommande:0},
-    {ref:"MT-0200",nom:"Mercatus Bleu",stock:10,pa:0,seuil:3,enCommande:0},
-    {ref:"MT-0700",nom:"Mercatus Noir",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-1300",nom:"Massilia Blanc",stock:5,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-2100",nom:"Massilia Bleu ciel / Bleu",stock:13,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-1400",nom:"Massilia Bleu",stock:13,pa:0,seuil:3,enCommande:0},
-    {ref:"ML-1500",nom:"Massilia Bleu marine / Blanc",stock:5,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1600",nom:"Lou Mistrau Blanc / Rose",stock:3,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1400",nom:"Lou Mistrau Blanc / Bleu",stock:1,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1800",nom:"Lou Mistrau Blanc / Vert",stock:3,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-1900",nom:"Lou Mistrau Noir / Blanc",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"LM-2000",nom:"Lou Mistrau Noir / Rose",stock:4,pa:0,seuil:3,enCommande:0},
-    {ref:"CP-0200",nom:"Capèu Bleu",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"CP-0300",nom:"Capèu Vert",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"CP-1200",nom:"Capèu Beige",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"LS-0700",nom:"Lou Serein Noir",stock:0,pa:0,seuil:3,enCommande:0},
-    {ref:"LS-0500",nom:"Lou Serein Blanc",stock:0,pa:0,seuil:3,enCommande:0},
-  ];
-  // Fournisseurs
-  DB.fournisseurs = [
-    {nom:"Influence 13",contact:"contact@influence13.fr",produits:"T-shirt",rdv:true,devis:false,notes:""},
-    {nom:"CDP13",contact:"",produits:"T-shirt",rdv:true,devis:false,notes:""},
-    {nom:"Cottonmade",contact:"",produits:"T-shirt",rdv:false,devis:false,notes:""},
-    {nom:"Alibaba",contact:"",produits:"Chemise",rdv:false,devis:false,notes:"Plusieurs fournisseurs"},
-  ];
-  // Todos
-  DB.todos = [
-    {owner:"Quentin",task:"S'inscrire marché La Ciotat 2026",prio:"A",due:"2026-03-31",status:"TERMINER"},
-    {owner:"Eliott",task:"S'occuper des fournisseurs",prio:"A",due:"",status:"EN COURS"},
-    {owner:"Quentin",task:"Faire la matrice automatisée pour le stock",prio:"B",due:"",status:"TERMINER"},
-    {owner:"Seb",task:"Plan d'action TikTok + planning",prio:"B",due:"2026-04-09",status:"A TRAITER"},
-    {owner:"Quentin / Eliott",task:"Calculer coûts de revient 2026",prio:"A",due:"",status:"EN ATTENTE"},
-    {owner:"Seb",task:"Stratégie de com + support lancement drop",prio:"A",due:"2026-04-09",status:"A TRAITER"},
-    {owner:"Quentin / Eliott",task:"Stock + prévisions 2026 (~300 pièces)",prio:"A",due:"",status:"A TRAITER"},
-    {owner:"Quentin",task:"Devis Alibaba (sur mesure + échantillons)",prio:"A",due:"",status:"A TRAITER"},
-    {owner:"Seb",task:"Créer modèle bon de commande fournisseur",prio:"A",due:"2026-04-07",status:"TERMINER"},
-  ];
-  saveDB();
-}
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-function goTo(page) {
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
-  var el = document.getElementById('page-' + page);
-  if(el) el.classList.add('active');
-  // Activate nav
-  var navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(function(n){ if(n.getAttribute('onclick') && n.getAttribute('onclick').indexOf(page) > -1) n.classList.add('active'); });
-  // Page title
-  var titles = {
-    'dashboard':'Tableau de bord','catalogue':'Catalogue produits','stock-vierge':'Stock T-shirts vierges',
-    'stock-dtf':'Stock DTF Designs','stock-fini':'Stock Produits finis','saisie-vente':'Saisie des ventes',
-    'stats':'Statistiques','fournisseurs':'Fournisseurs','commandes':'Bons de commande',
-    'cout-revient':'Coût de revient','todo':'Tâches'
-  };
-  document.getElementById('page-title').textContent = titles[page] || page;
-  // Render
-  var renderers = {
-    'dashboard':renderDashboard,'catalogue':renderCatalogue,'stock-vierge':renderStockVierge,
-    'stock-dtf':renderStockDTF,'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
-    'stats':renderStats,'fournisseurs':renderFournisseurs,'commandes':renderCommandes,
-    'cout-revient':renderCoutRevient,'todo':renderTodos
-  };
-  if(renderers[page]) renderers[page]();
-  document.querySelector('.sidebar').classList.remove('open');
-}
-
-// ============================================================
-// HELPERS
-// ============================================================
-function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},3000);}
-function fmt(n){return (n||0).toFixed(2).replace('.',',') + ' €';}
-function fmtN(n){return (n||0).toLocaleString('fr-FR');}
-function today(){return new Date().toISOString().slice(0,10);}
-function formatDate(d){if(!d)return '—';var p=d.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
-function statusBadge(stock, seuil) {
-  if(stock <= 0) return '<span class="badge badge-danger">RUPTURE</span>';
-  if(stock <= seuil) return '<span class="badge badge-warn">ALERTE</span>';
-  return '<span class="badge badge-ok">OK</span>';
-}
-function openModal(html){document.getElementById('modal-content').innerHTML=html;document.getElementById('modal').classList.add('open');}
-function closeModal(){document.getElementById('modal').classList.remove('open');}
-function getVendusByRef(ref) { return DB.ventes.filter(function(v){ return v.code && v.code.indexOf(ref) === 0; }).reduce(function(s,v){return s+(v.qte||1);}, 0); }
-
-// ============================================================
-// DASHBOARD
-// ============================================================
-function renderDashboard() {
-  var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var nbVentes=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
-  var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
-  var dtfTot=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
-  var viergeTot=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
-  var panier=nbVentes>0?caTotal/nbVentes:0;
-  document.getElementById('dash-kpis').innerHTML=
-    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbVentes+' pieces vendues</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+DB.ventes.length+' transactions</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">Stock pret a vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTot+' / '+dtfTot+'</div><div class="kpi-sub">vierges / DTF</div></div>';
-  var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
-  function mkC(id,type,labels,data,colors,extra){
-    var el=document.getElementById(id);if(!el)return;
-    if(el._c){try{el._c.destroy();}catch(e){}}
-    if(!data||!data.length||data.every(function(d){return !d;})){
-      el.parentNode.innerHTML='<div class="empty-state" style="padding-top:50px;font-size:12px;">Enregistrez des ventes pour voir ce graphique</div>';return;
-    }
-    el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
-  }
-  var cs={};DB.ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
-  mkC('ch1','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
-  var ds={};DB.ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
-  var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-  mkC('ch2','bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
-  mkC('ch3','bar',['Produits finis','Vierges','DTF'],[stockFini,viergeTot,dtfTot],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
-  var ts={};DB.ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
-  var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
-  mkC('ch4','pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
-  var last=DB.ventes.slice(-10).reverse();
-  var tbody=document.getElementById('dash-last-sales');
-  tbody.innerHTML=last.length?last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join(''):'<tr><td colspan="4" class="empty-state">Aucune vente enregistree</td></tr>';
-  var alerts=[];
-  DB.stockFini.forEach(function(f){if(f.stock<=(f.seuil||2))alerts.push({name:f.designation+' '+f.taille,stock:f.stock,type:'Fini',seuil:f.seuil||2});});
-  DB.stockDTF.forEach(function(d){if((d.stock||0)<=(d.seuil||3))alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3});});
-  DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(t<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:t,type:'Vierge',seuil:v.seuil});});
-  var ad=document.getElementById('dash-alerts');
-  ad.innerHTML=alerts.length?alerts.map(function(a){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+statusBadge(a.stock,a.seuil||1)+'</div>';}).join(''):'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
-  document.getElementById('nav-cat-count').textContent = DB.catalogue.length;
-}
-
-// ============================================================
-// CATALOGUE
-// ============================================================
-var catFilter = '';
-function filterCatalogue(v) { catFilter = v.toLowerCase(); renderCatalogue(); }
-function renderCatalogue() {
-  var items = DB.catalogue.filter(function(p){ return !catFilter || p.code.toLowerCase().indexOf(catFilter)>-1 || p.designation.toLowerCase().indexOf(catFilter)>-1 || p.design.toLowerCase().indexOf(catFilter)>-1; });
-  document.getElementById('cat-count').textContent = items.length;
-  var tbody = document.getElementById('cat-body');
-  if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Aucun produit</td></tr>'; return; }
-  tbody.innerHTML = items.map(function(p,i){
-    var marge = (p.pa > 0) ? ((p.pv - p.pa) / p.pv * 100).toFixed(0) + '%' : '—';
-    var margeClass = (p.pa > 0 && (p.pv-p.pa)/p.pv > 0.5) ? 'badge-ok' : (p.pa > 0 ? 'badge-warn' : 'badge-neutral');
-    return '<tr><td class="mono">'+p.code+'</td><td>'+p.design+'</td><td style="font-weight:600;">'+p.designation+'</td><td>'+p.couleur+'</td><td class="c">'+p.taille+'</td>'+
-      '<td class="r mono">'+fmt(p.pv)+'</td><td class="r mono">'+((p.pa>0)?fmt(p.pa):'<span style="color:var(--hint)">—</span>')+'</td>'+
-      '<td class="r"><span class="badge '+margeClass+'">'+marge+'</span></td>'+
-      '<td><button class="btn-icon" onclick="editProduct('+i+')" title="Modifier">✏️</button></td></tr>';
-  }).join('');
-}
-function editProduct(idx) {
-  var p = DB.catalogue[idx];
-  openModal(
-    '<div class="modal-title">Modifier le produit</div><div class="modal-sub">'+p.code+'</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>PV (€)</label><input type="number" class="input" id="edit-pv" value="'+p.pv+'" step="0.01"></div>'+
-      '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="edit-pa" value="'+(p.pa||'')+'" step="0.01" placeholder="Saisir le PA"></div>'+
-    '</div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="saveProduct('+idx+')">Enregistrer</button>'+
-    '</div>'
-  );
-}
-function saveProduct(idx) {
-  DB.catalogue[idx].pv = parseFloat(document.getElementById('edit-pv').value) || 0;
-  DB.catalogue[idx].pa = parseFloat(document.getElementById('edit-pa').value) || 0;
-  saveDB(); closeModal(); renderCatalogue(); toast('Produit mis à jour');
-}
-
-// ============================================================
-// STOCK VIERGE
-// ============================================================
-function renderStockVierge() {
-  var totalPcs=0,totalVal=0,totalCmd=0;
-  DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;totalPcs+=t;totalVal+=t*v.pa;totalCmd+=(v.enCommande||0);});
-  document.getElementById('sv-kpis').innerHTML =
-    '<div class="kpi"><div class="kpi-label">Pièces en stock</div><div class="kpi-value">'+totalPcs+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd+'</div><div class="kpi-sub">projeté: '+(totalPcs+totalCmd)+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Valeur stock</div><div class="kpi-value">'+fmt(totalVal)+'</div></div>';
+function updateDashboard() {
+  let ca = DB.ventes.reduce((s,v)=>s+(v.pv*v.qte),0);
+  let obj = DB.objMois || 1;
+  let pct = Math.min((ca/obj)*100, 100).toFixed(0);
+  document.getElementById('obj-bar').style.width = pct+'%';
+  document.getElementById('obj-text').textContent = `${ca}€ / ${obj}€ (${pct}%)`;
   
-  var tbody = document.getElementById('sv-body');
-  tbody.innerHTML = DB.stockVierge.map(function(v,i){
-    var total = v.xs+v.s+v.m+v.l+v.xl+v.xxl;
-    var val = total * v.pa;
-    return '<tr><td class="mono">'+v.ref+'</td><td>'+v.couleur+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+v.xs+'" onchange="updateSV('+i+',\'xs\',this.value)"></td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+v.s+'" onchange="updateSV('+i+',\'s\',this.value)"></td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+v.m+'" onchange="updateSV('+i+',\'m\',this.value)"></td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+v.l+'" onchange="updateSV('+i+',\'l\',this.value)"></td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+v.xl+'" onchange="updateSV('+i+',\'xl\',this.value)"></td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+v.xxl+'" onchange="updateSV('+i+',\'xxl\',this.value)"></td>'+
-      '<td class="r mono" style="font-weight:700;">'+total+'</td>'+
-      '<td class="r mono" style="color:var(--info);">'+(v.enCommande||0)+'</td>'+
-      '<td class="r mono" style="font-weight:700;color:var(--success);">'+(total+(v.enCommande||0))+'</td>'+
-      '<td class="r mono">'+fmt(v.pa)+'</td><td class="r mono">'+fmt(val)+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+v.seuil+'" onchange="updateSV('+i+',\'seuil\',this.value)"></td>'+
-      '<td>'+statusBadge(total, v.seuil)+'</td>'+
-      '<td><button class="btn-icon" onclick="deleteSV('+i+')" title="Supprimer">🗑</button></td></tr>';
-  }).join('');
+  document.getElementById('dash-kpis').innerHTML = `
+    <div class="kpi kpi-accent"><div class="kpi-label">CA Global</div><div class="kpi-value">${ca} €</div></div>
+    <div class="kpi"><div class="kpi-label">Ventes</div><div class="kpi-value">${DB.ventes.length}</div></div>
+    <div class="kpi"><div class="kpi-label">BC en attente</div><div class="kpi-value">${DB.bonsCommande.filter(b=>b.statut==='EN ATTENTE').length}</div></div>
+    <div class="kpi"><div class="kpi-label">Tâches actives</div><div class="kpi-value">${DB.todos.filter(t=>t.status!=='DONE').length}</div></div>
+  `;
+  renderLogs();
 }
-function updateSV(i,field,val) { DB.stockVierge[i][field] = parseInt(val)||0; saveDB(); renderStockVierge(); }
-function deleteSV(i) { if(confirm('Supprimer cette ligne ?')){ DB.stockVierge.splice(i,1); saveDB(); renderStockVierge(); toast('Ligne supprimée'); } }
-function openAddStockVierge() {
-  openModal(
-    '<div class="modal-title">Ajouter un t-shirt vierge</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Référence</label><input type="text" class="input" id="nsv-ref" placeholder="Ex: BY102"></div>'+
-      '<div class="field"><label>Couleur</label><input type="text" class="input" id="nsv-coul" placeholder="Ex: Blanc"></div>'+
-    '</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>PA Unitaire (€)</label><input type="number" class="input input-yellow" id="nsv-pa" step="0.01" placeholder="0.00"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addSV()">Ajouter</button></div>'
-  );
+function renderLogs() {
+  document.getElementById('dash-logs').innerHTML = DB.logs.slice(0,8).map(l => 
+    `<div style="padding:6px 0;border-bottom:1px solid var(--border2);"><span style="color:var(--muted);font-size:10px;">${l.d}</span><br>${l.m}</div>`
+  ).join('');
 }
-function addSV() {
-  var ref=document.getElementById('nsv-ref').value, coul=document.getElementById('nsv-coul').value, pa=parseFloat(document.getElementById('nsv-pa').value)||0;
-  if(!ref){toast('Référence requise');return;}
-  DB.stockVierge.push({ref:ref,couleur:coul,xs:0,s:0,m:0,l:0,xl:0,xxl:0,pa:pa,seuil:3});
-  saveDB(); closeModal(); renderStockVierge(); toast('T-shirt vierge ajouté');
+function updateObj(v) { DB.objMois = parseInt(v)||0; saveDB(); updateDashboard(); }
+
+// CATALOGUE & DATALISTS
+function renderCat() {
+  document.getElementById('cat-body').innerHTML = DB.catalogue.map(p => 
+    `<tr><td class="mono">${p.code}</td><td>${p.designation}</td><td>${p.taille}</td><td class="r">${p.pv} €</td></tr>`
+  ).join('');
+  
+  let dlA = document.getElementById('dl-articles');
+  dlA.innerHTML = DB.catalogue.map(p => `<option value="${p.code}">${p.designation} - ${p.taille}</option>`).join('');
+  let dlC = document.getElementById('dl-composants');
+  dlC.innerHTML = DB.composants.map(c => `<option value="${c.ref}">${c.nom} (${c.type})</option>`).join('');
 }
 
-// ============================================================
-// STOCK DTF
-// ============================================================
-function renderStockDTF() {
-  DB.stockDTF = DB.stockDTF.filter(function(d){ return d.ref.indexOf('CP-') !== 0; });
-  DB.stockDTF.forEach(function(d){ if(!d.pa || d.pa === 0) d.pa = 2.40; });
-
-  var totalStock=0, totalVal=0, alertCount=0, totalCmd=0;
-  DB.stockDTF.forEach(function(d){
-    totalStock+=(d.stock||0);
-    totalVal+=(d.stock||0)*(d.pa||0);
-    if((d.stock||0)<=(d.seuil||3)) alertCount++;
-    totalCmd+=(d.enCommande||0);
-  });
-
-  document.getElementById('sd-kpis').innerHTML =
-    '<div class="kpi"><div class="kpi-label">Designs</div><div class="kpi-value">'+DB.stockDTF.length+'</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">DTF en stock</div><div class="kpi-value">'+totalStock+'</div><div class="kpi-sub">Valeur: '+fmt(totalVal)+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd+'</div><div class="kpi-sub">Projete: '+(totalStock+totalCmd)+'</div></div>'+
-    '<div class="kpi '+(alertCount>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes</div><div class="kpi-value">'+alertCount+'</div></div>';
-
-  var tbody = document.getElementById('sd-body');
-  tbody.innerHTML = '';
-  if(!DB.stockDTF.length){
-    var empty = document.createElement('tr');
-    empty.innerHTML = '<td colspan="10" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td>';
-    tbody.appendChild(empty);
-    return;
-  }
-  DB.stockDTF.forEach(function(d,i){
-    var dispo=d.stock||0, cmd=d.enCommande||0, proj=dispo+cmd;
-    var val=dispo*(d.pa||0);
-    var cls=dispo<=0?'badge-danger':dispo<=(d.seuil||3)?'badge-warn':'badge-ok';
-    var txt=dispo<=0?'RUPTURE':dispo<=(d.seuil||3)?'ALERTE':'OK';
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td class="mono">'+d.ref+'</td>'+
-      '<td style="font-weight:600;">'+d.nom+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="DB.stockDTF['+i+'].stock=parseInt(this.value)||0;saveDB();renderStockDTF();"></td>'+
-      '<td class="c mono" style="color:var(--gold);font-weight:600;">'+cmd+'</td>'+
-      '<td class="c mono" style="font-weight:700;color:var(--success);">'+proj+'</td>'+
-      '<td class="r mono">'+fmt(d.pa||0)+'</td>'+
-      '<td class="r mono">'+fmt(val)+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+(d.seuil||3)+'" onchange="DB.stockDTF['+i+'].seuil=parseInt(this.value)||3;saveDB();renderStockDTF();"></td>'+
-      '<td><span class="badge '+cls+'">'+txt+'</span></td>'+
-      '<td><button class="btn-icon" onclick="deleteSD('+i+')" title="Supprimer">🗑</button></td>';
-    tbody.appendChild(tr);
-  });
-}
-
-function updateSD(i,field,val) { DB.stockDTF[i][field] = parseFloat(val)||0; saveDB(); renderStockDTF(); }
-function deleteSD(i) { if(confirm('Supprimer ?')){ DB.stockDTF.splice(i,1); saveDB(); renderStockDTF(); } }
-function openAddStockDTF() {
-  openModal(
-    '<div class="modal-title">Ajouter un design DTF</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Réf. Design</label><input type="text" class="input" id="nsd-ref" placeholder="Ex: LP-0100"></div>'+
-      '<div class="field"><label>Nom</label><input type="text" class="input" id="nsd-nom" placeholder="Ex: Lou Pescadou Rose"></div>'+
-    '</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Stock initial</label><input type="number" class="input" id="nsd-stock" value="0"></div>'+
-      '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="nsd-pa" step="0.01"></div>'+
-    '</div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addSD()">Ajouter</button></div>'
-  );
-}
-function addSD() {
-  DB.stockDTF.push({ref:document.getElementById('nsd-ref').value,nom:document.getElementById('nsd-nom').value,stock:parseInt(document.getElementById('nsd-stock').value)||0,pa:parseFloat(document.getElementById('nsd-pa').value)||0,seuil:3});
-  saveDB(); closeModal(); renderStockDTF(); toast('DTF ajouté');
-}
-
-// ============================================================
-// STOCK FINI
-// ============================================================
-function renderStockFini() {
-  var totalPcs=0,totalVal=0,sfAlerts=0;
-  DB.stockFini.forEach(function(f){totalPcs+=f.stock;totalVal+=f.stock*f.pv;if(f.stock<=(f.seuil||2))sfAlerts++;});
-  document.getElementById('sf-kpis').innerHTML =
-    '<div class="kpi"><div class="kpi-label">Pièces prêtes à vendre</div><div class="kpi-value">'+totalPcs+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">Valeur PV</div><div class="kpi-value">'+fmt(totalVal)+'</div></div>'+
-    '<div class="kpi '+(sfAlerts>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes</div><div class="kpi-value">'+sfAlerts+'</div></div>';
-  var tbody = document.getElementById('sf-body');
-  if(DB.stockFini.length===0) { tbody.innerHTML='<tr><td colspan="9" class="empty-state"><div class="icon">📦</div>Ajoutez des produits finis en stock</td></tr>'; return; }
-  tbody.innerHTML = DB.stockFini.map(function(f,i){
-    return '<tr><td class="mono">'+f.code+'</td><td style="font-weight:600;">'+f.designation+'</td><td class="c">'+f.taille+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:50px;text-align:center;" value="'+f.stock+'" onchange="updateSF('+i+',this.value)"></td>'+
-      '<td class="r mono">'+fmt(f.pv)+'</td><td class="r mono">'+fmt(f.stock*f.pv)+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:40px;" value="'+(f.seuil||2)+'" onchange="DB.stockFini['+i+'].seuil=parseInt(this.value)||2;saveDB();renderStockFini();"></td>'+
-      '<td>'+statusBadge(f.stock, f.seuil||2)+'</td>'+
-      '<td><button class="btn-icon" onclick="deleteSF('+i+')">🗑</button></td></tr>';
-  }).join('');
-}
-function updateSF(i,val) { DB.stockFini[i].stock=parseInt(val)||0; saveDB(); renderStockFini(); }
-function deleteSF(i) { if(confirm('Supprimer ?')){ DB.stockFini.splice(i,1); saveDB(); renderStockFini(); } }
-function openAddStockFini(){
-  var opts=DB.catalogue.map(function(p){return '<option value="'+p.code+'">'+p.code+' - '+p.designation+' '+p.taille+'</option>';}).join('');
-  var vopts=DB.stockVierge.map(function(v,i){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;return '<option value="'+i+'">'+v.ref+' '+v.couleur+' (stock:'+t+')</option>';}).join('');
-  openModal('<div class="modal-title">Assembler un produit fini</div><div class="modal-sub">Consomme 1 t-shirt vierge + 1 DTF</div><div style="background:var(--info-bg);color:var(--info);padding:10px 12px;border-radius:var(--r);margin-bottom:14px;font-size:12px;">Le t-shirt vierge et le DTF seront retires des stocks correspondants.</div><div class="field" style="margin-bottom:14px;"><label>Produit fini</label><select class="select" id="nsf-code" onchange="onAssemblageChange()"><option value="">Choisir</option>'+opts+'</select></div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>T-shirt vierge</label><select class="select" id="nsf-vierge"><option value="">Choisir</option>'+vopts+'</select></div><div class="field"><label>DTF (auto)</label><input type="text" class="input" id="nsf-dtf" readonly style="background:var(--surface2);"></div></div><div class="field" style="margin-bottom:14px;"><label>Quantite</label><input type="number" class="input input-yellow" id="nsf-qty" value="1" min="1"></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="addSF()">Assembler</button></div>');
-}
-function onAssemblageChange(){
-  var code=document.getElementById('nsf-code').value;
-  var prod=DB.catalogue.find(function(p){return p.code===code;});
-  if(!prod){document.getElementById('nsf-dtf').value='';return;}
-  var dtf=DB.stockDTF.find(function(d){return d.ref===prod.ref;});
-  document.getElementById('nsf-dtf').value=dtf?(dtf.nom+' (dispo:'+(dtf.stock-getVendusByRef(dtf.ref))+')'):prod.ref;
-}
-function addSF(){
-  var code=document.getElementById('nsf-code').value,qty=parseInt(document.getElementById('nsf-qty').value)||0;
-  if(!code){toast('Choisissez un article');return;}
-  var prod=DB.catalogue.find(function(p){return p.code===code;});
-  if(!prod){toast('Article non trouve');return;}
-  var vi=document.getElementById('nsf-vierge').value;
-  if(vi!==''){
-    var sv=DB.stockVierge[parseInt(vi)];
-    if(sv){var sz=prod.taille.toLowerCase();for(var q=0;q<qty;q++){if(sz==='xs'&&sv.xs>0)sv.xs--;else if(sz==='s'&&sv.s>0)sv.s--;else if(sz==='m'&&sv.m>0)sv.m--;else if(sz==='l'&&sv.l>0)sv.l--;else if(sz==='xl'&&sv.xl>0)sv.xl--;else if(sz==='xxl'&&sv.xxl>0)sv.xxl--;else{toast('Stock vierge insuffisant '+prod.taille);return;}}}
-  }
-  var dtf=DB.stockDTF.find(function(d){return d.ref===prod.ref;});
-  if(dtf){dtf.stock=Math.max(0,dtf.stock-qty);}
-  var ex=DB.stockFini.find(function(f){return f.code===code;});
-  if(ex){ex.stock+=qty;}else{DB.stockFini.push({code:code,designation:prod.designation,taille:prod.taille,stock:qty,pv:prod.pv,seuil:2});}
-  saveDB();closeModal();renderStockFini();
-  toast(qty+' x '+prod.designation+' '+prod.taille+' assemble'+(vi!==''?' (vierge -'+qty+')':'')+(dtf?' (DTF -'+qty+')':''));
-}
-function updateSF(i,val) { DB.stockFini[i].stock=parseInt(val)||0; saveDB(); renderStockFini(); }
-function deleteSF(i) { if(confirm('Supprimer ?')){ DB.stockFini.splice(i,1); saveDB(); renderStockFini(); } }
-function openAddStockFini() {
-  var opts = DB.catalogue.map(function(p){ return '<option value="'+p.code+'">'+p.code+' — '+p.designation+' '+p.taille+'</option>'; }).join('');
-  openModal(
-    '<div class="modal-title">Ajouter un produit fini en stock</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Code Article</label><select class="select" id="nsf-code"><option value="">— Choisir —</option>'+opts+'</select></div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Quantité</label><input type="number" class="input input-yellow" id="nsf-qty" value="1" min="1"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addSF()">Ajouter</button></div>'
-  );
-}
-function addSF() {
-  var code=document.getElementById('nsf-code').value, qty=parseInt(document.getElementById('nsf-qty').value)||0;
-  if(!code){toast('Choisissez un article');return;}
-  var prod = DB.catalogue.find(function(p){return p.code===code;});
-  if(!prod){toast('Article non trouvé');return;}
-  var existing = DB.stockFini.find(function(f){return f.code===code;});
-  if(existing) { existing.stock += qty; } else { DB.stockFini.push({code:code,designation:prod.designation,taille:prod.taille,stock:qty,pv:prod.pv,seuil:2}); }
-  saveDB(); closeModal(); renderStockFini(); toast(qty+' × '+prod.designation+' '+prod.taille+' ajouté au stock');
-}
-
-// ============================================================
 // VENTES
-// ============================================================
-function renderVentePage() {
-  // Populate code article dropdown
-  var sel = document.getElementById('vente-code');
-  if(sel.options.length <= 1) {
-    DB.catalogue.forEach(function(p) {
-      var o = document.createElement('option'); o.value = p.code; o.textContent = p.code + ' — ' + p.designation + ' ' + p.taille; sel.appendChild(o);
-    });
-  }
-  document.getElementById('vente-date').value = today();
-  renderVentes();
+function onVenteArticle() {
+  let c = document.getElementById('v-code').value;
+  // auto fill if needed
 }
-function onVenteCodeChange() {
-  var code = document.getElementById('vente-code').value;
-  var prod = DB.catalogue.find(function(p){return p.code===code;});
-  document.getElementById('vente-desig').value = prod ? prod.designation : '';
-  document.getElementById('vente-taille').value = prod ? prod.taille : '';
-  document.getElementById('vente-pv').value = prod ? prod.pv.toFixed(2) : '';
-}
-function enregistrerVente() {
-  var code=document.getElementById('vente-code').value;
-  if(!code){toast('Choisissez un article');return;}
-  var prod=DB.catalogue.find(function(p){return p.code===code;});
-  if(!prod){toast('Article non trouvé');return;}
-  var vente = {
-    id: Date.now(),
-    date: document.getElementById('vente-date').value || today(),
-    canal: document.getElementById('vente-canal').value,
-    code: code,
-    ref: prod.ref,
-    design: prod.design,
-    designation: prod.designation,
-    taille: prod.taille,
-    pv: prod.pv,
-    qte: parseInt(document.getElementById('vente-qte').value) || 1,
-    numCde: document.getElementById('vente-numcde').value,
-    email: document.getElementById('vente-email').value
-  };
-  DB.ventes.push(vente);
-  // Decrement stock fini
-  var sf = DB.stockFini.find(function(f){return f.code===code;});
-  if(sf) { sf.stock = Math.max(0, sf.stock - vente.qte); }
-  saveDB(); toast('Vente enregistrée : '+prod.designation+' '+prod.taille+(sf?' (stock: '+sf.stock+')':' (hors stock)')); clearVenteForm(); renderVentes();
-}
-function clearVenteForm() {
-  document.getElementById('vente-code').value=''; document.getElementById('vente-desig').value='';
-  document.getElementById('vente-taille').value=''; document.getElementById('vente-pv').value='';
-  document.getElementById('vente-qte').value='1'; document.getElementById('vente-numcde').value='';
-  document.getElementById('vente-email').value='';
+function saveVente() {
+  let c = document.getElementById('v-code').value;
+  let q = parseInt(document.getElementById('v-qte').value);
+  let p = DB.catalogue.find(x=>x.code===c);
+  if(!p) return toast("Article inconnu");
+  DB.ventes.unshift({date: new Date().toISOString().slice(0,10), canal: document.getElementById('v-canal').value, code: c, qte: q, pv: p.pv});
+  saveDB(); logActivity(`Vente ajoutée : ${q}x ${c}`); renderVentes(); updateDashboard(); toast("Vente validée");
 }
 function renderVentes() {
-  var canal = document.getElementById('ventes-filter-canal') ? document.getElementById('ventes-filter-canal').value : '';
-  var items = DB.ventes.filter(function(v){ return !canal || v.canal === canal; }).slice().reverse();
-  var tbody = document.getElementById('ventes-body');
-  if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Aucune vente</td></tr>'; return; }
-  tbody.innerHTML = items.slice(0, 50).map(function(v,i){
-    return '<tr><td>'+formatDate(v.date)+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="mono">'+v.code+'</td>'+
-      '<td style="font-weight:600;">'+v.designation+'</td><td class="c">'+v.taille+'</td>'+
-      '<td class="r">'+(v.qte||1)+'</td><td class="r mono">'+fmt(v.pv)+'</td><td class="r mono" style="font-weight:700;">'+fmt(v.pv*(v.qte||1))+'</td>'+
-      '<td class="mono" style="color:var(--muted);">'+(v.numCde||'—')+'</td>'+
-      '<td><button class="btn-icon" onclick="deleteVente('+v.id+')">🗑</button></td></tr>';
+  document.getElementById('ventes-body').innerHTML = DB.ventes.slice(0,15).map(v => 
+    `<tr><td>${v.date}</td><td><span class="badge badge-neutral">${v.canal}</span></td><td class="mono">${v.code}</td><td class="r">${v.qte}</td><td class="r">${v.pv*v.qte} €</td></tr>`
+  ).join('');
+}
+
+// FOURNISSEURS (Notations)
+function renderFourn() {
+  document.getElementById('bc-fourn').innerHTML = DB.fournisseurs.map(f => `<option>${f.nom}</option>`).join('');
+  document.getElementById('fourn-body').innerHTML = DB.fournisseurs.map((f,i) => {
+    let avg = ((f.notes.q + f.notes.p + f.notes.d + f.notes.c) / 4).toFixed(1);
+    let bcs = DB.bonsCommande.filter(b=>b.fourn===f.nom);
+    let eng = bcs.reduce((s,b)=>s+b.tot, 0);
+    return `<tr><td><b>${f.nom}</b></td><td>${f.types}</td>
+      <td class="c"><span class="stars">${'★'.repeat(Math.round(avg))}${'☆'.repeat(5-Math.round(avg))}</span> (${avg})</td>
+      <td style="font-size:10px;">Q:${f.notes.q} P:${f.notes.p} D:${f.notes.d} C:${f.notes.c}</td>
+      <td class="r">${bcs.length}</td><td class="r">${eng} €</td>
+      <td><button class="btn-icon" onclick="editFourn(${i})">✏️</button></td></tr>`;
   }).join('');
 }
-function deleteVente(id) {
-  if(!confirm('Supprimer cette vente ?')) return;
-  DB.ventes = DB.ventes.filter(function(v){return v.id!==id;});
-  saveDB(); renderVentes(); toast('Vente supprimée');
-}
-function exportVentesCSV() {
-  var lines = [['Date','Canal','Code','Désignation','Taille','Qté','PV','Total','N° Cde','Email']];
-  DB.ventes.forEach(function(v){lines.push([v.date,v.canal,v.code,v.designation,v.taille,v.qte||1,v.pv,(v.pv*(v.qte||1)).toFixed(2),v.numCde||'',v.email||'']);});
-  var csv = lines.map(function(r){return r.map(function(c){var s=String(c||'');return s.indexOf(',')>-1?'"'+s+'"':s;}).join(',');}).join('\r\n');
-  var blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  var a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='MERIDIES_Ventes_'+today()+'.csv'; a.click();
-  toast('Export CSV téléchargé');
-}
 
-// ============================================================
-// STATISTIQUES
-// ============================================================
-function renderStats() {
-  var ca = DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var nbVentes = DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
-  var panierMoyen = nbVentes > 0 ? ca / nbVentes : 0;
-  var caMarche = DB.ventes.filter(function(v){return v.canal==='Marché';}).reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  
-  document.getElementById('stats-kpis').innerHTML =
-    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total</div><div class="kpi-value">'+fmt(ca)+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Nb pièces vendues</div><div class="kpi-value">'+nbVentes+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panierMoyen)+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">CA Marché</div><div class="kpi-value">'+fmt(caMarche)+'</div></div>';
-  
-  // Top designs
-  var designStats = {};
-  DB.ventes.forEach(function(v) {
-    var d = v.design || 'Autre';
-    if(!designStats[d]) designStats[d] = {ca:0, qty:0};
-    designStats[d].ca += (v.pv||0)*(v.qte||1);
-    designStats[d].qty += (v.qte||1);
-  });
-  var sorted = Object.keys(designStats).map(function(k){return {name:k,ca:designStats[k].ca,qty:designStats[k].qty};}).sort(function(a,b){return b.ca-a.ca;});
-  var maxCA = sorted.length > 0 ? sorted[0].ca : 1;
-  document.getElementById('stats-designs').innerHTML = sorted.length === 0 ? '<div class="empty-state">Aucune donnée</div>' :
-    sorted.map(function(d){
-      var pct = Math.round(d.ca/maxCA*100);
-      return '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);">'+
-        '<div style="width:140px;font-weight:600;font-size:13px;">'+d.name+'</div>'+
-        '<div style="flex:1;"><div class="stock-bar" style="height:8px;"><div class="stock-bar-fill ok" style="width:'+pct+'%;"></div></div></div>'+
-        '<div class="mono" style="font-size:12px;font-weight:600;width:80px;text-align:right;">'+fmt(d.ca)+'</div>'+
-        '<div style="font-size:11px;color:var(--muted);width:50px;text-align:right;">'+d.qty+' pcs</div></div>';
-    }).join('');
-  
-  // Tailles
-  var tailleStats = {};
-  DB.ventes.forEach(function(v){ var t=v.taille||'?'; if(!tailleStats[t])tailleStats[t]=0; tailleStats[t]+=(v.qte||1); });
-  var totalT = Object.values(tailleStats).reduce(function(s,v){return s+v;},0) || 1;
-  document.getElementById('stats-tailles').innerHTML = Object.keys(tailleStats).length === 0 ? '<div class="empty-state">Aucune donnée</div>' :
-    ['XS','S','M','L','XL','XXL','U'].filter(function(t){return tailleStats[t];}).map(function(t){
-      var pct=Math.round(tailleStats[t]/totalT*100);
-      return '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);">'+
-        '<div style="width:40px;font-weight:700;font-size:14px;">'+t+'</div>'+
-        '<div style="flex:1;"><div class="stock-bar" style="height:8px;"><div class="stock-bar-fill ok" style="width:'+pct+'%;background:var(--gold);"></div></div></div>'+
-        '<div class="mono" style="font-size:12px;width:40px;text-align:right;">'+tailleStats[t]+'</div>'+
-        '<div style="font-size:11px;color:var(--muted);width:40px;text-align:right;">'+pct+'%</div></div>';
-    }).join('');
-  
-  // Canaux
-  var canalStats = {};
-  DB.ventes.forEach(function(v){ var c=v.canal||'Autre'; if(!canalStats[c])canalStats[c]={ca:0,qty:0}; canalStats[c].ca+=(v.pv||0)*(v.qte||1); canalStats[c].qty+=(v.qte||1); });
-  document.getElementById('stats-canaux').innerHTML =
-    '<div style="display:flex;gap:20px;flex-wrap:wrap;">'+
-    Object.keys(canalStats).map(function(c){
-      var pct = ca > 0 ? Math.round(canalStats[c].ca/ca*100) : 0;
-      return '<div style="flex:1;min-width:200px;background:var(--surface2);border-radius:var(--r);padding:16px;">'+
-        '<div style="font-weight:700;font-size:14px;">'+c+'</div>'+
-        '<div class="mono" style="font-size:22px;font-weight:700;margin:6px 0;">'+fmt(canalStats[c].ca)+'</div>'+
-        '<div style="font-size:12px;color:var(--muted);">'+canalStats[c].qty+' pièces · '+pct+'% du CA</div></div>';
-    }).join('')+'</div>';
-}
-
-// ============================================================
-// FOURNISSEURS
-// ============================================================
-function renderFournisseurs() {
-  var tbody = document.getElementById('fourn-body');
-  tbody.innerHTML = DB.fournisseurs.map(function(f,i){
-    return '<tr><td style="font-weight:600;">'+f.nom+'</td><td class="mono" style="font-size:11px;">'+f.contact+'</td>'+
-      '<td><span class="badge badge-neutral">'+f.produits+'</span></td>'+
-      '<td>'+(f.rdv?'<span class="badge badge-ok">OUI</span>':'<span class="badge badge-neutral">NON</span>')+'</td>'+
-      '<td>'+(f.devis?'<span class="badge badge-ok">OUI</span>':'<span class="badge badge-neutral">NON</span>')+'</td>'+
-      '<td class="r">—</td><td style="font-size:12px;color:var(--muted);">'+f.notes+'</td>'+
-      '<td><button class="btn-icon" onclick="deleteFourn('+i+')">🗑</button></td></tr>';
-  }).join('');
-}
-function openAddFournisseur() {
-  openModal(
-    '<div class="modal-title">Ajouter un fournisseur</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Nom</label><input type="text" class="input" id="nf-nom"></div>'+
-      '<div class="field"><label>Contact</label><input type="text" class="input" id="nf-contact"></div>'+
-    '</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Produits</label><select class="select" id="nf-produits"><option>T-shirt</option><option>Sweat</option><option>Casquette</option><option>Chemise</option><option>DTF</option><option>Autre</option></select></div>'+
-      '<div class="field"><label>Notes</label><input type="text" class="input" id="nf-notes"></div>'+
-    '</div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addFourn()">Ajouter</button></div>'
-  );
-}
-function addFourn() {
-  DB.fournisseurs.push({nom:document.getElementById('nf-nom').value,contact:document.getElementById('nf-contact').value,produits:document.getElementById('nf-produits').value,rdv:false,devis:false,notes:document.getElementById('nf-notes').value});
-  saveDB(); closeModal(); renderFournisseurs(); toast('Fournisseur ajouté');
-}
-function deleteFourn(i) { if(confirm('Supprimer ?')){ DB.fournisseurs.splice(i,1); saveDB(); renderFournisseurs(); } }
-
-// ============================================================
-// BONS DE COMMANDE — SYSTÈME COMPLET
-// ============================================================
-var bcLines = [];
-var currentRecepBCId = null;
-// Articles commandables = composants (t-shirts vierges + DTF) + produits finis directs (casquettes, zipettes)
-var COMPOSANTS_DB = [
-  {ref:"T135-N",type:"Vierge",designation:"T-shirt T135 Noir",couleur:"Noir",prix:9.00},
-  {ref:"BY102-BM",type:"Vierge",designation:"T-shirt BY102 Bleu Marine",couleur:"Bleu Marine",prix:8.50},
-  {ref:"BY102-BC",type:"Vierge",designation:"T-shirt BY102 Bleu Ciel",couleur:"Bleu Ciel",prix:8.50},
-  {ref:"BY102-BE",type:"Vierge",designation:"T-shirt BY102 Beige",couleur:"Beige",prix:8.50},
-  {ref:"BY102-BL",type:"Vierge",designation:"T-shirt BY102 Blanc",couleur:"Blanc",prix:8.50},
-  {ref:"E220-N",type:"Vierge",designation:"T-shirt E220 Noir Oversize",couleur:"Noir",prix:8.88},
-  {ref:"E220-B",type:"Vierge",designation:"T-shirt E220 Blanc Oversize",couleur:"Blanc",prix:8.88},
-  {ref:"PULL-N",type:"Vierge",designation:"Pull Noir",couleur:"Noir",prix:21.60},
-  {ref:"PULL-B",type:"Vierge",designation:"Pull Blanc",couleur:"Blanc",prix:21.60},
-  {ref:"BRUT-BE",type:"Vierge",designation:"Brut Beige",couleur:"Beige",prix:15.00},
-  {ref:"DTF-LP-ROSE",type:"DTF",designation:"DTF Lou Pescadou Rose",couleur:"Rose",prix:0},
-  {ref:"DTF-LP-BLEU",type:"DTF",designation:"DTF Lou Pescadou Bleu",couleur:"Bleu",prix:0},
-  {ref:"DTF-LP-VERT",type:"DTF",designation:"DTF Lou Pescadou Vert",couleur:"Vert",prix:0},
-  {ref:"DTF-LP-VIOLET",type:"DTF",designation:"DTF Lou Pescadou Violet",couleur:"Violet",prix:0},
-  {ref:"DTF-LP-BLANC",type:"DTF",designation:"DTF Lou Pescadou Blanc",couleur:"Blanc",prix:0},
-  {ref:"DTF-LP-MARRON",type:"DTF",designation:"DTF Lou Pescadou Marron",couleur:"Marron",prix:0},
-  {ref:"DTF-LI-BLANC",type:"DTF",designation:"DTF Li d\'elo dóu Sud Blanc",couleur:"Blanc",prix:0},
-  {ref:"DTF-LI-NOIR",type:"DTF",designation:"DTF Li d\'elo dóu Sud Noir",couleur:"Noir",prix:0},
-  {ref:"DTF-LI-VERT",type:"DTF",designation:"DTF Li d\'elo dóu Sud Vert",couleur:"Vert",prix:0},
-  {ref:"DTF-LI-JAUNE",type:"DTF",designation:"DTF Li d\'elo dóu Sud Jaune",couleur:"Jaune",prix:0},
-  {ref:"DTF-MT-BLEU",type:"DTF",designation:"DTF Mercatus Bleu",couleur:"Bleu",prix:0},
-  {ref:"DTF-MT-NOIR",type:"DTF",designation:"DTF Mercatus Noir",couleur:"Noir",prix:0},
-  {ref:"DTF-ML-BLANC",type:"DTF",designation:"DTF Massilia Blanc",couleur:"Blanc",prix:0},
-  {ref:"DTF-ML-BLEUCIEL",type:"DTF",designation:"DTF Massilia Bleu ciel",couleur:"Bleu ciel",prix:0},
-  {ref:"DTF-ML-BLEU",type:"DTF",designation:"DTF Massilia Bleu",couleur:"Bleu",prix:0},
-  {ref:"DTF-ML-BLEUMARINE",type:"DTF",designation:"DTF Massilia Bleu marine",couleur:"Bleu marine",prix:0},
-  {ref:"DTF-LM-ROSE",type:"DTF",designation:"DTF Lou Mistrau Blanc/Rose",couleur:"Blanc/Rose",prix:0},
-  {ref:"DTF-LM-BLEU",type:"DTF",designation:"DTF Lou Mistrau Blanc/Bleu",couleur:"Blanc/Bleu",prix:0},
-  {ref:"DTF-LM-VERT",type:"DTF",designation:"DTF Lou Mistrau Blanc/Vert",couleur:"Blanc/Vert",prix:0},
-  {ref:"DTF-LS-NOIR",type:"DTF",designation:"DTF Lou Serein Noir",couleur:"Noir",prix:0},
-  {ref:"DTF-LS-BLANC",type:"DTF",designation:"DTF Lou Serein Blanc",couleur:"Blanc",prix:0},
-  {ref:"ZIP-N",type:"Fini",designation:"Zipette Noir",couleur:"Noir",prix:13.20},
-  {ref:"ZIP-B",type:"Fini",designation:"Zipette Blanc",couleur:"Blanc",prix:13.20},
-  {ref:"CASQ-BE",type:"Fini",designation:"Casquette Beige",couleur:"Beige",prix:19.00,taille:"U"},
-  {ref:"CASQ-BL",type:"Fini",designation:"Casquette Bleu",couleur:"Bleu",prix:19.00,taille:"U"},
-  {ref:"CASQ-KA",type:"Fini",designation:"Casquette Kaki",couleur:"Kaki",prix:25.00,taille:"U"},
-];
-var TAILLES_BC=["XS","S","M","L","XL","XXL","U"];
-function generateBCNum(){var d=today().replace(/-/g,'');var seq=String(DB.bonsCommande.length+1).padStart(3,'0');return 'BC-'+d+'-'+seq;}
-function renderCommandes(){
-  var sel=document.getElementById('bc-fournisseur');
-  if(sel.options.length<=1){DB.fournisseurs.forEach(function(f){var o=document.createElement('option');o.value=f.nom;o.textContent=f.nom;sel.appendChild(o);});}
-  document.getElementById('bc-date').value=today();
-  var d=new Date();d.setDate(d.getDate()+14);document.getElementById('bc-livraison').value=d.toISOString().slice(0,10);
-  document.getElementById('bc-num').textContent=generateBCNum();
-  // KPIs
-  var att=DB.bonsCommande.filter(function(b){return b.statut==='EN ATTENTE'||b.statut==='PARTIEL';}).length;
-  var eng=DB.bonsCommande.reduce(function(s,b){return s+b.total;},0);
-  document.getElementById('bc-kpis').innerHTML=
-    '<div class="kpi"><div class="kpi-label">Bons de commande</div><div class="kpi-value">'+DB.bonsCommande.length+'</div></div>'+
-    '<div class="kpi '+(att>0?'kpi-warning':'')+'"><div class="kpi-label">En attente / Partiel</div><div class="kpi-value">'+att+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">Total engagé HT</div><div class="kpi-value">'+fmt(eng)+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Articles distincts</div><div class="kpi-value">'+new Set(DB.bonsCommande.flatMap(function(b){return b.articles.map(function(a){return a.ref;});})).size+'</div></div>';
-  renderBCHist();
-}
-function onBCFournChange(){var nom=document.getElementById('bc-fournisseur').value;var f=DB.fournisseurs.find(function(x){return x.nom===nom;});if(f&&f.contact)document.getElementById('bc-email').value=f.contact;}
-function buildComposantOpts(){
-  var groups={Vierge:[],DTF:[],Fini:[]};
-  COMPOSANTS_DB.forEach(function(c){if(groups[c.type])groups[c.type].push(c);});
-  var html='<option value="">— Choisir —</option>';
-  html+='<optgroup label="T-shirts vierges">'+groups.Vierge.map(function(c){return '<option value="'+c.ref+'">'+c.ref+' — '+c.designation+'</option>';}).join('')+'</optgroup>';
-  html+='<optgroup label="DTF Designs">'+groups.DTF.map(function(c){return '<option value="'+c.ref+'">'+c.ref+' — '+c.designation+'</option>';}).join('')+'</optgroup>';
-  html+='<optgroup label="Produits finis (casquettes, zipettes)">'+groups.Fini.map(function(c){return '<option value="'+c.ref+'">'+c.ref+' — '+c.designation+'</option>';}).join('')+'</optgroup>';
-  return html;
-}
-function addBCLine(){
-  var id=Date.now();bcLines.push(id);
-  var tbody=document.getElementById('bc-lines');var tr=document.createElement('tr');tr.id='bcl-'+id;
-  tr.innerHTML='<td style="color:var(--muted);font-size:11px;">'+bcLines.length+'</td>'+
-    '<td><select class="select input-sm" id="bcl-code-'+id+'" onchange="onBCLineChange('+id+')" style="min-width:220px;">'+buildComposantOpts()+'</select></td>'+
-    '<td id="bcl-desig-'+id+'" style="color:var(--muted);">—</td>'+
-    '<td id="bcl-coul-'+id+'" style="color:var(--muted);">—</td>'+
-    '<td><select class="select input-sm" id="bcl-taille-'+id+'" style="width:65px;">'+TAILLES_BC.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></td>'+
-    '<td><input type="number" class="input-sm" id="bcl-qty-'+id+'" value="1" min="1" style="width:55px;text-align:center;" oninput="updateBCTotal()"></td>'+
-    '<td class="r"><input type="number" class="input-sm" id="bcl-prix-'+id+'" step="0.01" style="width:75px;text-align:right;" oninput="updateBCTotal()"></td>'+
-    '<td class="r mono" id="bcl-mt-'+id+'" style="font-weight:600;">—</td>'+
-    '<td><button class="btn-icon" onclick="delBCLine('+id+')">×</button></td>';
-  tbody.appendChild(tr);
-}
-function onBCLineChange(id){
-  var ref=document.getElementById('bcl-code-'+id).value;
-  var art=COMPOSANTS_DB.find(function(c){return c.ref===ref;});
-  document.getElementById('bcl-desig-'+id).textContent=art?art.designation:'—';
-  document.getElementById('bcl-desig-'+id).style.color=art?'var(--text)':'var(--muted)';
-  document.getElementById('bcl-coul-'+id).textContent=art?art.couleur:'—';
-  if(art&&art.prix)document.getElementById('bcl-prix-'+id).value=art.prix.toFixed(2);
-  if(art&&art.taille)document.getElementById('bcl-taille-'+id).value=art.taille;
-  updateBCTotal();
-}
-function delBCLine(id){var el=document.getElementById('bcl-'+id);if(el)el.remove();bcLines=bcLines.filter(function(l){return l!==id;});updateBCTotal();}
-function updateBCTotal(){
-  var total=0,totalQty=0,lines=0;
-  bcLines.forEach(function(id){
-    var q=parseFloat(document.getElementById('bcl-qty-'+id)?.value)||0;
-    var p=parseFloat(document.getElementById('bcl-prix-'+id)?.value)||0;
-    var mt=q*p;total+=mt;if(q>0){lines++;totalQty+=q;}
-    var el=document.getElementById('bcl-mt-'+id);if(el)el.textContent=mt>0?fmt(mt):'—';
-  });
-  document.getElementById('bc-total').textContent=fmt(total);
-  document.getElementById('bc-total-lines').textContent=lines;
-  document.getElementById('bc-total-qty').textContent=totalQty;
-}
-function resetBCForm(){bcLines=[];document.getElementById('bc-lines').innerHTML='';document.getElementById('bc-fournisseur').value='';document.getElementById('bc-email').value='';document.getElementById('bc-comment').value='';document.getElementById('bc-num').textContent=generateBCNum();updateBCTotal();addBCLine();}
-function validerBC(){
-  var fourn=document.getElementById('bc-fournisseur').value;if(!fourn){toast('Choisissez un fournisseur');return;}
-  if(bcLines.length===0){toast('Ajoutez des articles');return;}
-  var articles=[],hasErr=false;
-  bcLines.forEach(function(id){
-    var ref=document.getElementById('bcl-code-'+id)?.value||'';
-    var desig=document.getElementById('bcl-desig-'+id)?.textContent||'';
-    var coul=document.getElementById('bcl-coul-'+id)?.textContent||'';
-    var taille=document.getElementById('bcl-taille-'+id)?.value||'';
-    var qty=parseInt(document.getElementById('bcl-qty-'+id)?.value)||0;
-    var prix=parseFloat(document.getElementById('bcl-prix-'+id)?.value)||0;
-    if(!ref||qty<=0){hasErr=true;return;}
-    articles.push({ref:ref,designation:desig,couleur:coul,taille:taille,qte:qty,qteRecue:0,prix:prix,montant:qty*prix});
-  });
-  if(hasErr||articles.length===0){toast('Vérifiez les articles');return;}
-  var bc={
-    id:generateBCNum(),date:document.getElementById('bc-date').value,
-    livraison:document.getElementById('bc-livraison').value,
-    fournisseur:fourn,email:document.getElementById('bc-email').value,
-    paiement:document.getElementById('bc-paiement').value,
-    commentaire:document.getElementById('bc-comment').value,
-    articles:articles,total:articles.reduce(function(s,a){return s+a.montant;},0),
-    totalQte:articles.reduce(function(s,a){return s+a.qte;},0),totalQteRecue:0,
-    statut:'EN ATTENTE',receptions:[],createdAt:new Date().toISOString()
-  };
-  // Track enCommande on stocks
-  bc.articles.forEach(function(a){
-    var comp=COMPOSANTS_DB.find(function(cc){return cc.ref===a.ref;});
-    if(!comp)return;
-    if(comp.type==='Vierge'){
-      var sv=DB.stockVierge.find(function(v){return comp.ref.indexOf(v.ref)===0;});
-      if(sv)sv.enCommande=(sv.enCommande||0)+a.qte;
-    }else if(comp.type==='DTF'){
-      var nm=comp.designation.replace('DTF ','');
-      var sd=DB.stockDTF.find(function(d){return nm.indexOf(d.nom)>-1||d.nom.indexOf(nm)>-1;});
-      if(sd)sd.enCommande=(sd.enCommande||0)+a.qte;
-    }
-  });
-  DB.bonsCommande.unshift(bc);saveDB();
-  toast('Bon de commande '+bc.id+' enregistré !');resetBCForm();renderCommandes();
-}
-function renderBCHist(){
-  var tbody=document.getElementById('bc-hist-body');
-  if(DB.bonsCommande.length===0){tbody.innerHTML='<tr><td colspan="10" class="empty-state">Aucun bon de commande</td></tr>';return;}
-  tbody.innerHTML='';
-  DB.bonsCommande.forEach(function(bc,idx){
-    var cls={'EN ATTENTE':'badge-warn','LIVRÉ':'badge-ok','PARTIEL':'badge-info','ANNULÉ':'badge-danger'}[bc.statut]||'badge-neutral';
-    var recu=bc.totalQteRecue||0;var reste=bc.totalQte-recu;
-    var canRecv=bc.statut==='EN ATTENTE'||bc.statut==='PARTIEL';
-    var tr=document.createElement('tr');tr.style.cursor='pointer';
-    tr.onclick=function(){var d=document.getElementById('bcd-'+bc.id);if(d)d.style.display=d.style.display==='none'?'table-row':'none';};
-    tr.innerHTML='<td class="mono" style="font-size:11px;">'+bc.id+'</td><td>'+formatDate(bc.date)+'</td><td style="font-weight:600;">'+bc.fournisseur+'</td>'+
-      '<td>'+bc.articles.length+' art.</td><td class="r">'+bc.totalQte+'</td>'+
-      '<td class="r" style="color:var(--success);font-weight:600;">'+recu+'</td>'+
-      '<td class="r" style="color:'+(reste>0?'var(--warning)':'var(--success)')+';">'+reste+'</td>'+
-      '<td class="r mono" style="font-weight:700;">'+fmt(bc.total)+'</td>'+
-      '<td><span class="badge '+cls+'">'+bc.statut+'</span></td>'+
-      '<td style="white-space:nowrap;"><div style="display:flex;gap:4px;">'+
-        (canRecv?'<button class="btn btn-primary btn-xs" onclick="event.stopPropagation();ouvrirReception(\''+bc.id+'\')">Réceptionner</button>':'')+
-        '<button class="btn btn-secondary btn-xs" onclick="event.stopPropagation();imprimerBC(\''+bc.id+'\')">PDF</button>'+
-        '<button class="btn btn-secondary btn-xs" onclick="event.stopPropagation();exportBCCSV(\''+bc.id+'\')">CSV</button>'+
-        '<button class="btn btn-danger btn-xs" onclick="event.stopPropagation();deleteBC('+idx+')">×</button>'+
-      '</div></td>';
-    tbody.appendChild(tr);
-    // Detail row
-    var artHtml=bc.articles.map(function(a){var p=Math.round((a.qteRecue/a.qte)*100);return '<tr><td class="mono" style="font-size:10px;">'+a.ref+'</td><td>'+a.designation+'</td><td class="c">'+a.taille+'</td><td class="r">'+a.qte+'</td><td class="r" style="color:var(--success);">'+a.qteRecue+'</td><td class="r">'+(a.qte-a.qteRecue)+'</td><td class="r">'+fmt(a.prix)+'</td><td class="r" style="font-weight:600;">'+fmt(a.montant)+'</td><td><div class="stock-bar" style="width:60px;"><div class="stock-bar-fill '+(p>=100?'ok':p>0?'warn':'danger')+'" style="width:'+p+'%;"></div></div></td></tr>';}).join('');
-    var recHtml='';
-    if(bc.receptions&&bc.receptions.length>0){recHtml='<div style="margin-top:10px;"><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">Réceptions</div>'+bc.receptions.map(function(r){return '<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;">'+formatDate(r.date)+' — <strong>'+r.total+'</strong> pièces : '+r.articles.map(function(a){return a.designation+' '+a.taille+' (×'+a.qte+')';}).join(', ')+'</div>';}).join('')+'</div>';}
-    var dtr=document.createElement('tr');dtr.id='bcd-'+bc.id;dtr.style.display='none';
-    dtr.innerHTML='<td colspan="10" style="background:var(--surface2);padding:14px;"><div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;flex-wrap:wrap;">'+(bc.email?'<div><span style="color:var(--muted);">Email</span><br>'+bc.email+'</div>':'')+'<div><span style="color:var(--muted);">Paiement</span><br>'+bc.paiement+'</div><div><span style="color:var(--muted);">Livraison</span><br>'+formatDate(bc.livraison)+'</div>'+(bc.commentaire?'<div><span style="color:var(--muted);">Note</span><br>'+bc.commentaire+'</div>':'')+'</div><table style="width:100%;font-size:11px;"><tr style="background:var(--surface3);"><th style="padding:5px 8px;">Ref</th><th>Désignation</th><th class="c">Taille</th><th class="r">Cmdé</th><th class="r">Reçu</th><th class="r">Reste</th><th class="r">Prix U</th><th class="r">Montant</th><th>Avancmt</th></tr>'+artHtml+'</table>'+recHtml+'</td>';
-    tbody.appendChild(dtr);
-  });
-}
-function deleteBC(i){if(confirm('Supprimer ce bon de commande ?')){DB.bonsCommande.splice(i,1);saveDB();renderCommandes();toast('Supprimé');}}
-// RÉCEPTION
-function ouvrirReception(id){
-  var bc=DB.bonsCommande.find(function(b){return b.id===id;});if(!bc)return;
-  currentRecepBCId=id;
-  document.getElementById('recep-title').textContent='Réception — '+bc.id;
-  document.getElementById('recep-sub').textContent=bc.fournisseur+' · Commande du '+formatDate(bc.date);
-  var html='';
-  bc.articles.forEach(function(a,i){
-    var reste=a.qte-a.qteRecue;var pct=Math.round((a.qteRecue/a.qte)*100);
-    html+='<div style="background:var(--surface2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;border:1px solid var(--border);">'+
-      '<div style="font-weight:600;font-size:12px;margin-bottom:6px;">'+a.designation+' — '+a.couleur+' '+a.taille+'</div>'+
-      '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap;">'+
-        '<span>Cmdé: <strong style="color:var(--text);">'+a.qte+'</strong></span>'+
-        '<span>Reçu: <strong style="color:var(--success);">'+a.qteRecue+'</strong></span>'+
-        '<span>Reste: <strong style="color:var(--warning);">'+reste+'</strong></span>'+
-        '<span style="margin-left:auto;">Réceptionner:</span>'+
-        '<input type="number" id="recv-'+i+'" min="0" max="'+reste+'" value="'+reste+'" class="input input-sm" style="width:60px;text-align:center;">'+
-        '<span>/ '+reste+'</span>'+
-        '<div class="progress-bar-wrap"><div class="progress-bar" id="prog-'+i+'" style="width:'+pct+'%;"></div></div>'+
-      '</div></div>';
-  });
-  document.getElementById('recep-articles').innerHTML=html;
-  document.getElementById('modal-reception').classList.add('open');
-}
-function closeRecepModal(){document.getElementById('modal-reception').classList.remove('open');currentRecepBCId=null;}
-function confirmerReception(){
-  var bc=DB.bonsCommande.find(function(b){return b.id===currentRecepBCId;});if(!bc)return;
-  var dateR=today();var recepDetail=[];
-  bc.articles.forEach(function(a,i){
-    var val=parseInt(document.getElementById('recv-'+i).value)||0;
-    val=Math.min(val,a.qte-a.qteRecue);if(val<=0)return;
-    a.qteRecue+=val;recepDetail.push({ref:a.ref,designation:a.designation,taille:a.taille,qte:val});
-    var comp=COMPOSANTS_DB.find(function(cc){return cc.ref===a.ref;});
-    if(comp){
-      if(comp.type==='Vierge'){
-        var sv=DB.stockVierge.find(function(v){return comp.ref.indexOf(v.ref)===0;});
-        if(sv){var sz=a.taille.toLowerCase();if(sz==='xs')sv.xs+=val;else if(sz==='s')sv.s+=val;else if(sz==='m')sv.m+=val;else if(sz==='l')sv.l+=val;else if(sz==='xl')sv.xl+=val;else if(sz==='xxl')sv.xxl+=val;sv.enCommande=Math.max(0,(sv.enCommande||0)-val);}
-      }else if(comp.type==='DTF'){
-        var nm=comp.designation.replace('DTF ','');
-        var sd=DB.stockDTF.find(function(d){return nm.indexOf(d.nom)>-1||d.nom.indexOf(nm)>-1;});
-        if(sd){sd.stock+=val;sd.enCommande=Math.max(0,(sd.enCommande||0)-val);}
-      }else if(comp.type==='Fini'){
-        var sf=DB.stockFini.find(function(f){return f.code.indexOf(comp.ref)>-1;});
-        if(sf){sf.stock+=val;}else{DB.stockFini.push({code:comp.ref,designation:comp.designation,taille:a.taille,stock:val,pv:comp.prix||0,seuil:2});}
-      }
-    }
-  });
-  bc.totalQteRecue=bc.articles.reduce(function(s,a){return s+a.qteRecue;},0);
-  if(!bc.receptions)bc.receptions=[];
-  bc.receptions.push({date:dateR,articles:recepDetail,total:recepDetail.reduce(function(s,a){return s+a.qte;},0)});
-  var toutRecu=bc.articles.every(function(a){return a.qteRecue>=a.qte;});
-  bc.statut=toutRecu?'LIVRÉ':'PARTIEL';
-  saveDB();toast(toutRecu?'Livraison complète ! Stock mis à jour.':'Réception partielle enregistrée.');
-  closeRecepModal();renderCommandes();
-}
-// PDF
-function imprimerBC(id){
-  var bc=DB.bonsCommande.find(function(b){return b.id===id;});if(!bc)return;
-  var rows=bc.articles.map(function(a,i){return '<tr><td>'+(i+1)+'</td><td style="font-family:monospace;font-size:10px;">'+a.ref+'</td><td>'+a.designation+'</td><td class="c">'+a.couleur+'</td><td class="c">'+a.taille+'</td><td class="r">'+a.qte+'</td><td class="r">'+a.prix.toFixed(2)+' €</td><td class="r">'+a.montant.toFixed(2)+' €</td></tr>';}).join('');
-  var html='<div class="pdf-doc"><div class="pdf-header"><div><div class="pdf-brand">MERIDIES</div><div class="pdf-brand-sub">Bon de commande fournisseur</div></div><div style="text-align:right;"><div class="pdf-bc-num">'+bc.id+'</div><div class="pdf-bc-date">Émis le '+formatDate(bc.date)+'</div></div></div><div class="pdf-body"><div class="pdf-grid"><div><div class="pdf-section-title">Fournisseur</div><div class="pdf-field"><div class="pdf-field-label">Nom</div><div class="pdf-field-value">'+bc.fournisseur+'</div></div>'+(bc.email?'<div class="pdf-field"><div class="pdf-field-label">Email</div><div class="pdf-field-value">'+bc.email+'</div></div>':'')+'<div class="pdf-field"><div class="pdf-field-label">Paiement</div><div class="pdf-field-value">'+bc.paiement+'</div></div></div><div><div class="pdf-section-title">Commande</div><div class="pdf-field"><div class="pdf-field-label">Date</div><div class="pdf-field-value">'+formatDate(bc.date)+'</div></div><div class="pdf-field"><div class="pdf-field-label">Livraison souhaitée</div><div class="pdf-field-value">'+formatDate(bc.livraison)+'</div></div><div class="pdf-field"><div class="pdf-field-label">Statut</div><div class="pdf-field-value">'+bc.statut+'</div></div></div></div>'+(bc.commentaire?'<div class="pdf-comment"><strong>Note :</strong> '+bc.commentaire+'</div>':'')+
-    '<div class="pdf-section-title">Articles commandés</div><table class="pdf-table"><thead><tr><th>#</th><th>Référence</th><th>Désignation</th><th>Couleur</th><th>Taille</th><th class="r">Qté</th><th class="r">Prix U HT</th><th class="r">Montant HT</th></tr></thead><tbody>'+rows+'<tr class="pdf-total-row"><td colspan="5" style="text-align:right;padding:8px 10px;"><strong>TOTAL</strong></td><td class="r"><strong>'+bc.totalQte+'</strong></td><td></td><td class="r"><strong>'+bc.total.toFixed(2)+' €</strong></td></tr></tbody></table></div>'+
-    '<div class="pdf-footer"><div class="pdf-footer-note">MERIDIES — Généré le '+new Date().toLocaleDateString('fr-FR')+'</div><div style="text-align:right;"><div class="pdf-sign-label">Signature fournisseur</div><div class="pdf-sign-box"></div></div></div></div>';
-  var prev=document.getElementById('pdf-preview');prev.innerHTML=html;prev.style.display='block';
-  window.print();
-  setTimeout(function(){prev.style.display='none';prev.innerHTML='';},500);
-}
-// CSV exports
-function csvEsc(v){if(v===undefined||v===null)return '';var s=String(v);return (s.indexOf(',')>-1||s.indexOf('"')>-1)?'"'+s.replace(/"/g,'""')+'"':s;}
-function dlCSV(csv,fn){var b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click();}
-function exportBCCSV(id){
-  var bc=DB.bonsCommande.find(function(b){return b.id===id;});if(!bc)return;
-  var L=[['BON DE COMMANDE MERIDIES'],['N°',bc.id],['Date',formatDate(bc.date)],['Fournisseur',bc.fournisseur],['Statut',bc.statut],[],['Ref','Désignation','Couleur','Taille','Qté cmdée','Qté reçue','Prix U','Montant']];
-  bc.articles.forEach(function(a){L.push([a.ref,a.designation,a.couleur,a.taille,a.qte,a.qteRecue,a.prix.toFixed(2),a.montant.toFixed(2)]);});
-  L.push([],['','','','','TOTAL',bc.totalQte,'',bc.total.toFixed(2)]);
-  dlCSV(L.map(function(r){return r.map(csvEsc).join(',');}).join('\r\n'),'MERIDIES_'+bc.id+'.csv');toast('CSV téléchargé');
-}
-function exportAllBCExcel(){
-  if(DB.bonsCommande.length===0){toast('Aucun BC');return;}
-  var L=[['N° BC','Date','Fournisseur','Statut','Ref','Désignation','Couleur','Taille','Qté','Reçu','Reste','Prix U','Montant','Total BC']];
-  DB.bonsCommande.forEach(function(bc){bc.articles.forEach(function(a,i){L.push([bc.id,formatDate(bc.date),bc.fournisseur,bc.statut,a.ref,a.designation,a.couleur,a.taille,a.qte,a.qteRecue,(a.qte-a.qteRecue),a.prix.toFixed(2),a.montant.toFixed(2),i===0?bc.total.toFixed(2):'']);});});
-  dlCSV(L.map(function(r){return r.map(csvEsc).join(',');}).join('\r\n'),'MERIDIES_Historique_BC_'+today()+'.csv');toast('Export complet téléchargé');
-}
-
-// ============================================================
-// COUT DE REVIENT
-// ============================================================
-function renderCoutRevient() {
-  var tbody = document.getElementById('cr-body');
-  if(DB.coutRevient.length===0 && DB.stockDTF.length>0) {
-    DB.stockDTF.forEach(function(d){ DB.coutRevient.push({ref:d.ref,nom:d.nom,paTshirt:0,paDTF:0,marquage:0,pv:35}); });
-    saveDB();
-  }
-  tbody.innerHTML = DB.coutRevient.map(function(c,i){
-    var cr=c.paTshirt+c.paDTF+c.marquage;
-    var marge=c.pv-cr; var margePct=c.pv>0?(marge/c.pv*100):0;
-    var cls=margePct>50?'badge-ok':(margePct>30?'badge-warn':'badge-danger');
-    return '<tr><td class="mono">'+c.ref+'</td><td style="font-weight:600;">'+c.nom+'</td>'+
-      '<td class="r"><input type="number" class="input-sm" style="width:65px;text-align:right;" value="'+(c.paTshirt||'')+'" step="0.01" onchange="updateCR('+i+',\'paTshirt\',this.value)"></td>'+
-      '<td class="r"><input type="number" class="input-sm" style="width:65px;text-align:right;" value="'+(c.paDTF||'')+'" step="0.01" onchange="updateCR('+i+',\'paDTF\',this.value)"></td>'+
-      '<td class="r"><input type="number" class="input-sm" style="width:65px;text-align:right;" value="'+(c.marquage||'')+'" step="0.01" onchange="updateCR('+i+',\'marquage\',this.value)"></td>'+
-      '<td class="r mono" style="font-weight:700;">'+fmt(cr)+'</td>'+
-      '<td class="r"><input type="number" class="input-sm" style="width:65px;text-align:right;" value="'+c.pv+'" step="0.01" onchange="updateCR('+i+',\'pv\',this.value)"></td>'+
-      '<td class="r mono" style="font-weight:700;color:'+(marge>0?'var(--success)':'var(--danger)')+';">'+fmt(marge)+'</td>'+
-      '<td class="r"><span class="badge '+cls+'">'+margePct.toFixed(0)+'%</span></td>'+
-      '<td><button class="btn-icon" onclick="deleteCR('+i+')">🗑</button></td></tr>';
-  }).join('');
-}
-function updateCR(i,field,val) { DB.coutRevient[i][field]=parseFloat(val)||0; saveDB(); renderCoutRevient(); }
-function deleteCR(i) { DB.coutRevient.splice(i,1); saveDB(); renderCoutRevient(); }
-function addCRLine() {
-  var ref=prompt('Réf. Design (ex: LP-0100):');if(!ref)return;
-  var nom=prompt('Nom du design:');
-  DB.coutRevient.push({ref:ref,nom:nom||ref,paTshirt:0,paDTF:0,marquage:0,pv:35});
-  saveDB(); renderCoutRevient();
-}
-
-// ============================================================
-// TODOS
-// ============================================================
-function renderTodos() {
-  var filter = document.getElementById('todo-filter') ? document.getElementById('todo-filter').value : '';
-  var items = DB.todos.filter(function(t){ return !filter || t.status === filter; });
-  var tbody = document.getElementById('todo-body');
-  if(items.length===0){tbody.innerHTML='<tr><td colspan="6" class="empty-state">Aucune tâche</td></tr>';return;}
-  var prioCls = {'A':'badge-danger','B':'badge-warn','C':'badge-info'};
-  var statCls = {'A TRAITER':'badge-danger','EN COURS':'badge-warn','EN ATTENTE':'badge-neutral','TERMINER':'badge-ok','ANNULÉ':'badge-neutral'};
-  tbody.innerHTML = items.map(function(t,i){
-    var idx = DB.todos.indexOf(t);
-    return '<tr><td>'+
-      '<select class="select input-sm" style="width:100px;" onchange="DB.todos['+idx+'].owner=this.value;saveDB();">'+
-        ['Quentin','Eliott','Seb','Quentin / Eliott'].map(function(o){return '<option'+(t.owner===o?' selected':'')+'>'+o+'</option>';}).join('')+
-      '</select></td>'+
-      '<td style="font-weight:500;">'+t.task+'</td>'+
-      '<td><select class="select input-sm" style="width:55px;" onchange="DB.todos['+idx+'].prio=this.value;saveDB();renderTodos();">'+
-        ['A','B','C'].map(function(p){return '<option'+(t.prio===p?' selected':'')+'>'+p+'</option>';}).join('')+
-      '</select></td>'+
-      '<td>'+(t.due?formatDate(t.due):'—')+'</td>'+
-      '<td><select class="select input-sm" style="width:110px;" onchange="DB.todos['+idx+'].status=this.value;saveDB();renderTodos();">'+
-        ['A TRAITER','EN COURS','EN ATTENTE','TERMINER','ANNULÉ'].map(function(s){return '<option'+(t.status===s?' selected':'')+'>'+s+'</option>';}).join('')+
-      '</select></td>'+
-      '<td><button class="btn-icon" onclick="deleteTodo('+idx+')">🗑</button></td></tr>';
-  }).join('');
-}
-function deleteTodo(i) { DB.todos.splice(i,1); saveDB(); renderTodos(); }
-function openAddTodo() {
-  openModal(
-    '<div class="modal-title">Nouvelle tâche</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Tâche</label><input type="text" class="input" id="nt-task" placeholder="Description de la tâche"></div>'+
-    '<div class="grid3" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Owner</label><select class="select" id="nt-owner"><option>Quentin</option><option>Eliott</option><option>Seb</option><option>Quentin / Eliott</option></select></div>'+
-      '<div class="field"><label>Priorité</label><select class="select" id="nt-prio"><option>A</option><option>B</option><option>C</option></select></div>'+
-      '<div class="field"><label>Échéance</label><input type="date" class="input" id="nt-due"></div>'+
-    '</div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addTodo()">Ajouter</button></div>'
-  );
-}
-function addTodo() {
-  DB.todos.push({owner:document.getElementById('nt-owner').value,task:document.getElementById('nt-task').value,prio:document.getElementById('nt-prio').value,due:document.getElementById('nt-due').value,status:'A TRAITER'});
-  saveDB(); closeModal(); renderTodos(); toast('Tâche ajoutée');
-}
-
-// ============================================================
-// GLOBAL
-// ============================================================
-function exportAllData() {
-  var json = JSON.stringify(DB, null, 2);
-  var blob = new Blob([json], {type:'application/json'});
-  var a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='MERIDIES_backup_'+today()+'.json'; a.click();
-  toast('Sauvegarde complète téléchargée');
-}
-function resetAllData() {
-  if(!confirm('⚠️ Supprimer TOUTES les données ?\nCette action est irréversible.')) return;
-  if(!confirm('Confirmez : tout effacer ?')) return;
-  localStorage.removeItem('meridies_db');
-  DB = {catalogue:[],stockVierge:[],stockDTF:[],stockFini:[],ventes:[],fournisseurs:[],bonsCommande:[],coutRevient:[],todos:[]};
-  initDefaultData();
-  goTo('dashboard');
-  toast('Données réinitialisées');
-}
-
-// ============================================================
-// INIT
-// ============================================================
-// Afficher un écran de chargement pendant la connexion Supabase
-document.addEventListener('DOMContentLoaded', function() {
-  // Mot de passe : vérifier APRES que le DOM est prêt
-  if (sessionStorage.getItem('meridies_authed') !== '1') {
-    document.getElementById('lock-screen').style.display = 'flex';
-    setTimeout(function(){ var el=document.getElementById('lock-input'); if(el)el.focus(); }, 100);
-    return; // Ne pas charger les données avant authentification
-  }
-  document.getElementById('lock-screen').style.display = 'none';
-  loadDB();
-  startInactivityTimer();
-});
-// ============================================================
-// MOT DE PASSE — modifier DEFAULT_PWD pour changer le mdp
-// ============================================================
-var DEFAULT_PWD = 'UmF5ZXNGcm9tU3BhY2UxMDopOm1lcmlkaWVz';
-
-function lockSubmit() {
-  var input = document.getElementById('lock-input').value;
-  var errEl = document.getElementById('lock-error');
-  if (!input) { errEl.textContent = 'Entrez le mot de passe'; return; }
-  if (btoa(input + ':meridies') === DEFAULT_PWD) {
-    sessionStorage.setItem('meridies_authed', '1');
-    document.getElementById('lock-screen').style.display = 'none';
-    loadDB();
-    startInactivityTimer();
+// BONS DE COMMANDE (Logique DTF)
+let currentBCLines = [];
+function onBCArtChange() {
+  let v = document.getElementById('bc-art').value;
+  let c = DB.composants.find(x=>x.ref===v);
+  if(c && c.type === 'DTF') {
+    document.getElementById('bc-prix').value = 2.40;
+    document.getElementById('bc-taille').disabled = true;
+    document.getElementById('bc-taille').value = "";
   } else {
-    errEl.textContent = 'Mot de passe incorrect';
-    document.getElementById('lock-input').value = '';
-    document.getElementById('lock-input').focus();
+    document.getElementById('bc-taille').disabled = false;
   }
 }
+function addBCLine() {
+  currentBCLines.push({art: document.getElementById('bc-art').value, t: document.getElementById('bc-taille').value, q: parseInt(document.getElementById('bc-qte').value), p: parseFloat(document.getElementById('bc-prix').value)});
+  document.getElementById('bc-lines').innerHTML = currentBCLines.map(l => `<tr><td>${l.art}</td><td>${l.t||'-'}</td><td class="r">${l.q}</td><td class="r">${(l.q*l.p).toFixed(2)}</td></tr>`).join('');
+}
+function saveBC() {
+  if(!currentBCLines.length) return toast("BC Vide");
+  let tot = currentBCLines.reduce((s,l)=>s+(l.q*l.p),0);
+  let id = "BC-"+Date.now().toString().slice(-6);
+  DB.bonsCommande.unshift({id:id, date:new Date().toISOString().slice(0,10), fourn:document.getElementById('bc-fourn').value, lines:currentBCLines, tot:tot, statut:'EN ATTENTE'});
+  currentBCLines = []; document.getElementById('bc-lines').innerHTML='';
+  saveDB(); logActivity(`Création ${id} (${tot}€)`); renderFourn(); renderBC(); toast("BC Créé");
+}
+function renderBC() {
+  let f = document.getElementById('bc-filter').value;
+  let list = DB.bonsCommande.filter(b => !f || b.statut === f);
+  document.getElementById('bc-hist').innerHTML = list.map(b => 
+    `<tr><td class="mono">${b.id}</td><td>${b.date}</td><td>${b.fourn}</td><td class="r">${b.tot} €</td><td><span class="badge ${b.statut==='EN ATTENTE'?'badge-warn':'badge-ok'}">${b.statut}</span></td></tr>`
+  ).join('');
+}
 
-// ============================================================
-// DECONNEXION AUTO — 5 minutes d'inactivite
-// ============================================================
-var _inactTimer = null;
-function startInactivityTimer() {
-  clearTimeout(_inactTimer);
-  _inactTimer = setTimeout(function() {
-    sessionStorage.removeItem('meridies_authed');
-    document.getElementById('lock-screen').style.display = 'flex';
-    document.getElementById('lock-input').value = '';
-    document.getElementById('lock-error').textContent = 'Session expiree apres 5 min. Reconnectez-vous.';
-    setTimeout(function(){ document.getElementById('lock-input').focus(); }, 100);
-  }, 5 * 60 * 1000);
+// KANBAN NATIVE DRAG & DROP
+let dragEl = null;
+function drag(e) { dragEl = e.target; e.dataTransfer.setData('text/plain', e.target.id); }
+function allowDrop(e) { e.preventDefault(); }
+function drop(e) {
+  e.preventDefault();
+  let col = e.target.closest('.k-col');
+  if(col && dragEl) {
+    let id = parseInt(dragEl.id.split('-')[1]);
+    let t = DB.todos.find(x=>x.id===id);
+    if(t) {
+      t.status = col.id.replace('col-','');
+      saveDB(); renderTodos(); logActivity(`Tâche mise à jour`);
+    }
+  }
 }
-function resetInactivity() {
-  if (sessionStorage.getItem('meridies_authed') === '1') startInactivityTimer();
+function renderTodos() {
+  ['TODO','DOING','WAIT','DONE'].forEach(s => {
+    let list = DB.todos.filter(t=>t.status===s);
+    document.getElementById('c-'+s).textContent = list.length;
+    let html = `<div class="k-col-title">${s} <span>${list.length}</span></div>`;
+    html += list.map(t => `<div class="k-card" id="t-${t.id}" draggable="true" ondragstart="drag(event)">${t.txt}</div>`).join('');
+    document.getElementById('col-'+s).innerHTML = html;
+  });
 }
-['click','keydown','mousemove','touchstart','scroll'].forEach(function(evt) {
-  document.addEventListener(evt, resetInactivity, true);
+function openTodoModal() {
+  let t = prompt("Nouvelle tâche:");
+  if(t) { DB.todos.push({id:Date.now(), txt:t, status:'TODO'}); saveDB(); renderTodos(); }
+}
+
+// TRESORERIE
+function renderTreso() {
+  let tin=0, tout=0;
+  DB.treso.forEach(t=>{ if(t.in) tin+=t.m; else tout+=t.m; });
+  document.getElementById('t-in').textContent = tin+' €';
+  document.getElementById('t-out').textContent = tout+' €';
+  document.getElementById('t-solde').textContent = (tin-tout)+' €';
+  document.getElementById('treso-body').innerHTML = DB.treso.map(t => 
+    `<tr><td>${t.d}</td><td><span class="badge ${t.in?'badge-ok':'badge-danger'}">${t.in?'IN':'OUT'}</span></td><td>${t.txt}</td><td class="r">${t.m} €</td></tr>`
+  ).join('');
+}
+function addTreso() {
+  let type = confirm("OK = Entrée (Vente), Annuler = Sortie (Achat/Frais)");
+  let m = parseFloat(prompt("Montant :"));
+  let txt = prompt("Motif :");
+  if(m && txt) { DB.treso.unshift({d:new Date().toISOString().slice(0,10), in:type, m:m, txt:txt}); saveDB(); renderTreso(); }
+}
+
+// MARCHES
+function renderMarches() {
+  document.getElementById('marches-body').innerHTML = DB.marches.map(m => 
+    `<tr><td>${m.d}</td><td>${m.lieu}</td><td>${m.meteo}</td><td class="r">${m.ca} €</td><td>${m.notes}</td></tr>`
+  ).join('');
+}
+function addMarche() {
+  let lieu = prompt("Lieu du marché :");
+  if(lieu) { DB.marches.unshift({d:new Date().toISOString().slice(0,10), lieu:lieu, meteo:"Soleil", ca:0, notes:"RAS"}); saveDB(); renderMarches(); }
+}
+
+// SAV
+function renderSAV() {
+  document.getElementById('sav-body').innerHTML = DB.sav.map(s => 
+    `<tr><td>${s.d}</td><td>${s.c}</td><td>${s.a}</td><td>${s.m}</td><td><span class="badge badge-warn">${s.st}</span></td></tr>`
+  ).join('');
+}
+function addSAV() {
+  let c = prompt("Nom du client :");
+  if(c) { DB.sav.unshift({d:new Date().toISOString().slice(0,10), c:c, a:"Article", m:"Défaut", st:"EN COURS"}); saveDB(); renderSAV(); }
+}
+
+// AGENDA
+function renderAgenda() {
+  let evts = [...DB.bonsCommande.map(b=>({d:b.date, t:"Commande fournisseur", s:b.fourn})), ...DB.marches.map(m=>({d:m.d, t:"Marché", s:m.lieu}))].sort((a,b)=>a.d.localeCompare(b.d));
+  document.getElementById('agenda-list').innerHTML = evts.map(e => `<div style="padding:10px;border-bottom:1px solid var(--border);display:flex;gap:20px;"><strong>${e.d}</strong> <span><span class="badge badge-neutral">${e.t}</span> ${e.s}</span></div>`).join('');
+}
+
+// RECHERCHE GLOBALE
+function doSearch(v) {
+  let res = document.getElementById('search-results');
+  if(v.length < 2) { res.style.display='none'; return; }
+  let html = "";
+  DB.catalogue.filter(c=>c.code.includes(v.toUpperCase())).forEach(c => html+=`<div onclick="goTo('catalogue')">📦 Art: ${c.code}</div>`);
+  DB.fournisseurs.filter(f=>f.nom.toLowerCase().includes(v.toLowerCase())).forEach(f => html+=`<div onclick="goTo('fournisseurs')">🏭 Fourn: ${f.nom}</div>`);
+  DB.bonsCommande.filter(b=>b.id.includes(v.toUpperCase())).forEach(b => html+=`<div onclick="goTo('commandes')">📋 BC: ${b.id}</div>`);
+  res.innerHTML = html || "<div style='color:var(--muted)'>Aucun résultat</div>";
+  res.style.display = 'block';
+}
+
+// RACCOURCIS CLAVIER
+document.addEventListener('keydown', e => {
+  if(e.altKey && e.key.toLowerCase() === 's') { e.preventDefault(); document.getElementById('global-search').focus(); }
+  if(e.altKey && e.key.toLowerCase() === 'd') { e.preventDefault(); goTo('dashboard'); }
+  if(e.altKey && e.key.toLowerCase() === 'v') { e.preventDefault(); goTo('saisie-vente'); }
+  if(e.altKey && e.key.toLowerCase() === 'c') { e.preventDefault(); goTo('commandes'); }
 });
+document.addEventListener('click', e => { if(!e.target.closest('.topbar-search')) document.getElementById('search-results').style.display='none'; });
+
+function exportData() {
+  let b = new Blob([JSON.stringify(DB)], {type:'application/json'});
+  let a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Meridies_Backup_${Date.now()}.json`; a.click();
+}
+
+window.onload = loadDB;
 </script>
 </body>
 </html>
