@@ -6,6 +6,7 @@
 <title>MERIDIES — Gestion Centralisée</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -245,13 +246,36 @@ tr:hover td{background:var(--surface2);}
 <!-- ==================== DASHBOARD ==================== -->
 <div class="page active" id="page-dashboard">
   <div class="kpi-grid" id="dash-kpis"></div>
+  <!-- Graphiques ligne 1 -->
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title">📈 CA par canal</span></div>
+      <div style="position:relative;height:220px;"><canvas id="chart-canaux"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">🏆 Top designs</span></div>
+      <div style="position:relative;height:220px;"><canvas id="chart-designs"></canvas></div>
+    </div>
+  </div>
+  <!-- Graphiques ligne 2 -->
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title">📦 État des stocks</span></div>
+      <div style="position:relative;height:220px;"><canvas id="chart-stocks"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">👕 Ventes par taille</span></div>
+      <div style="position:relative;height:220px;"><canvas id="chart-tailles"></canvas></div>
+    </div>
+  </div>
+  <!-- Dernières ventes + alertes -->
   <div class="grid2">
     <div class="card">
       <div class="card-header"><span class="card-title">Dernières ventes</span></div>
       <div class="table-wrap"><table><thead><tr><th>Date</th><th>Article</th><th>Canal</th><th class="r">PV</th></tr></thead><tbody id="dash-last-sales"></tbody></table></div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">Alertes stock</span></div>
+      <div class="card-header"><span class="card-title">⚠️ Alertes stock</span></div>
       <div id="dash-alerts"></div>
     </div>
   </div>
@@ -291,7 +315,7 @@ tr:hover td{background:var(--surface2);}
       <span class="card-title">Stock DTF (Designs)</span>
       <button class="btn btn-primary btn-sm" onclick="openAddStockDTF()">+ Entrée de stock</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Réf. Design</th><th>Désignation</th><th>Stock</th><th>Vendus</th><th>Disponible</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sd-body"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Réf. Design</th><th>Désignation</th><th class="c">Stock</th><th class="c">En cde</th><th class="c">Projeté</th><th class="c">En finis</th><th class="r">PA (€)</th><th class="r">Valeur</th><th class="c">Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sd-body"></tbody></table></div>
   </div>
 </div>
 
@@ -704,38 +728,105 @@ function renderDashboard() {
   var stockFiniTotal = DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
   var dtfTotal = DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
   var viergeTotal = DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
-  
+  var nbVentes = DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
+  var panierMoyen = nbVentes > 0 ? caTotal/nbVentes : 0;
+
   document.getElementById('dash-kpis').innerHTML =
-    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+totalVentes+' ventes</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Produits au catalogue</div><div class="kpi-value">'+totalCat+'</div><div class="kpi-sub">SKUs (code × taille)</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">Stock produits finis</div><div class="kpi-value">'+stockFiniTotal+'</div><div class="kpi-sub">pièces prêtes à vendre</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Stock composants</div><div class="kpi-value">'+viergeTotal+' / '+dtfTotal+'</div><div class="kpi-sub">vierges / DTF designs</div></div>';
-  
-  // Last 10 sales
+    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total 2026</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbVentes+' pièces vendues</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panierMoyen)+'</div><div class="kpi-sub">'+totalVentes+' transactions</div></div>'+
+    '<div class="kpi kpi-success"><div class="kpi-label">Stock prêt à vendre</div><div class="kpi-value">'+stockFiniTotal+'</div><div class="kpi-sub">produits finis</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTotal+' / '+dtfTotal+'</div><div class="kpi-sub">vierges / DTF</div></div>';
+
+  // ── GRAPHIQUE 1 : CA par canal (donut) ──
+  var canalStats = {};
+  DB.ventes.forEach(function(v){ var canal=v.canal||'Autre'; if(!canalStats[canal])canalStats[canal]=0; canalStats[canal]+=(v.pv||0)*(v.qte||1); });
+  var canalLabels = Object.keys(canalStats);
+  var canalData = canalLabels.map(function(k){return canalStats[k];});
+  var canalColors = ['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C'];
+  var ctx1 = document.getElementById('chart-canaux');
+  if(ctx1){
+    if(ctx1._chartInstance) ctx1._chartInstance.destroy();
+    if(canalData.length > 0){
+      ctx1._chartInstance = new Chart(ctx1, {
+        type:'doughnut',
+        data:{labels:canalLabels, datasets:[{data:canalData, backgroundColor:canalColors.slice(0,canalLabels.length), borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}},tooltip:{callbacks:{label:function(ctx){return ctx.label+': '+fmt(ctx.parsed);}}}}}
+      });
+    } else { ctx1.closest('.card').querySelector('div[style*="height"]').innerHTML = '<div class="empty-state" style="padding-top:60px;">Aucune vente</div>'; }
+  }
+
+  // ── GRAPHIQUE 2 : Top designs (barres horizontales) ──
+  var designStats = {};
+  DB.ventes.forEach(function(v){var d=v.design||'Autre';if(!designStats[d])designStats[d]=0;designStats[d]+=(v.qte||1);});
+  var designSorted = Object.entries(designStats).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+  var ctx2 = document.getElementById('chart-designs');
+  if(ctx2){
+    if(ctx2._chartInstance) ctx2._chartInstance.destroy();
+    if(designSorted.length > 0){
+      ctx2._chartInstance = new Chart(ctx2, {
+        type:'bar',
+        data:{labels:designSorted.map(function(d){return d[0];}), datasets:[{label:'Pièces vendues',data:designSorted.map(function(d){return d[1];}),backgroundColor:'#C9A84C',borderRadius:6}]},
+        options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}}
+      });
+    } else { ctx2.closest('.card').querySelector('div[style*="height"]').innerHTML = '<div class="empty-state" style="padding-top:60px;">Aucune vente</div>'; }
+  }
+
+  // ── GRAPHIQUE 3 : État des stocks (barres groupées) ──
+  var ctx3 = document.getElementById('chart-stocks');
+  if(ctx3){
+    if(ctx3._chartInstance) ctx3._chartInstance.destroy();
+    ctx3._chartInstance = new Chart(ctx3, {
+      type:'bar',
+      data:{
+        labels:['Produits finis','T-shirts vierges','Designs DTF'],
+        datasets:[
+          {label:'En stock',data:[stockFiniTotal, viergeTotal, dtfTotal],backgroundColor:['#059669','#2563EB','#C9A84C'],borderRadius:6},
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}
+    });
+  }
+
+  // ── GRAPHIQUE 4 : Ventes par taille (camembert) ──
+  var tailleStats = {};
+  DB.ventes.forEach(function(v){var t=v.taille||'?';if(!tailleStats[t])tailleStats[t]=0;tailleStats[t]+=(v.qte||1);});
+  var tailles = ['XS','S','M','L','XL','XXL','U'].filter(function(t){return tailleStats[t];});
+  var ctx4 = document.getElementById('chart-tailles');
+  if(ctx4){
+    if(ctx4._chartInstance) ctx4._chartInstance.destroy();
+    if(tailles.length > 0){
+      ctx4._chartInstance = new Chart(ctx4, {
+        type:'pie',
+        data:{labels:tailles, datasets:[{data:tailles.map(function(t){return tailleStats[t];}),backgroundColor:['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'],borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}}}}
+      });
+    } else { ctx4.closest('.card').querySelector('div[style*="height"]').innerHTML = '<div class="empty-state" style="padding-top:60px;">Aucune vente</div>'; }
+  }
+
+  // ── Dernières ventes ──
   var last = DB.ventes.slice(-10).reverse();
   var tbody = document.getElementById('dash-last-sales');
   if(last.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Aucune vente enregistrée</td></tr>'; }
-  else {
-    tbody.innerHTML = last.map(function(v){
-      return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';
-    }).join('');
-  }
-  
-  // Stock alerts
+  else { tbody.innerHTML = last.map(function(v){ return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>'; }).join(''); }
+
+  // ── Alertes stock ──
   var alerts = [];
-  DB.stockDTF.forEach(function(d){ var dispo=d.stock-getVendusByRef(d.ref); if(dispo<=d.seuil) alerts.push({name:d.nom,stock:dispo,type:'DTF'}); });
-  DB.stockVierge.forEach(function(v){ var total=v.xs+v.s+v.m+v.l+v.xl+v.xxl; if(total<=v.seuil) alerts.push({name:v.ref+' '+v.couleur,stock:total,type:'Vierge'}); });
+  DB.stockFini.forEach(function(f){ if(f.stock<=(f.seuil||2)) alerts.push({name:f.designation+' '+f.taille,stock:f.stock,type:'Fini',seuil:f.seuil||2}); });
+  DB.stockDTF.forEach(function(d){ if((d.stock||0)<=(d.seuil||3)) alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3}); });
+  DB.stockVierge.forEach(function(v){ var total=v.xs+v.s+v.m+v.l+v.xl+v.xxl; if(total<=v.seuil) alerts.push({name:v.ref+' '+v.couleur,stock:total,type:'Vierge',seuil:v.seuil}); });
   var alertDiv = document.getElementById('dash-alerts');
   if(alerts.length === 0) { alertDiv.innerHTML = '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>'; }
   else {
     alertDiv.innerHTML = alerts.map(function(a){
+      var cls = a.stock <= 0 ? 'badge-danger' : 'badge-warn';
+      var txt = a.stock <= 0 ? 'RUPTURE' : 'Stock bas';
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">'+
-        '<div><span style="font-weight:600;font-size:13px;">'+a.name+'</span><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+
-        statusBadge(a.stock, 1)+
-      '</div>';
+        '<div><span style="font-weight:600;font-size:13px;">'+a.name+'</span><br><span style="font-size:11px;color:var(--muted);">'+a.type+' · seuil: '+a.seuil+'</span></div>'+
+        '<span class="badge '+cls+'">'+txt+' ('+a.stock+')</span></div>';
     }).join('');
   }
   document.getElementById('nav-cat-count').textContent = totalCat;
+}
 }
 
 // ============================================================
@@ -775,6 +866,65 @@ function saveProduct(idx) {
   DB.catalogue[idx].pv = parseFloat(document.getElementById('edit-pv').value) || 0;
   DB.catalogue[idx].pa = parseFloat(document.getElementById('edit-pa').value) || 0;
   saveDB(); closeModal(); renderCatalogue(); toast('Produit mis à jour');
+}
+
+
+// ============================================================
+// CATALOGUE — AJOUT PRODUIT
+// ============================================================
+function openAddProduct() {
+  openModal(
+    '<div class="modal-title">Ajouter un produit au catalogue</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>'+
+      '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>'+
+    '</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Réf. (ex: LP-0100)</label><input type="text" class="input" id="np-ref" placeholder="LP-0100"></div>'+
+      '<div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>'+
+    '</div>'+
+    '<div class="field" style="margin-bottom:14px;">'+
+      '<label>Tailles disponibles</label>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'+
+        ['XS','S','M','L','XL','XXL','U'].map(function(t){ return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="np-taille" value="'+t+'" checked> '+t+'</label>'; }).join("")+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+      '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button>'+
+    '</div>'
+  );
+}
+function addProduct() {
+  var design = document.getElementById('np-design').value.trim();
+  var couleur = document.getElementById('np-couleur').value.trim();
+  var ref = document.getElementById('np-ref').value.trim().toUpperCase();
+  var pv = parseFloat(document.getElementById('np-pv').value) || 35;
+  var tailles = Array.from(document.querySelectorAll('.np-taille:checked')).map(function(cb){return cb.value;});
+  if(!design || !couleur || !ref) { toast('Remplissez tous les champs'); return; }
+  if(tailles.length === 0) { toast('Sélectionnez au moins une taille'); return; }
+  // Générer un numéro de code unique basé sur la ref
+  var numBase = ref.replace(/[^0-9]/g,'') || Math.floor(Math.random()*9000+1000).toString();
+  var famCode = '0' + (DB.catalogue.filter(function(p){return p.ref===ref;}).length > 0 ? '00'+numBase : numBase).slice(-3);
+  // Récupérer l'ID de famille (001, 002, etc.)
+  var existingFam = DB.catalogue.find(function(p){return p.ref===ref;});
+  var famId = existingFam ? existingFam.code.split('-')[2] : String(DB.catalogue.length+1).padStart(3,'0');
+  tailles.forEach(function(t) {
+    var code = ref + '-' + famId + '-' + t;
+    var exists = DB.catalogue.find(function(p){return p.code===code;});
+    if(!exists) {
+      DB.catalogue.push({code:code, ref:ref, design:design, couleur:couleur, designation:design+' '+couleur, taille:t, pv:pv, pa:0});
+    }
+  });
+  // Ajouter aussi un DTF si pas déjà présent
+  var dtfExist = DB.stockDTF.find(function(d){return d.ref===ref;});
+  if(!dtfExist) {
+    DB.stockDTF.push({ref:ref, nom:design+' '+couleur, stock:0, pa:0, seuil:3, enCommande:0});
+    toast('Produit + DTF ajoutés au catalogue');
+  } else {
+    toast('Produit ajouté au catalogue');
+  }
+  saveDB(); closeModal(); renderCatalogue();
 }
 
 // ============================================================
@@ -835,26 +985,33 @@ function addSV() {
 // ============================================================
 function renderStockDTF() {
   var totalStock=0, totalVal=0, alertCount=0;
-  DB.stockDTF.forEach(function(d){ var vendus=getVendusByRef(d.ref); var dispo=d.stock-vendus; totalStock+=Math.max(0,dispo); totalVal+=Math.max(0,dispo)*d.pa; if(dispo<=d.seuil)alertCount++; });
-  var totalCmd2=0;DB.stockDTF.forEach(function(d){totalCmd2+=(d.enCommande||0);});
+  DB.stockDTF.forEach(function(d){ totalStock+=(d.stock||0); totalVal+=(d.stock||0)*d.pa; if((d.stock||0)<=(d.seuil||3))alertCount++; });
+  var totalCmd2=0; DB.stockDTF.forEach(function(d){totalCmd2+=(d.enCommande||0);});
   document.getElementById('sd-kpis').innerHTML =
     '<div class="kpi"><div class="kpi-label">Designs</div><div class="kpi-value">'+DB.stockDTF.length+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">DTF disponibles</div><div class="kpi-value">'+totalStock+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd2+'</div><div class="kpi-sub">projeté: '+(totalStock+totalCmd2)+'</div></div>'+
-    '<div class="kpi '+(alertCount>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes</div><div class="kpi-value">'+alertCount+'</div></div>';
-
+    '<div class="kpi kpi-success"><div class="kpi-label">DTF disponibles</div><div class="kpi-value">'+totalStock+'</div><div class="kpi-sub">Valeur: '+fmt(totalVal)+'</div></div>'+
+    '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd2+'</div><div class="kpi-sub">Projeté: '+(totalStock+totalCmd2)+'</div></div>'+
+    '<div class="kpi '+(alertCount>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes stock bas</div><div class="kpi-value">'+alertCount+'</div></div>';
   var tbody = document.getElementById('sd-body');
+  if(DB.stockDTF.length===0){tbody.innerHTML='<tr><td colspan="11" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td></tr>';return;}
   tbody.innerHTML = DB.stockDTF.map(function(d,i){
-    var vendus = getVendusByRef(d.ref);
-    var dispo = d.stock - vendus;
-    return '<tr><td class="mono">'+d.ref+'</td><td style="font-weight:600;">'+d.nom+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:50px;text-align:center;" value="'+d.stock+'" onchange="updateSD('+i+',\'stock\',this.value)"></td>'+
-      '<td class="c mono">'+vendus+'</td><td class="c mono" style="font-weight:700;">'+Math.max(0,dispo)+'</td>'+
-      '<td class="r"><input type="number" class="input-sm" style="width:60px;text-align:right;" value="'+(d.pa||'')+'" step="0.01" onchange="updateSD('+i+',\'pa\',this.value)"></td>'+
-      '<td class="r mono">'+fmt(Math.max(0,dispo)*d.pa)+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+d.seuil+'" onchange="updateSD('+i+',\'seuil\',this.value)"></td>'+
-      '<td>'+statusBadge(dispo, d.seuil)+'</td>'+
-      '<td><button class="btn-icon" onclick="deleteSD('+i+')">🗑</button></td></tr>';
+    var utilises = DB.stockFini.filter(function(f){var cat=DB.catalogue.find(function(p){return p.code===f.code;});return cat&&cat.ref===d.ref;}).reduce(function(s,f){return s+(f.stock||0);},0);
+    var dispo = d.stock||0;
+    var projete = dispo+(d.enCommande||0);
+    var statut = dispo<=0?'badge-danger':dispo<=(d.seuil||3)?'badge-warn':'badge-ok';
+    var statutTxt = dispo<=0?'RUPTURE':dispo<=(d.seuil||3)?'BAS':'OK';
+    return '<tr>'+
+      '<td class="mono" style="font-size:11px;">'+d.ref+'</td>'+
+      '<td style="font-weight:600;">'+d.nom+'</td>'+
+      '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="updateSD('+i+','stock',this.value)" title="Stock actuel"></td>'+
+      '<td class="c mono" style="color:var(--gold);font-weight:600;">'+(d.enCommande||0)+'</td>'+
+      '<td class="c mono" style="font-weight:700;color:var(--success);">'+projete+'</td>'+
+      '<td class="c mono" style="color:var(--muted);">'+utilises+'</td>'+
+      '<td class="r"><input type="number" class="input-sm input-yellow" style="width:60px;text-align:right;" value="'+(d.pa||'')+'" step="0.01" placeholder="0.00" onchange="updateSD('+i+','pa',this.value)"></td>'+
+      '<td class="r mono">'+fmt(dispo*d.pa)+'</td>'+
+      '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+(d.seuil||3)+'" onchange="updateSD('+i+','seuil',this.value)"></td>'+
+      '<td><span class="badge '+statut+'">'+statutTxt+'</span></td>'+
+      '<td><button class="btn-icon" onclick="deleteSD('+i+')" title="Supprimer">🗑</button></td></tr>';
   }).join('');
 }
 function updateSD(i,field,val) { DB.stockDTF[i][field] = parseFloat(val)||0; saveDB(); renderStockDTF(); }
@@ -932,30 +1089,6 @@ function addSF(){
   saveDB();closeModal();renderStockFini();
   toast(qty+' x '+prod.designation+' '+prod.taille+' assemble'+(vi!==''?' (vierge -'+qty+')':'')+(dtf?' (DTF -'+qty+')':''));
 }
-function updateSF(i,val) { DB.stockFini[i].stock=parseInt(val)||0; saveDB(); renderStockFini(); }
-function deleteSF(i) { if(confirm('Supprimer ?')){ DB.stockFini.splice(i,1); saveDB(); renderStockFini(); } }
-function openAddStockFini() {
-  var opts = DB.catalogue.map(function(p){ return '<option value="'+p.code+'">'+p.code+' — '+p.designation+' '+p.taille+'</option>'; }).join('');
-  openModal(
-    '<div class="modal-title">Ajouter un produit fini en stock</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Code Article</label><select class="select" id="nsf-code"><option value="">— Choisir —</option>'+opts+'</select></div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Quantité</label><input type="number" class="input input-yellow" id="nsf-qty" value="1" min="1"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addSF()">Ajouter</button></div>'
-  );
-}
-function addSF() {
-  var code=document.getElementById('nsf-code').value, qty=parseInt(document.getElementById('nsf-qty').value)||0;
-  if(!code){toast('Choisissez un article');return;}
-  var prod = DB.catalogue.find(function(p){return p.code===code;});
-  if(!prod){toast('Article non trouvé');return;}
-  var existing = DB.stockFini.find(function(f){return f.code===code;});
-  if(existing) { existing.stock += qty; } else { DB.stockFini.push({code:code,designation:prod.designation,taille:prod.taille,stock:qty,pv:prod.pv,seuil:2}); }
-  saveDB(); closeModal(); renderStockFini(); toast(qty+' × '+prod.designation+' '+prod.taille+' ajouté au stock');
-}
-
-// ============================================================
 // VENTES
 // ============================================================
 function renderVentePage() {
