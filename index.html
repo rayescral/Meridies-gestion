@@ -194,6 +194,19 @@ tr:hover td{background:var(--surface2);}
 </style>
 </head>
 <body>
+<div id="lock-screen" style="position:fixed;inset:0;background:#12192B;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#1A2235;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:40px;width:360px;max-width:95vw;text-align:center;">
+    <div style="font-size:28px;font-weight:700;color:#C9A84C;letter-spacing:.12em;margin-bottom:6px;">MERIDIES</div>
+    <div style="font-size:12px;color:rgba(201,168,76,0.5);margin-bottom:32px;">Gestion centralisee</div>
+    <div style="font-size:15px;font-weight:600;color:#fff;margin-bottom:6px;">Acces securise</div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px;">Entrez le mot de passe pour continuer</div>
+    <input type="password" id="lock-input" class="input" placeholder="Mot de passe..."
+      style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
+      onkeydown="if(event.key==='Enter')lockSubmit()">
+    <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
+    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Acceder</button>
+  </div>
+</div>
 
 <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
@@ -598,29 +611,32 @@ function initDefaultData() {
   ];
   // Stock DTF
   DB.stockDTF = [
-    {ref:"LP-0100",nom:"Lou Pescadou Rose",stock:6,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LP-0200",nom:"Lou Pescadou Bleu",stock:2,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LP-0300",nom:"Lou Pescadou Vert",stock:17,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LP-0400",nom:"Lou Pescadou Violet",stock:1,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LP-0500",nom:"Lou Pescadou Blanc",stock:2,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LP-0600",nom:"Lou Pescadou Marron",stock:7,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LI-0500",nom:"Li d'elo dóu Sud Blanc",stock:11,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LI-0700",nom:"Li d'elo dóu Sud Noir",stock:5,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LI-0300",nom:"Li d'elo dóu Sud Vert",stock:11,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LI-0900",nom:"Li d'elo dóu Sud Jaune",stock:9,pa:2.40,seuil:3,enCommande:0},
-    {ref:"MT-0200",nom:"Mercatus Bleu",stock:10,pa:2.40,seuil:3,enCommande:0},
-    {ref:"MT-0700",nom:"Mercatus Noir",stock:0,pa:2.40,seuil:3,enCommande:0},
-    {ref:"ML-1300",nom:"Massilia Blanc",stock:5,pa:2.40,seuil:3,enCommande:0},
-    {ref:"ML-2100",nom:"Massilia Bleu ciel / Bleu",stock:13,pa:2.40,seuil:3,enCommande:0},
-    {ref:"ML-1400",nom:"Massilia Bleu",stock:13,pa:2.40,seuil:3,enCommande:0},
-    {ref:"ML-1500",nom:"Massilia Bleu marine / Blanc",stock:5,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LM-1600",nom:"Lou Mistrau Blanc / Rose",stock:3,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LM-1400",nom:"Lou Mistrau Blanc / Bleu",stock:1,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LM-1800",nom:"Lou Mistrau Blanc / Vert",stock:3,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LM-1900",nom:"Lou Mistrau Noir / Blanc",stock:0,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LM-2000",nom:"Lou Mistrau Noir / Rose",stock:4,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LS-0700",nom:"Lou Serein Noir",stock:0,pa:2.40,seuil:3,enCommande:0},
-    {ref:"LS-0500",nom:"Lou Serein Blanc",stock:0,pa:2.40,seuil:3,enCommande:0},
+    {ref:"LP-0100",nom:"Lou Pescadou Rose",stock:6,pa:0,seuil:3,enCommande:0},
+    {ref:"LP-0200",nom:"Lou Pescadou Bleu",stock:2,pa:0,seuil:3,enCommande:0},
+    {ref:"LP-0300",nom:"Lou Pescadou Vert",stock:17,pa:0,seuil:3,enCommande:0},
+    {ref:"LP-0400",nom:"Lou Pescadou Violet",stock:1,pa:0,seuil:3,enCommande:0},
+    {ref:"LP-0500",nom:"Lou Pescadou Blanc",stock:2,pa:0,seuil:3,enCommande:0},
+    {ref:"LP-0600",nom:"Lou Pescadou Marron",stock:7,pa:0,seuil:3,enCommande:0},
+    {ref:"LI-0500",nom:"Li d'elo dóu Sud Blanc",stock:11,pa:0,seuil:3,enCommande:0},
+    {ref:"LI-0700",nom:"Li d'elo dóu Sud Noir",stock:5,pa:0,seuil:3,enCommande:0},
+    {ref:"LI-0300",nom:"Li d'elo dóu Sud Vert",stock:11,pa:0,seuil:3,enCommande:0},
+    {ref:"LI-0900",nom:"Li d'elo dóu Sud Jaune",stock:9,pa:0,seuil:3,enCommande:0},
+    {ref:"MT-0200",nom:"Mercatus Bleu",stock:10,pa:0,seuil:3,enCommande:0},
+    {ref:"MT-0700",nom:"Mercatus Noir",stock:0,pa:0,seuil:3,enCommande:0},
+    {ref:"ML-1300",nom:"Massilia Blanc",stock:5,pa:0,seuil:3,enCommande:0},
+    {ref:"ML-2100",nom:"Massilia Bleu ciel / Bleu",stock:13,pa:0,seuil:3,enCommande:0},
+    {ref:"ML-1400",nom:"Massilia Bleu",stock:13,pa:0,seuil:3,enCommande:0},
+    {ref:"ML-1500",nom:"Massilia Bleu marine / Blanc",stock:5,pa:0,seuil:3,enCommande:0},
+    {ref:"LM-1600",nom:"Lou Mistrau Blanc / Rose",stock:3,pa:0,seuil:3,enCommande:0},
+    {ref:"LM-1400",nom:"Lou Mistrau Blanc / Bleu",stock:1,pa:0,seuil:3,enCommande:0},
+    {ref:"LM-1800",nom:"Lou Mistrau Blanc / Vert",stock:3,pa:0,seuil:3,enCommande:0},
+    {ref:"LM-1900",nom:"Lou Mistrau Noir / Blanc",stock:0,pa:0,seuil:3,enCommande:0},
+    {ref:"LM-2000",nom:"Lou Mistrau Noir / Rose",stock:4,pa:0,seuil:3,enCommande:0},
+    {ref:"CP-0200",nom:"Capèu Bleu",stock:0,pa:0,seuil:3,enCommande:0},
+    {ref:"CP-0300",nom:"Capèu Vert",stock:0,pa:0,seuil:3,enCommande:0},
+    {ref:"CP-1200",nom:"Capèu Beige",stock:0,pa:0,seuil:3,enCommande:0},
+    {ref:"LS-0700",nom:"Lou Serein Noir",stock:0,pa:0,seuil:3,enCommande:0},
+    {ref:"LS-0500",nom:"Lou Serein Blanc",stock:0,pa:0,seuil:3,enCommande:0},
   ];
   // Fournisseurs
   DB.fournisseurs = [
@@ -831,30 +847,45 @@ function addSV() {
 // STOCK DTF
 // ============================================================
 function renderStockDTF() {
-  var totalStock=0, totalVal=0, alertCount=0;
-  DB.stockDTF.forEach(function(d){ totalStock+=(d.stock||0); totalVal+=(d.stock||0)*(d.pa||0); if((d.stock||0)<=d.seuil)alertCount++; });
-  var totalCmd=0; DB.stockDTF.forEach(function(d){totalCmd+=(d.enCommande||0);});
+  // Nettoyer Capeu et appliquer PA 2.40 si pas defini
+  DB.stockDTF = DB.stockDTF.filter(function(d){ return d.ref.indexOf('CP-') !== 0; });
+  DB.stockDTF.forEach(function(d){ if(!d.pa || d.pa === 0) d.pa = 2.40; });
+
+  var totalStock=0, totalVal=0, alertCount=0, totalCmd=0;
+  DB.stockDTF.forEach(function(d){
+    totalStock+=(d.stock||0);
+    totalVal+=(d.stock||0)*(d.pa||0);
+    if((d.stock||0)<=(d.seuil||3)) alertCount++;
+    totalCmd+=(d.enCommande||0);
+  });
+
   document.getElementById('sd-kpis').innerHTML =
     '<div class="kpi"><div class="kpi-label">Designs</div><div class="kpi-value">'+DB.stockDTF.length+'</div></div>'+
     '<div class="kpi kpi-success"><div class="kpi-label">DTF en stock</div><div class="kpi-value">'+totalStock+'</div><div class="kpi-sub">Valeur: '+fmt(totalVal)+'</div></div>'+
     '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd+'</div><div class="kpi-sub">Projete: '+(totalStock+totalCmd)+'</div></div>'+
     '<div class="kpi '+(alertCount>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes</div><div class="kpi-value">'+alertCount+'</div></div>';
+
   var tbody = document.getElementById('sd-body');
-  if(!DB.stockDTF.length){tbody.innerHTML='<tr><td colspan="10" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td></tr>';return;}
   tbody.innerHTML = '';
+  if(!DB.stockDTF.length){
+    var empty = document.createElement('tr');
+    empty.innerHTML = '<td colspan="10" class="empty-state"><div class="icon">🎨</div>Aucun design DTF</td>';
+    tbody.appendChild(empty);
+    return;
+  }
   DB.stockDTF.forEach(function(d,i){
-    var dispo=d.stock||0, cmd=d.enCommande||0, proj=dispo+cmd, val=dispo*(d.pa||0);
-    var cls=dispo<=0?'badge-danger':dispo<=d.seuil?'badge-warn':'badge-ok';
-    var txt=dispo<=0?'RUPTURE':dispo<=d.seuil?'ALERTE':'OK';
+    var dispo = d.stock||0, cmd = d.enCommande||0;
+    var cls = dispo<=0?'badge-danger':dispo<=(d.seuil||3)?'badge-warn':'badge-ok';
+    var txt = dispo<=0?'RUPTURE':dispo<=(d.seuil||3)?'ALERTE':'OK';
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td class="mono">'+d.ref+'</td>'+
       '<td style="font-weight:600;">'+d.nom+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="DB.stockDTF['+i+'].stock=parseInt(this.value)||0;saveDB();renderStockDTF();"></td>'+
       '<td class="c mono" style="color:var(--gold);font-weight:600;">'+cmd+'</td>'+
-      '<td class="c mono" style="font-weight:700;color:var(--success);">'+proj+'</td>'+
-      '<td class="r"><input type="number" class="input-sm input-yellow" style="width:65px;text-align:right;" value="'+(d.pa||'')+'" step="0.01" placeholder="0.00" onchange="DB.stockDTF['+i+'].pa=parseFloat(this.value)||0;saveDB();renderStockDTF();"></td>'+
-      '<td class="r mono">'+fmt(val)+'</td>'+
+      '<td class="c mono" style="font-weight:700;color:var(--success);">'+(dispo+cmd)+'</td>'+
+      '<td class="r"><input type="number" class="input-sm input-yellow" style="width:65px;text-align:right;" value="'+(d.pa||2.40).toFixed(2)+'" step="0.01" onchange="DB.stockDTF['+i+'].pa=parseFloat(this.value)||0;saveDB();renderStockDTF();"></td>'+
+      '<td class="r mono">'+fmt(dispo*(d.pa||0))+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:40px;text-align:center;" value="'+(d.seuil||3)+'" onchange="DB.stockDTF['+i+'].seuil=parseInt(this.value)||3;saveDB();renderStockDTF();"></td>'+
       '<td><span class="badge '+cls+'">'+txt+'</span></td>'+
       '<td><button class="btn-icon" onclick="deleteSD('+i+')" title="Supprimer">🗑</button></td>';
@@ -1509,27 +1540,57 @@ function resetAllData() {
 // ============================================================
 // Afficher un écran de chargement pendant la connexion Supabase
 document.addEventListener('DOMContentLoaded', function() {
-  loadDB(); // async - appelle renderAll() une fois les données chargées
+  // Mot de passe : vérifier APRES que le DOM est prêt
+  if (sessionStorage.getItem('meridies_authed') !== '1') {
+    document.getElementById('lock-screen').style.display = 'flex';
+    setTimeout(function(){ var el=document.getElementById('lock-input'); if(el)el.focus(); }, 100);
+    return; // Ne pas charger les données avant authentification
+  }
+  document.getElementById('lock-screen').style.display = 'none';
+  loadDB();
+  startInactivityTimer();
 });
+// ============================================================
+// MOT DE PASSE — modifier DEFAULT_PWD pour changer le mdp
+// ============================================================
+var DEFAULT_PWD = 'UmF5ZXNGcm9tU3BhY2UxMDopOm1lcmlkaWVz';
+
+function lockSubmit() {
+  var input = document.getElementById('lock-input').value;
+  var errEl = document.getElementById('lock-error');
+  if (!input) { errEl.textContent = 'Entrez le mot de passe'; return; }
+  if (btoa(input + ':meridies') === DEFAULT_PWD) {
+    sessionStorage.setItem('meridies_authed', '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    loadDB();
+    startInactivityTimer();
+  } else {
+    errEl.textContent = 'Mot de passe incorrect';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-input').focus();
+  }
+}
 
 // ============================================================
-// DECONNEXION AUTOMATIQUE 10 MIN D INACTIVITE
+// DECONNEXION AUTO — 5 minutes d'inactivite
 // ============================================================
 var _inactTimer = null;
-function resetInactivityTimer() {
+function startInactivityTimer() {
   clearTimeout(_inactTimer);
   _inactTimer = setTimeout(function() {
     sessionStorage.removeItem('meridies_authed');
     document.getElementById('lock-screen').style.display = 'flex';
     document.getElementById('lock-input').value = '';
-    document.getElementById('lock-error').textContent = 'Session expirée. Reconnectez-vous.';
+    document.getElementById('lock-error').textContent = 'Session expiree apres 5 min. Reconnectez-vous.';
     setTimeout(function(){ document.getElementById('lock-input').focus(); }, 100);
-  }, 10 * 60 * 1000); // 10 minutes
+  }, 5 * 60 * 1000);
+}
+function resetInactivity() {
+  if (sessionStorage.getItem('meridies_authed') === '1') startInactivityTimer();
 }
 ['click','keydown','mousemove','touchstart','scroll'].forEach(function(evt) {
-  document.addEventListener(evt, resetInactivityTimer, true);
+  document.addEventListener(evt, resetInactivity, true);
 });
-resetInactivityTimer();
 </script>
 </body>
 </html>
