@@ -602,20 +602,158 @@ body.dark .select{
   color:var(--muted);
 }
 
+
+/* ===== PREMIUM LOCK SCREEN ===== */
+#lock-screen{
+  background:
+    radial-gradient(circle at top left, rgba(196,168,133,0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(216,201,178,0.22), transparent 30%),
+    linear-gradient(180deg, #F7F2EA 0%, #F3EDE4 100%) !important;
+}
+.lock-shell{
+  width:min(920px,92vw);
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  background:rgba(255,255,255,0.72);
+  border:1px solid rgba(40,34,28,0.08);
+  border-radius:28px;
+  overflow:hidden;
+  box-shadow:0 24px 60px rgba(40,34,28,0.12);
+  backdrop-filter:blur(12px);
+}
+.lock-visual{
+  padding:54px 48px;
+  background:linear-gradient(135deg, rgba(18,25,43,0.96), rgba(37,33,28,0.92));
+  color:#F7F2EA;
+  position:relative;
+}
+.lock-visual:before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg, rgba(201,168,76,0.12), transparent 35%, transparent 65%, rgba(255,255,255,0.04));
+  pointer-events:none;
+}
+.lock-kicker{
+  position:relative;
+  font-size:11px;
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  color:rgba(247,242,234,0.68);
+  margin-bottom:20px;
+}
+.lock-brand{
+  position:relative;
+  font-size:38px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.18em;
+  color:#E6D3B0;
+  margin-bottom:12px;
+}
+.lock-subbrand{
+  position:relative;
+  font-size:13px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(247,242,234,0.76);
+  margin-bottom:34px;
+}
+.lock-copy{
+  position:relative;
+  max-width:360px;
+  font-size:14px;
+  line-height:1.8;
+  color:rgba(247,242,234,0.78);
+}
+.lock-panel{
+  padding:52px 46px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  background:rgba(255,255,255,0.8);
+}
+.lock-panel-head{
+  font-size:12px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:#8E7963;
+  margin-bottom:12px;
+}
+.lock-title{
+  font-size:29px;
+  font-weight:700;
+  color:#201A16;
+  margin-bottom:8px;
+}
+.lock-text{
+  font-size:13px;
+  line-height:1.7;
+  color:#7B6A58;
+  margin-bottom:24px;
+}
+.lock-field{
+  border:1px solid rgba(64,53,43,0.12) !important;
+  background:#FCFAF7 !important;
+  color:#201A16 !important;
+  height:48px;
+  border-radius:14px !important;
+  text-align:left !important;
+  padding:0 16px !important;
+  font-size:14px !important;
+}
+.lock-field:focus{
+  border-color:#C4A885 !important;
+  box-shadow:0 0 0 4px rgba(196,168,133,0.16) !important;
+}
+.lock-btn{
+  width:100%;
+  height:48px;
+  border:none;
+  border-radius:14px;
+  background:linear-gradient(180deg, #C9A84C 0%, #B99436 100%);
+  color:#1C1713;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:.04em;
+  cursor:pointer;
+  box-shadow:0 12px 24px rgba(185,148,54,0.22);
+}
+.lock-btn:hover{transform:translateY(-1px);}
+.lock-note{
+  margin-top:16px;
+  font-size:11px;
+  color:#9A8773;
+  text-align:center;
+}
+@media(max-width:768px){
+  .lock-shell{grid-template-columns:1fr; width:min(520px,94vw);}
+  .lock-visual{padding:34px 28px;}
+  .lock-panel{padding:34px 28px;}
+  .lock-brand{font-size:30px;}
+}
+
 </style>
 </head>
 <body>
-<div id="lock-screen" style="position:fixed;inset:0;background:#12192B;z-index:9999;display:flex;align-items:center;justify-content:center;">
-  <div style="background:#1A2235;border:1px solid rgba(201,168,76,0.2);border-radius:16px;padding:40px;width:360px;max-width:95vw;text-align:center;">
-    <div style="font-size:28px;font-weight:700;color:#C9A84C;letter-spacing:.12em;margin-bottom:6px;">MERIDIES</div>
-    <div style="font-size:12px;color:rgba(201,168,76,0.5);margin-bottom:32px;">Gestion centralisee</div>
-    <div style="font-size:15px;font-weight:600;color:#fff;margin-bottom:6px;">Acces securise</div>
-    <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px;">Entrez le mot de passe pour continuer</div>
-    <input type="password" id="lock-input" class="input" placeholder="Mot de passe..."
-      style="background:#12192B;border-color:rgba(201,168,76,0.3);color:#fff;margin-bottom:10px;text-align:center;font-size:15px;"
-      onkeydown="if(event.key==='Enter')lockSubmit()">
-    <div id="lock-error" style="color:#DC2626;font-size:12px;margin-bottom:10px;min-height:16px;"></div>
-    <button onclick="lockSubmit()" style="width:100%;padding:12px;background:#C9A84C;color:#12192B;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Acceder</button>
+<div id="lock-screen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div class="lock-shell">
+    <div class="lock-visual">
+      <div class="lock-kicker">Meridies Officiel</div>
+      <div class="lock-brand">MERIDIES</div>
+      <div class="lock-subbrand">Gestion centralisée</div>
+      <div class="lock-copy">Un accès privé, pensé comme une extension premium de l’univers Méridies : sobre, lumineux et éditorial, avec une présence plus mode et plus haut de gamme.</div>
+    </div>
+    <div class="lock-panel">
+      <div class="lock-panel-head">Accès sécurisé</div>
+      <div class="lock-title">Connexion à l’espace interne</div>
+      <div class="lock-text">Entre le mot de passe pour accéder à l’interface de gestion. Le fonctionnement reste inchangé, seul l’habillage a été retravaillé.</div>
+      <input type="password" id="lock-input" class="input lock-field" placeholder="Mot de passe..."
+        onkeydown="if(event.key==='Enter')lockSubmit()">
+      <div id="lock-error" style="color:#DC2626;font-size:12px;margin:10px 0 12px;min-height:16px;"></div>
+      <button onclick="lockSubmit()" class="lock-btn">Accéder</button>
+      <div class="lock-note">Interface privée — usage interne Méridies</div>
+    </div>
   </div>
 </div>
 
