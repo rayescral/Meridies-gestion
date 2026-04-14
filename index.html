@@ -5058,6 +5058,314 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
   });
 })();
 
+
+// ============================================================
+// V19 — PASSERELLE LIVE RÉSEAUX SOCIAUX (VERCEL SAFE)
+// Ne touche pas à la logique du mot de passe.
+// ============================================================
+(function(){
+  function ensureSocialLiveDefaults(){
+    if(!DB.socialMedia || typeof DB.socialMedia !== 'object') DB.socialMedia = {};
+    if(!DB.socialMedia.connection || typeof DB.socialMedia.connection !== 'object'){
+      DB.socialMedia.connection = {
+        apiBase: '',
+        enabled: true,
+        autoSync: true,
+        lastSyncAt: '',
+        lastSyncStatus: '',
+        lastSyncError: ''
+      };
+    }
+  }
+
+  function socialLiveBase(){
+    ensureSocialLiveDefaults();
+    var raw = String((DB.socialMedia.connection && DB.socialMedia.connection.apiBase) || '').trim();
+    return raw ? raw.replace(/\/+$/, '') : '';
+  }
+
+  function socialLiveRoute(path){
+    var base = socialLiveBase();
+    return (base || '') + path;
+  }
+
+  function socialLiveEscape(v){
+    return (typeof escapeHtml === 'function') ? escapeHtml(String(v == null ? '' : v)) : String(v == null ? '' : v);
+  }
+
+  function socialLiveFmtDateTime(v){
+    if(!v) return '—';
+    var d = new Date(v);
+    if(isNaN(d)) return '—';
+    return d.toLocaleString('fr-FR', { dateStyle:'short', timeStyle:'short' });
+  }
+
+  function socialLiveAgo(v){
+    if(!v) return 'jamais';
+    var d = new Date(v);
+    if(isNaN(d)) return 'jamais';
+    var diff = Math.max(0, Date.now() - d.getTime());
+    var min = Math.round(diff / 60000);
+    if(min < 1) return 'à l’instant';
+    if(min < 60) return 'il y a ' + min + ' min';
+    var h = Math.round(min / 60);
+    if(h < 24) return 'il y a ' + h + ' h';
+    var j = Math.round(h / 24);
+    return 'il y a ' + j + ' j';
+  }
+
+  function socialLiveNum(v){
+    var n = Number(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  async function socialApiJson(path){
+    var res = await fetch(socialLiveRoute(path), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+    var data = null;
+    try { data = await res.json(); } catch(e) { data = null; }
+    if(!res.ok){
+      throw new Error((data && (data.error || data.message)) || ('HTTP ' + res.status));
+    }
+    return data || {};
+  }
+
+  function ensureSocialSnapshotFromLive(platform, payload){
+    if(!payload) return false;
+    if(typeof ensureSocialDefaults === 'function') ensureSocialDefaults();
+    ensureSocialLiveDefaults();
+    var snaps = DB.socialMedia.snapshots || [];
+    var todayKey = today();
+    var sameDayIdx = -1;
+    for(var i = snaps.length - 1; i >= 0; i--){
+      var s = snaps[i];
+      if(s && s.platform === platform && s.date === todayKey){ sameDayIdx = i; break; }
+    }
+    var latest = sameDayIdx > -1 ? snaps[sameDayIdx] : null;
+    if(!latest){
+      for(var j = snaps.length - 1; j >= 0; j--){
+        if(snaps[j] && snaps[j].platform === platform){ latest = snaps[j]; break; }
+      }
+    }
+    var base = Object.assign({
+      id: Date.now() + Math.round(Math.random()*1000),
+      platform: platform,
+      date: todayKey,
+      followers: 0,
+      contentCount: 0,
+      views: 0,
+      reach: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      saves: 0,
+      profileVisits: 0,
+      websiteClicks: 0,
+      notes: ''
+    }, latest || {});
+
+    var next = Object.assign({}, base, {
+      id: sameDayIdx > -1 ? base.id : (base.id || Date.now()),
+      platform: platform,
+      date: todayKey
+    });
+
+    var map = {
+      followers: 'followers',
+      contentCount: 'contentCount',
+      views: 'views',
+      reach: 'reach',
+      likes: 'likes',
+      comments: 'comments',
+      shares: 'shares',
+      saves: 'saves',
+      profileVisits: 'profileVisits',
+      websiteClicks: 'websiteClicks'
+    };
+    Object.keys(map).forEach(function(k){
+      if(payload[k] != null && payload[k] !== '') next[k] = socialLiveNum(payload[k]);
+    });
+
+    var noteBits = [];
+    if(payload.source) noteBits.push('sync live ' + payload.source);
+    if(payload.syncedAt) noteBits.push(socialLiveFmtDateTime(payload.syncedAt));
+    next.notes = noteBits.length ? noteBits.join(' · ') : (next.notes || 'sync live');
+
+    if(sameDayIdx > -1) snaps[sameDayIdx] = next; else snaps.push(next);
+    snaps.sort(function(a,b){ return (a.date || '').localeCompare(b.date || ''); });
+    DB.socialMedia.snapshots = snaps;
+    return true;
+  }
+
+  function renderSocialLivePanel(){
+    ensureSocialLiveDefaults();
+    var root = document.getElementById('social-dashboard-root');
+    if(!root) return;
+    var status = DB.socialMedia.connection || {};
+    var existing = document.getElementById('social-live-panel');
+    if(existing) existing.remove();
+    var wrap = document.createElement('div');
+    wrap.id = 'social-live-panel';
+    wrap.innerHTML = ''+
+      '<div class="social-note" style="margin-bottom:16px;border-color:rgba(199,165,122,0.22);background:linear-gradient(180deg, rgba(255,252,248,0.96), rgba(247,241,234,0.92));">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">' +
+          '<div style="min-width:260px;flex:1;">' +
+            '<div style="font-weight:700;color:var(--text);margin-bottom:6px;">Compteur live Vercel</div>' +
+            '<div style="font-size:12px;line-height:1.6;">Le dashboard garde son historique de relevés, mais il peut maintenant tirer les compteurs en direct via des routes <code>/api/social/...</code> déployées sur Vercel. Laisse le champ URL vide pour utiliser automatiquement le même domaine que ton site.</div>' +
+            '<div class="rec-charge-meta" style="margin-top:10px;">' +
+              '<span class="rec-charge-chip">API : ' + socialLiveEscape(status.apiBase ? status.apiBase : 'même domaine') + '</span>' +
+              '<span class="rec-charge-chip">Auto-sync : ' + (status.autoSync === false ? 'non' : 'oui') + '</span>' +
+              '<span class="rec-charge-chip">Dernier sync : ' + socialLiveEscape(socialLiveAgo(status.lastSyncAt)) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="social-actions">' +
+            '<button class="btn btn-secondary btn-sm" onclick="openSocialLiveSettings()">⚙️ API live</button>' +
+            '<button class="btn btn-secondary btn-sm" onclick="testSocialLiveConnection()">Tester</button>' +
+            '<button class="btn btn-primary btn-sm" onclick="syncSocialLiveNow()">Sync live</button>' +
+          '</div>' +
+        '</div>' +
+        (status.lastSyncError ? '<div style="margin-top:10px;color:var(--danger);font-size:12px;">Dernière erreur : ' + socialLiveEscape(status.lastSyncError) + '</div>' : '') +
+      '</div>';
+    root.insertBefore(wrap, root.firstChild);
+  }
+
+  function refreshSocialPage(){
+    if(typeof goTo === 'function' && document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')){
+      goTo('social-media');
+    } else {
+      renderSocialLivePanel();
+    }
+  }
+
+  window.openSocialLiveSettings = function(){
+    ensureSocialLiveDefaults();
+    var c = DB.socialMedia.connection || {};
+    openModal(''+
+      '<div class="modal-title">Connexion live Réseaux sociaux</div>' +
+      '<div class="modal-sub">Version Vercel/GitHub : laisse l\'URL vide pour appeler automatiquement <code>/api/social/...</code> sur le même domaine. Renseigne une URL seulement si tu héberges l\'API ailleurs.</div>' +
+      '<div class="field" style="margin-bottom:12px;"><label>URL de base API (optionnel)</label><input class="input" id="sm-live-api-base" placeholder="Ex: https://ton-site.vercel.app" value="' + socialLiveEscape(c.apiBase || '') + '"></div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Live activé</label><select class="select" id="sm-live-enabled"><option value="true"' + (c.enabled===false?'':' selected') + '>Oui</option><option value="false"' + (c.enabled===false?' selected':'') + '>Non</option></select></div>' +
+        '<div class="field"><label>Auto-sync à l\'ouverture</label><select class="select" id="sm-live-auto"><option value="true"' + (c.autoSync===false?'':' selected') + '>Oui</option><option value="false"' + (c.autoSync===false?' selected':'') + '>Non</option></select></div>' +
+      '</div>' +
+      '<div class="social-note" style="margin-bottom:14px;">Routes attendues : <code>/api/social/status</code> et <code>/api/social/live</code>. Le bouton <strong>Sync live</strong> met à jour ou crée le snapshot du jour pour Instagram et TikTok.</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveSocialLiveSettings()">Enregistrer</button></div>'
+    );
+  };
+
+  window.saveSocialLiveSettings = function(){
+    ensureSocialLiveDefaults();
+    DB.socialMedia.connection.apiBase = String(document.getElementById('sm-live-api-base').value || '').trim().replace(/\/+$/,'');
+    DB.socialMedia.connection.enabled = document.getElementById('sm-live-enabled').value === 'true';
+    DB.socialMedia.connection.autoSync = document.getElementById('sm-live-auto').value === 'true';
+    saveDB('Réglages API live réseaux sociaux');
+    closeModal();
+    refreshSocialPage();
+    toast('Connexion live enregistrée');
+  };
+
+  window.testSocialLiveConnection = async function(){
+    ensureSocialLiveDefaults();
+    try{
+      var data = await socialApiJson('/api/social/status');
+      DB.socialMedia.connection.lastSyncStatus = 'ok';
+      DB.socialMedia.connection.lastSyncError = '';
+      saveDB('Test API réseaux sociaux');
+      refreshSocialPage();
+      toast('API sociale OK · IG ' + ((data.instagram&&data.instagram.mode)||'off') + ' · TikTok ' + ((data.tiktok&&data.tiktok.mode)||'off'));
+    }catch(err){
+      DB.socialMedia.connection.lastSyncStatus = 'error';
+      DB.socialMedia.connection.lastSyncError = err.message || 'Erreur API';
+      saveDB('Erreur test API réseaux sociaux');
+      refreshSocialPage();
+      toast('Erreur API sociale');
+    }
+  };
+
+  window.syncSocialLiveNow = async function(silent){
+    ensureSocialLiveDefaults();
+    if(DB.socialMedia.connection && DB.socialMedia.connection.enabled === false){
+      if(!silent) toast('Le live est désactivé');
+      return;
+    }
+    try{
+      var data = await socialApiJson('/api/social/live');
+      var merged = 0;
+      if(data.instagram && !data.instagram.error){ if(ensureSocialSnapshotFromLive('instagram', data.instagram)) merged++; }
+      if(data.tiktok && !data.tiktok.error){ if(ensureSocialSnapshotFromLive('tiktok', data.tiktok)) merged++; }
+      DB.socialMedia.connection.lastSyncAt = new Date().toISOString();
+      DB.socialMedia.connection.lastSyncStatus = 'ok';
+      DB.socialMedia.connection.lastSyncError = '';
+      saveDB('Sync live réseaux sociaux');
+      sessionStorage.setItem('meridies_social_live_last_session_sync', String(Date.now()));
+      refreshSocialPage();
+      if(!silent) toast('Sync live effectué (' + merged + ' plateforme' + (merged>1?'s':'') + ')');
+    }catch(err){
+      DB.socialMedia.connection.lastSyncStatus = 'error';
+      DB.socialMedia.connection.lastSyncError = err.message || 'Erreur sync';
+      saveDB('Erreur sync live réseaux sociaux');
+      refreshSocialPage();
+      if(!silent) toast('Erreur sync live');
+    }
+  };
+
+  function maybeAutoSyncSocialLive(){
+    ensureSocialLiveDefaults();
+    var c = DB.socialMedia.connection || {};
+    if(c.enabled === false || c.autoSync === false) return;
+    if(sessionStorage.getItem('meridies_authed') !== '1') return;
+    var last = Number(sessionStorage.getItem('meridies_social_live_last_session_sync') || '0');
+    if(last && (Date.now() - last) < 10 * 60 * 1000) return;
+    window.syncSocialLiveNow(true);
+  }
+
+  function afterSocialRender(){
+    setTimeout(function(){
+      if(document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')){
+        renderSocialLivePanel();
+      }
+    }, 0);
+  }
+
+  var __livePrevGoTo = goTo;
+  goTo = function(page){
+    __livePrevGoTo(page);
+    if(page === 'social-media'){
+      afterSocialRender();
+      maybeAutoSyncSocialLive();
+    }
+  };
+
+  var __livePrevRenderAll = renderAll;
+  renderAll = function(){
+    __livePrevRenderAll();
+    if(document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')){
+      afterSocialRender();
+    }
+  };
+
+  var __livePrevLoadDB = loadDB;
+  loadDB = async function(){
+    await __livePrevLoadDB();
+    ensureSocialLiveDefaults();
+    if(document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')){
+      afterSocialRender();
+    }
+    maybeAutoSyncSocialLive();
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureSocialLiveDefaults();
+    if(sessionStorage.getItem('meridies_authed') === '1'){
+      afterSocialRender();
+      maybeAutoSyncSocialLive();
+    }
+  });
+})();
+
 </script>
 </body>
 </html>
