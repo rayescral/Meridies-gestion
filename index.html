@@ -3840,6 +3840,253 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
   });
 })();
 
+
+
+// ============================================================
+// V8 — CORRECTIF ACCÈS + FICHE PRODUIT PHOTO
+// ============================================================
+(function(){
+  function familyCodeFromProduct(p){
+    if(!p || !p.code) return '';
+    return String(p.code).replace(/-(XS|S|M|L|XL|XXL|U)$/i,'');
+  }
+  function getFamilyIndexesByProduct(p){
+    var fam = familyCodeFromProduct(p);
+    return (DB.catalogue||[]).map(function(item,idx){ return {item:item,idx:idx}; }).filter(function(entry){
+      return familyCodeFromProduct(entry.item) === fam;
+    }).map(function(entry){ return entry.idx; });
+  }
+  function getProductPhoto(p){
+    if(!p) return '';
+    if(p.photo) return p.photo;
+    var fam = familyCodeFromProduct(p);
+    var match = (DB.catalogue||[]).find(function(item){ return familyCodeFromProduct(item)===fam && item.photo; });
+    return match ? match.photo : '';
+  }
+  function getProductStory(p){
+    if(!p) return '';
+    if(p.story) return p.story;
+    var fam = familyCodeFromProduct(p);
+    var match = (DB.catalogue||[]).find(function(item){ return familyCodeFromProduct(item)===fam && item.story; });
+    return match ? match.story : '';
+  }
+  function renderProductPhotoBox(mode, currentPhoto){
+    var inputId = mode==='edit' ? 'edit-photo-file' : 'np-photo-file';
+    var previewId = mode==='edit' ? 'edit-photo-preview' : 'np-photo-preview';
+    var label = currentPhoto ? 'Changer la photo' : 'Ajouter une photo';
+    return ''+
+      '<div class="field" style="margin-bottom:14px;">'+
+        '<label>Photo produit</label>'+
+        '<input type="file" id="'+inputId+'" accept="image/*" style="display:none" onchange="handleProductPhotoUpload(event,\''+mode+'\')">'+
+        '<div onclick="document.getElementById(\''+inputId+'\').click()" style="cursor:pointer;border:1px dashed rgba(201,168,76,0.45);background:var(--surface2);border-radius:14px;padding:14px;display:flex;gap:14px;align-items:center;min-height:112px;">'+
+          '<div id="'+previewId+'" style="width:88px;height:88px;border-radius:12px;overflow:hidden;background:var(--surface3);display:flex;align-items:center;justify-content:center;flex:0 0 88px;">'+
+            (currentPhoto ? '<img src="'+currentPhoto+'" style="width:100%;height:100%;object-fit:cover;display:block;">' : '<span style="font-size:28px;opacity:.45;">🖼️</span>')+
+          '</div>'+
+          '<div style="flex:1;min-width:0;">'+
+            '<div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+label+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);line-height:1.45;">Clique pour ouvrir tes documents et sélectionner une image. Format conseillé : carré ou portrait léger.</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+  }
+
+  window.__productDraftImage = null;
+  window.handleProductPhotoUpload = function(event, mode){
+    var file = event && event.target && event.target.files ? event.target.files[0] : null;
+    if(!file) return;
+    if(!/^image\//.test(file.type||'')) { toast('Choisis un fichier image'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e){
+      window.__productDraftImage = e.target.result;
+      var preview = document.getElementById(mode==='edit' ? 'edit-photo-preview' : 'np-photo-preview');
+      if(preview) preview.innerHTML = '<img src="'+window.__productDraftImage+'" style="width:100%;height:100%;object-fit:cover;display:block;">';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.openAddProduct = function(){
+    window.__productDraftImage = null;
+    openModal(
+      '<div class="modal-title">Ajouter un produit</div>' +
+      renderProductPhotoBox('add','') +
+      '<div class="grid2" style="margin-bottom:14px;">' +
+        '<div class="field"><label>Réf. design</label><input type="text" class="input" id="np-ref" placeholder="Ex: LP-0100"></div>' +
+        '<div class="field"><label>Code famille</label><input type="text" class="input" id="np-code" placeholder="Ex: LP-0100-001"></div>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:14px;">' +
+        '<div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>' +
+        '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:14px;">' +
+        '<div class="field"><label>Tailles (virgules)</label><input type="text" class="input" id="np-tailles" value="XS,S,M,L"></div>' +
+        '<div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:14px;">' +
+        '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="np-pa" value="0" step="0.01"></div>' +
+        '<div class="field"><label>Storytelling / notes</label><input type="text" class="input" id="np-story" placeholder="Angle produit, arguments, note interne"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+        '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button>' +
+      '</div>'
+    );
+  };
+
+  window.addProduct = function(){
+    var ref = (document.getElementById('np-ref').value||'').trim();
+    var codeFam = (document.getElementById('np-code').value||'').trim();
+    var design = (document.getElementById('np-design').value||'').trim();
+    var couleur = (document.getElementById('np-couleur').value||'').trim();
+    var tailles = (document.getElementById('np-tailles').value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+    var pv = parseFloat(document.getElementById('np-pv').value) || 0;
+    var pa = parseFloat(document.getElementById('np-pa').value) || 0;
+    var story = (document.getElementById('np-story').value||'').trim();
+    var photo = window.__productDraftImage || '';
+    if(!ref || !codeFam || !design || !couleur || tailles.length===0){ toast('Champs incomplets'); return; }
+    tailles.forEach(function(t){
+      DB.catalogue.push({code: codeFam + '-' + t, ref: ref, design: design, couleur: couleur, designation: design + ' ' + couleur, taille: t, pv: pv, pa: pa, story: story, photo: photo});
+    });
+    saveDB('Produit ajouté');
+    initDatalists();
+    closeModal();
+    renderCatalogue();
+    if(typeof updateCatalogueCounters==='function') updateCatalogueCounters();
+    toast('Produit ajouté');
+  };
+
+  window.editProduct = function(idx){
+    var p = DB.catalogue[idx];
+    var sold = (DB.ventes||[]).filter(function(v){return v.code===p.code;}).reduce(function(s,v){return s+(v.qte||1);},0);
+    var ca = (DB.ventes||[]).filter(function(v){return v.code===p.code;}).reduce(function(s,v){return s+((v.pv||0)*(v.qte||1));},0);
+    var fini = (DB.stockFini||[]).find(function(f){return f.code===p.code;});
+    window.__productDraftImage = getProductPhoto(p) || '';
+    openModal(
+      '<div class="modal-title">Fiche produit</div>'+
+      '<div class="modal-sub">'+escapeHtml(p.code)+'</div>'+
+      renderProductPhotoBox('edit', window.__productDraftImage) +
+      '<div class="metric-row" style="grid-template-columns:repeat(3,1fr);">'+
+        '<div class="metric-box"><div class="label">Vendus</div><div class="value" style="font-size:18px">'+sold+'</div></div>'+
+        '<div class="metric-box"><div class="label">CA généré</div><div class="value" style="font-size:18px">'+fmt(ca)+'</div></div>'+
+        '<div class="metric-box"><div class="label">Stock fini</div><div class="value" style="font-size:18px">'+((fini&&fini.stock)||0)+'</div></div>'+
+      '</div>'+
+      '<div class="grid2" style="margin-bottom:14px;">'+
+        '<div class="field"><label>PV (€)</label><input type="number" class="input" id="edit-pv" value="'+p.pv+'" step="0.01"></div>'+
+        '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="edit-pa" value="'+(p.pa||'')+'" step="0.01"></div>'+
+      '</div>'+
+      '<div class="field" style="margin-bottom:14px;"><label>Storytelling / notes produit</label><input class="input" id="edit-story" value="'+escapeHtml(getProductStory(p)||'')+'" placeholder="Angle com, bénéfices, remarques"></div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+        '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+        '<button class="btn btn-primary" onclick="saveProductEnhanced('+idx+')">Enregistrer</button>'+
+      '</div>'
+    );
+  };
+
+  window.saveProductEnhanced = function(idx){
+    var p = DB.catalogue[idx];
+    if(!p) return;
+    var familyIndexes = getFamilyIndexesByProduct(p);
+    var pv = parseFloat(document.getElementById('edit-pv').value)||0;
+    var pa = parseFloat(document.getElementById('edit-pa').value)||0;
+    var story = document.getElementById('edit-story').value||'';
+    var photo = window.__productDraftImage || getProductPhoto(p) || '';
+    DB.catalogue[idx].pv = pv;
+    DB.catalogue[idx].pa = pa;
+    familyIndexes.forEach(function(fidx){
+      DB.catalogue[fidx].story = story;
+      if(photo) DB.catalogue[fidx].photo = photo;
+    });
+    saveDB('Fiche produit mise à jour');
+    closeModal();
+    if(typeof refreshBusinessViews==='function') refreshBusinessViews();
+    renderCatalogue();
+    toast('Produit mis à jour');
+  };
+
+  var __v8_prevRenderCatalogue = renderCatalogue;
+  renderCatalogue = function(){
+    __v8_prevRenderCatalogue();
+    var headRow = document.querySelector('#page-catalogue thead tr');
+    if(headRow && !document.getElementById('cat-th-photo')){
+      var th = document.createElement('th');
+      th.id = 'cat-th-photo';
+      th.textContent = 'Photo';
+      headRow.insertBefore(th, headRow.children[1] || null);
+    }
+    var tbody = document.getElementById('cat-body');
+    if(!tbody) return;
+    if(!tbody.querySelector('tr')) return;
+    Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function(tr){
+      if(tr.querySelector('.cat-photo-cell')) return;
+      var codeCell = tr.children[0];
+      if(!codeCell) return;
+      var code = codeCell.textContent.trim();
+      var p = (DB.catalogue||[]).find(function(item){ return item.code === code; });
+      var td = document.createElement('td');
+      td.className = 'cat-photo-cell c';
+      var photo = getProductPhoto(p);
+      td.innerHTML = photo ? '<img src="'+photo+'" style="width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid var(--border);display:block;margin:0 auto;">' : '<div style="width:46px;height:46px;border-radius:10px;border:1px dashed var(--border2);display:flex;align-items:center;justify-content:center;margin:0 auto;background:var(--surface2);opacity:.7;">🖼️</div>';
+      tr.insertBefore(td, tr.children[1] || null);
+    });
+    var emptyCell = tbody.querySelector('.empty-state');
+    if(emptyCell && emptyCell.hasAttribute('colspan')) emptyCell.setAttribute('colspan','10');
+    var catCount=document.getElementById('cat-count');
+    if(catCount) catCount.textContent = String((DB.catalogue||[]).filter(function(p){ return !window.catFilter || p.code.toLowerCase().indexOf(window.catFilter)>-1 || p.designation.toLowerCase().indexOf(window.catFilter)>-1 || p.design.toLowerCase().indexOf(window.catFilter)>-1; }).length);
+    var navCount=document.getElementById('nav-cat-count');
+    if(navCount) navCount.textContent = (DB.catalogue||[]).length;
+  };
+
+  function acceptedPasswords(){
+    var decoded = '';
+    try { decoded = atob(DEFAULT_PWD).replace(/:meridies$/,''); } catch(e) {}
+    return [decoded, 'RayesFromSpace10:)'].filter(Boolean);
+  }
+  function unlockSiteAfterAuth(){
+    sessionStorage.setItem('meridies_authed','1');
+    var lock = document.getElementById('lock-screen');
+    if(lock) lock.style.display = 'none';
+    document.body.style.overflow = '';
+    try {
+      var result = loadDB();
+      if(result && typeof result.then === 'function') {
+        result.catch(function(err){ console.error(err); });
+      }
+    } catch(err) {
+      console.error(err);
+      var errEl=document.getElementById('lock-error');
+      if(errEl) errEl.textContent = 'Connexion ok, mais une erreur s’est produite au chargement.';
+    }
+    startInactivityTimer();
+  }
+  window.lockSubmit = function(){
+    var inputEl = document.getElementById('lock-input');
+    var errEl = document.getElementById('lock-error');
+    if(!inputEl || !errEl) return;
+    var input = (inputEl.value || '').trim();
+    errEl.textContent = '';
+    if (!input) { errEl.textContent = 'Entrez le mot de passe'; inputEl.focus(); return; }
+    var valid = false;
+    try { valid = (btoa(input + ':meridies') === DEFAULT_PWD); } catch(e) { valid = false; }
+    if(!valid) valid = acceptedPasswords().indexOf(input) !== -1;
+    if (valid) {
+      unlockSiteAfterAuth();
+    } else {
+      errEl.textContent = 'Mot de passe incorrect';
+      inputEl.value = '';
+      inputEl.focus();
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var input = document.getElementById('lock-input');
+    var button = document.querySelector('#lock-screen button');
+    if(button) button.onclick = window.lockSubmit;
+    if(input){
+      input.addEventListener('keydown', function(event){ if(event.key==='Enter'){ event.preventDefault(); window.lockSubmit(); } });
+    }
+    renderCatalogue();
+  });
+})();
+
 </script>
 </body>
 </html>
