@@ -620,7 +620,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
       <div class="field">
         <label>Catégories rapides</label>
         <div class="quick-tags" id="quick-charge-tags">
-          <span class="quick-tag" onclick="openAddCashflow('Matos du stand')">Matériel du stand</span>
+          <span class="quick-tag" onclick="openAddCashflow('Matériel Stand')">Matériel du stand</span>
           <span class="quick-tag" onclick="openAddCashflow('Shopify')">Shopify</span>
           <span class="quick-tag" onclick="openAddCashflow('Boxtal')">Boxtal</span>
           <span class="quick-tag" onclick="openAddCashflow('Packaging')">Packaging</span>
@@ -1787,7 +1787,7 @@ function openRecurringChargeForm(i){
   var c = i==null ? {label:'',amount:'',frequency:'monthly',startDate:today().slice(0,7)+'-01',active:true,category:'Charge récurrente'} : (DB.recurringCharges||[])[i];
   openModal('<div class="modal-title">'+(i==null?'Nouvelle charge récurrente':'Modifier la charge récurrente')+'</div>'+
     '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Libellé</label><input class="input" id="rc-label" value="'+escapeHtml(c.label||'')+'" placeholder="Ex: Shopify"></div><div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" value="'+(c.amount||'')+'"></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="rc-category">'+['Charge récurrente','Shopify','Boxerai','Boxtal','Matos du stand','Packaging','Publicité','Logistique'].map(function(cat){return '<option'+((c.category||'')===cat?' selected':'')+'>'+cat+'</option>';}).join('')+'</select></div><div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="'+(c.startDate||today())+'"></div></div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="rc-category">'+['Charge récurrente','Shopify','Boxtal','Matériel du stand','Packaging','Publicité','Logistique'].map(function(cat){return '<option'+((c.category||'')===cat?' selected':'')+'>'+cat+'</option>';}).join('')+'</select></div><div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="'+(c.startDate||today())+'"></div></div>'+
     '<div class="field" style="margin-bottom:12px;"><label>Active</label><select class="select" id="rc-active"><option value="true"'+(c.active!==false?' selected':'')+'>Oui</option><option value="false"'+(c.active===false?' selected':'')+'>Non</option></select></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveRecurringCharge('+(i==null?'null':i)+')">'+(i==null?'Créer':'Enregistrer')+'</button></div>');
 }
@@ -1824,7 +1824,7 @@ function renderCompta(){
     var rec=(DB.recurringCharges||[]);
     recurringEl.innerHTML = rec.length ? rec.map(function(c,i){
       return '<div class="backup-item"><div><div style="font-weight:700">'+escapeHtml(c.label||'Charge')+'</div><div style="font-size:12px;color:var(--muted);">'+escapeHtml(c.category||'Charge récurrente')+' · début '+formatDate(c.startDate||today())+' · '+(c.active===false?'inactive':'active')+'</div></div><div style="display:flex;gap:8px;align-items:center;"><span class="mono">'+fmt(c.amount||0)+'/mois</span><button class="btn-icon" onclick="openRecurringChargeForm('+i+')">✏️</button><button class="btn-icon" onclick="deleteRecurringCharge('+i+')">🗑</button></div></div>';
-    }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal, matériel du stand, etc.</div>';
+    }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal, Matériel du stand, etc.</div>';
   }
 
   var pnl=document.getElementById('compta-pnl');
@@ -2832,7 +2832,7 @@ renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); re
 // V4 FIXES — catalogue / ventes multi-articles / todo edit / settings
 // ============================================================
 var DEFAULT_SALE_CHANNELS = ['Marché','Web','B2B','Collaboration','Restaurant'];
-var DEFAULT_CHARGE_CATEGORIES = ['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
+var DEFAULT_CHARGE_CATEGORIES = ['Matériel du stand','Shopify','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
 var DEFAULT_TODO_OWNERS = ['Quentin','Eliott','Seb','Quentin / Eliott'];
 
 function normalizeUniqueStrings(arr, defaults){
