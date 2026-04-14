@@ -620,9 +620,8 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
       <div class="field">
         <label>Catégories rapides</label>
         <div class="quick-tags" id="quick-charge-tags">
-          <span class="quick-tag" onclick="openAddCashflow('Matos du stand')">Matos du stand</span>
+          <span class="quick-tag" onclick="openAddCashflow('Matos du stand')">Matériel du stand</span>
           <span class="quick-tag" onclick="openAddCashflow('Shopify')">Shopify</span>
-          <span class="quick-tag" onclick="openAddCashflow('Boxerai')">Boxerai</span>
           <span class="quick-tag" onclick="openAddCashflow('Boxtal')">Boxtal</span>
           <span class="quick-tag" onclick="openAddCashflow('Packaging')">Packaging</span>
           <span class="quick-tag" onclick="openAddCashflow('Publicité')">Publicité</span>
@@ -1847,7 +1846,7 @@ function renderCompta(){
   var el=document.getElementById('compta-chart'); if(el){ if(el._c){ try{el._c.destroy();}catch(e){} } el._c=new Chart(el,{type:'bar',data:{labels:labels,datasets:[{data:data}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }
 }
 function openAddCashflow(prefillCategory){
-  var options=['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant JSP','Autre'];
+  var options=['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
   openModal('<div class="modal-title">Ajouter un flux</div>'+
     '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie" selected>Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
     '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="cf-category">'+options.map(function(cat){return '<option'+(((prefillCategory||'')===cat)?' selected':'')+'>'+cat+'</option>';}).join('')+'</select></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Abonnement mensuel Shopify"></div></div>'+
@@ -2832,8 +2831,8 @@ renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); re
 // ============================================================
 // V4 FIXES — catalogue / ventes multi-articles / todo edit / settings
 // ============================================================
-var DEFAULT_SALE_CHANNELS = ['Marché','Web','B2B','Collaboration','Restaurant JSP'];
-var DEFAULT_CHARGE_CATEGORIES = ['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant JSP','Autre'];
+var DEFAULT_SALE_CHANNELS = ['Marché','Web','B2B','Collaboration','Restaurant'];
+var DEFAULT_CHARGE_CATEGORIES = ['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
 var DEFAULT_TODO_OWNERS = ['Quentin','Eliott','Seb','Quentin / Eliott'];
 
 function normalizeUniqueStrings(arr, defaults){
