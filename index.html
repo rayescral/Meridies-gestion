@@ -3728,21 +3728,28 @@ renderVentes = function() {
   if(!tbody) return;
   if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Aucune vente</td></tr>'; return; }
   tbody.innerHTML = items.slice(0, 100).map(function(v){
-    var first = v.lines[0] || {};
-    var codeLabel = v.lines.length > 1 ? escapeHtml(first.code || '') + ' <span style="color:var(--muted);">+'+(v.lines.length-1)+'</span>' : escapeHtml(first.code || '');
-    var desigs = v.lines.map(function(line){ return escapeHtml(line.designation) + ' ×' + (line.qte||1); }).join(' · ');
-    return '<tr>'+
-      '<td>'+formatDate(v.date)+'</td>'+
-      '<td><span class="badge badge-neutral">'+escapeHtml(v.canal||'—')+'</span></td>'+
-      '<td class="mono">'+codeLabel+'</td>'+
-      '<td style="font-weight:600;">'+desigs+'</td>'+
-      '<td class="c">'+(v.lines.length>1?'Multi':escapeHtml(first.taille||'—'))+'</td>'+
-      '<td class="r">'+(v.qty||0)+'</td>'+
-      '<td class="r mono">'+(v.lines.length>1?'<span style="color:var(--hint)">—</span>':fmt(first.pv||0))+'</td>'+
-      '<td class="r mono" style="font-weight:700;">'+fmt(v.total||0)+'</td>'+
-      '<td class="mono" style="color:var(--muted);">'+escapeHtml(v.numCde||'—')+'</td>'+
-      '<td><button class="btn-icon" onclick="deleteVente(\''+String(v.id).replace(/'/g,"\\'")+'\')" title="Supprimer la vente">🗑</button></td>'+
-    '</tr>';
+    var grouped = v.lines.length > 1;
+    return v.lines.map(function(line, lineIdx){
+      var firstLine = lineIdx === 0;
+      var numCdeLabel = escapeHtml(v.numCde || '—');
+      if(grouped){
+        numCdeLabel += firstLine
+          ? ' <span class="badge badge-info" style="margin-left:6px;vertical-align:middle;">Commande groupée</span>'
+          : '<div style="font-size:10px;color:var(--hint);margin-top:3px;">↳ même commande</div>';
+      }
+      return '<tr'+(grouped && firstLine ? ' style="background:rgba(0,0,0,0.015);"' : '')+'>'+
+        '<td>'+formatDate(v.date)+'</td>'+
+        '<td><span class="badge badge-neutral">'+escapeHtml(v.canal||'—')+'</span></td>'+
+        '<td class="mono">'+escapeHtml(line.code || '—')+'</td>'+
+        '<td style="font-weight:600;">'+escapeHtml(line.designation || '—')+'</td>'+
+        '<td class="c">'+escapeHtml(line.taille || '—')+'</td>'+
+        '<td class="r">'+(line.qte||0)+'</td>'+
+        '<td class="r mono">'+fmt(line.pv||0)+'</td>'+
+        '<td class="r mono" style="font-weight:700;">'+fmt((line.pv||0) * (line.qte||0))+'</td>'+
+        '<td class="mono" style="color:var(--muted);">'+numCdeLabel+'</td>'+
+        '<td>'+(firstLine ? '<button class="btn-icon" onclick="deleteVente(\''+String(v.id).replace(/'/g,"\'")+'\')" title="Supprimer la vente">🗑</button>' : '<span style="opacity:.25;">—</span>')+'</td>'+
+      '</tr>';
+    }).join('');
   }).join('');
 };
 
