@@ -1937,16 +1937,45 @@ function exportAllData() {
   }
 }
 function resetAllData() {
-  if(!confirm('⚠️ Réinitialiser uniquement les nouvelles saisies et revenir au backup de base ?')) return;
-  if(!confirm('Confirmez la réinitialisation. Les ventes et bons de commande ajoutés après le backup seront supprimés.')) return;
+  if(!confirm('⚠️ Réinitialiser uniquement les données 2026 et revenir au backup de base ?\n\nLes données historiques 2025 importées depuis l\'Excel seront conservées.')) return;
+  if(!confirm('Confirmez la réinitialisation. Les ventes, commandes et saisies 2026 ajoutées après le backup seront supprimées, mais l\'historique 2025 sera conservé.')) return;
+
   var keepTheme = (DB.preferences && DB.preferences.theme) || localStorage.getItem('meridies_theme') || 'light';
-  restoreCleanResetBackup(true);
+  var keepHistoricalSales = Array.isArray(DB.historicalSales) && DB.historicalSales.length
+    ? JSON.parse(JSON.stringify(DB.historicalSales))
+    : JSON.parse(JSON.stringify(typeof HISTORICAL_SALES_2025 !== 'undefined' ? HISTORICAL_SALES_2025 : []));
+  var keepHistoricalImported = !!(DB.preferences && DB.preferences.migrations && DB.preferences.migrations.historicalSales2025Imported);
+
+  restoreCleanResetBackup(false);
+
   if(!DB.preferences) DB.preferences = {};
+  if(!DB.preferences.migrations) DB.preferences.migrations = {};
   DB.preferences.theme = keepTheme;
   DB.history = [];
+
+  DB.historicalSales = keepHistoricalSales;
+  DB.preferences.migrations.historicalSales2025Imported = keepHistoricalImported || !!DB.historicalSales.length;
+
   saveDB();
+
+  try {
+    if (typeof initHistoricalSalesModule === 'function') initHistoricalSalesModule(false);
+  } catch(e) {
+    console.error(e);
+  }
+
   enhanceLoadPostActions();
-  toast('Réinitialisation effectuée');
+
+  try {
+    supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
+      .then(function(r) {
+        setStatus(!r.error);
+        if (!r.error) subscribeRealtime();
+      })
+      .catch(function(){ setStatus(false); });
+  } catch(e) {}
+
+  toast('Réinitialisation effectuée : 2026 remise à zéro, historique 2025 conservé.');
 }
 
 
