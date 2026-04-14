@@ -4556,242 +4556,505 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
   });
 })();
 
-/* ===== PREMIUM THEME + CHARGES CALENDRIER PATCH ===== */
+
+// ============================================================
+// V16 — DASHBOARD RÉSEAUX SOCIAUX (ADMIN)
+// ============================================================
 (function(){
-  function parseSafeDate(str){
-    if(!str) return null;
-    var d = new Date(String(str) + 'T00:00:00');
-    return isNaN(d.getTime()) ? null : d;
-  }
-  function inferRecurringDay(c){
-    var direct = parseInt(c && c.dayOfMonth, 10);
-    if(direct > 0) return Math.min(31, direct);
-    var parts = String((c && c.startDate) || today()).split('-');
-    var fallback = parseInt(parts[2], 10) || 1;
-    return Math.min(31, Math.max(1, fallback));
-  }
-  function normalizeRecurringChargeModel(c){
-    c = c || {};
-    c.dayOfMonth = inferRecurringDay(c);
-    if(typeof c.showInCalendar !== 'boolean') c.showInCalendar = true;
-    if(!c.frequency) c.frequency = 'monthly';
-    return c;
-  }
-  var __premium_prev_normalize = normalizeRestoredDB;
-  normalizeRestoredDB = function(data){
-    var restored = __premium_prev_normalize(data || {});
-    restored.recurringCharges = (restored.recurringCharges || []).map(normalizeRecurringChargeModel);
-    return restored;
+  var SOCIAL_PROFILES_DEFAULT = {
+    instagram: { key:'instagram', label:'Instagram', handle:'@meridies.fr', username:'meridies.fr', url:'https://www.instagram.com/meridies.fr/?hl=fr', color:'#C9A84C', accent:'#E7D3A0' },
+    tiktok: { key:'tiktok', label:'TikTok', handle:'@meridies.fr', username:'meridies.fr', url:'https://www.tiktok.com/@meridies.fr?is_from_webapp=1&sender_device=pc', color:'#12192B', accent:'#D9DEE8' }
   };
 
-  function occurrenceForMonth(c, year, month){
-    c = normalizeRecurringChargeModel(c);
-    var maxDay = new Date(year, month + 1, 0).getDate();
-    var day = Math.min(maxDay, Math.max(1, parseInt(c.dayOfMonth, 10) || 1));
-    var occ = new Date(year, month, day);
-    var start = parseSafeDate(c.startDate || today());
-    if(start && occ < new Date(start.getFullYear(), start.getMonth(), start.getDate())) return null;
-    return occ;
+  function injectSocialStyles(){
+    if(document.getElementById('social-dashboard-styles')) return;
+    var style = document.createElement('style');
+    style.id = 'social-dashboard-styles';
+    style.textContent = ''+
+      '.social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px;}' +
+      '.social-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-bottom:16px;}' +
+      '.social-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow);}' +
+      '.social-profile-card{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--surface) 0%,var(--surface2) 100%);}' +
+      '.social-profile-card:before{content:"";position:absolute;inset:auto -40px -60px auto;width:150px;height:150px;border-radius:50%;background:rgba(201,168,76,0.08);filter:blur(2px);}' +
+      '.social-profile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px;position:relative;z-index:1;}' +
+      '.social-handle{font-size:20px;font-weight:700;letter-spacing:.01em;}' +
+      '.social-sub{font-size:12px;color:var(--muted);margin-top:4px;}' +
+      '.social-stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;position:relative;z-index:1;}' +
+      '.social-stat{background:rgba(255,255,255,0.58);border:1px solid var(--border);border-radius:14px;padding:12px;backdrop-filter:blur(4px);}' +
+      'body.dark .social-stat{background:rgba(15,23,42,0.55);}' +
+      '.social-stat .label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}' +
+      '.social-stat .value{font-size:22px;font-weight:700;font-family:"JetBrains Mono",monospace;line-height:1.1;}' +
+      '.social-mini{font-size:11px;color:var(--muted);margin-top:6px;}' +
+      '.social-wide-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}' +
+      '.social-wide-kpis .metric-box{padding:14px 16px;border-radius:16px;}' +
+      '.social-note{padding:14px 16px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.55;}' +
+      '.social-tag{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:var(--surface3);color:var(--muted);}' +
+      '.social-badge-ig{background:rgba(201,168,76,0.16);color:#9A7222;}' +
+      '.social-badge-tt{background:rgba(18,25,43,0.10);color:#12192B;}' +
+      'body.dark .social-badge-tt{background:rgba(217,222,232,0.16);color:#E5E7EB;}' +
+      '.social-actions{display:flex;gap:8px;flex-wrap:wrap;}' +
+      '.social-table td,.social-table th{vertical-align:middle;}' +
+      '.social-platform-select{max-width:180px;}' +
+      '.social-inline-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}' +
+      '.social-inline-kpis .social-stat{padding:10px 12px;}' +
+      '@media(max-width:1024px){.social-hero,.social-grid,.social-wide-kpis,.social-stat-row,.social-inline-kpis{grid-template-columns:1fr 1fr;}}' +
+      '@media(max-width:768px){.social-hero,.social-grid,.social-wide-kpis,.social-stat-row,.social-inline-kpis{grid-template-columns:1fr;}}';
+    document.head.appendChild(style);
   }
-  function recurringOccurrenceKey(c, occ){
-    return ['rcauto', c.id || '', occ.getFullYear(), occ.getMonth() + 1, occ.getDate()].join('_');
-  }
-  function nextRecurringOccurrence(c, fromDate){
-    c = normalizeRecurringChargeModel(c);
-    var cursor = fromDate ? new Date(fromDate) : new Date();
-    cursor.setHours(0,0,0,0);
-    var y = cursor.getFullYear();
-    var m = cursor.getMonth();
-    for(var i=0;i<24;i++){
-      var occ = occurrenceForMonth(c, y, m);
-      if(occ && occ >= cursor) return occ;
-      m += 1;
-      if(m > 11){ m = 0; y += 1; }
-    }
-    return null;
-  }
-  function syncRecurringChargeExecutions(){
-    if(!DB) return false;
-    DB.cashflows = Array.isArray(DB.cashflows) ? DB.cashflows : [];
-    DB.recurringCharges = Array.isArray(DB.recurringCharges) ? DB.recurringCharges.map(normalizeRecurringChargeModel) : [];
-    var now = new Date();
-    now.setHours(0,0,0,0);
-    var changed = false;
 
-    (DB.recurringCharges || []).forEach(function(c){
-      if(!c || c.active === false) return;
-      var amount = parseFloat(c.amount) || 0;
-      if(amount <= 0) return;
-      var start = parseSafeDate(c.startDate || today()) || new Date(now.getFullYear(), now.getMonth(), 1);
-      var loop = new Date(start.getFullYear(), start.getMonth(), 1);
+  function socialClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+  function socialFmtPct(n){ return (isFinite(n)?n:0).toFixed(1).replace('.',',') + ' %'; }
+  function socialNum(n){ return Number(n||0); }
+  function socialDate(d){ return d ? new Date(d + 'T12:00:00') : null; }
+  function socialMonthKey(d){ return (d||'').slice(0,7); }
+  function socialPlatformLabel(key){ return (SOCIAL_PROFILES_DEFAULT[key] && SOCIAL_PROFILES_DEFAULT[key].label) || key || 'Réseau'; }
 
-      while(loop <= now){
-        var occ = occurrenceForMonth(c, loop.getFullYear(), loop.getMonth());
-        if(occ && occ <= now){
-          var key = recurringOccurrenceKey(c, occ);
-          var exists = (DB.cashflows || []).some(function(f){
-            return f && f.autoRecurring === true && f.recurringKey === key;
-          });
-          if(!exists){
-            DB.cashflows.push({
-              id: Date.now() + Math.random(),
-              date: occ.toISOString().slice(0,10),
-              type: 'sortie',
-              category: c.category || 'Charge récurrente',
-              label: c.label || 'Charge récurrente',
-              amount: amount,
-              autoRecurring: true,
-              auto: true,
-              recurringId: c.id,
-              recurringKey: key
-            });
-            changed = true;
-          }
-        }
-        loop = new Date(loop.getFullYear(), loop.getMonth() + 1, 1);
+  function ensureSocialDefaults(){
+    if(!DB.socialMedia || typeof DB.socialMedia !== 'object') DB.socialMedia = {};
+    if(!DB.socialMedia.profiles || typeof DB.socialMedia.profiles !== 'object') DB.socialMedia.profiles = {};
+    Object.keys(SOCIAL_PROFILES_DEFAULT).forEach(function(key){
+      DB.socialMedia.profiles[key] = Object.assign({}, SOCIAL_PROFILES_DEFAULT[key], DB.socialMedia.profiles[key] || {});
+    });
+    if(!Array.isArray(DB.socialMedia.snapshots)) DB.socialMedia.snapshots = [];
+    DB.socialMedia.snapshots = DB.socialMedia.snapshots.map(function(s){
+      var base = Object.assign({
+        id: Date.now() + Math.random(),
+        platform:'instagram',
+        date: today(),
+        followers:0,
+        contentCount:0,
+        views:0,
+        reach:0,
+        likes:0,
+        comments:0,
+        shares:0,
+        saves:0,
+        profileVisits:0,
+        websiteClicks:0,
+        notes:''
+      }, s || {});
+      if(!base.platform || !DB.socialMedia.profiles[base.platform]) base.platform = 'instagram';
+      return base;
+    }).sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  }
+
+  var __socialPrevEnsureDefaults = ensureEnhancementDefaults;
+  ensureEnhancementDefaults = function(){
+    __socialPrevEnsureDefaults();
+    ensureSocialDefaults();
+  };
+
+  function injectSocialUI(){
+    injectSocialStyles();
+    var adminNav = document.getElementById('nav-admin-analytics');
+    if(adminNav && !document.getElementById('nav-social-media')){
+      adminNav.insertAdjacentHTML('afterend', '<div class="nav-item" id="nav-social-media" data-admin-only="1" onclick="goTo(\'social-media\')"><span class="icon">📱</span>Réseaux sociaux</div>');
+    } else if(!adminNav){
+      var sidebarNav = document.querySelector('.sidebar-nav');
+      if(sidebarNav && !document.getElementById('nav-social-media')){
+        var wrapper = document.createElement('div');
+        wrapper.setAttribute('data-admin-only','1');
+        wrapper.innerHTML = '<div class="nav-section" data-admin-only="1">Admin</div><div class="nav-item" id="nav-social-media" data-admin-only="1" onclick="goTo(\'social-media\')"><span class="icon">📱</span>Réseaux sociaux</div>';
+        sidebarNav.appendChild(wrapper);
       }
-    });
-
-    if(changed){
-      try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e){}
     }
-    return changed;
+
+    var content = document.querySelector('.content');
+    if(content && !document.getElementById('page-social-media')){
+      var page = document.createElement('div');
+      page.className = 'page';
+      page.id = 'page-social-media';
+      page.setAttribute('data-admin-only','1');
+      page.innerHTML = ''+
+        '<div class="card">' +
+          '<div class="card-header">' +
+            '<span class="card-title">Dashboard réseaux sociaux</span>' +
+            '<div class="section-actions">' +
+              '<button class="btn btn-secondary btn-sm" onclick="openSocialProfilesManager()">⚙️ Profils</button>' +
+              '<button class="btn btn-primary btn-sm" onclick="openSocialSnapshotForm()">+ Ajouter un relevé</button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="social-dashboard-root"></div>' +
+        '</div>';
+      content.appendChild(page);
+    }
   }
 
-  buildRecurringCashflows = function(){ return []; };
+  function getSnapshots(platform){
+    ensureSocialDefaults();
+    return (DB.socialMedia.snapshots || []).filter(function(s){ return !platform || s.platform === platform; }).slice().sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+  }
 
-  var __premium_prev_getCalendarEvents = getCalendarEvents;
-  getCalendarEvents = function(){
-    var events = __premium_prev_getCalendarEvents();
-    var base = (typeof calendarCursor !== 'undefined' && calendarCursor) ? new Date(calendarCursor) : new Date();
-    var monthSeeds = [
-      new Date(base.getFullYear(), base.getMonth()-1, 1),
-      new Date(base.getFullYear(), base.getMonth(), 1),
-      new Date(base.getFullYear(), base.getMonth()+1, 1)
-    ];
+  function latestSnapshot(platform){
+    var arr = getSnapshots(platform);
+    return arr.length ? arr[arr.length-1] : null;
+  }
 
-    (DB.recurringCharges || []).forEach(function(c){
-      c = normalizeRecurringChargeModel(c);
-      if(c.active === false || c.showInCalendar === false) return;
-      var amount = parseFloat(c.amount) || 0;
-      if(amount <= 0) return;
-      monthSeeds.forEach(function(seed){
-        var occ = occurrenceForMonth(c, seed.getFullYear(), seed.getMonth());
-        if(!occ) return;
-        events.push({
-          date: occ.toISOString().slice(0,10),
-          title: c.label || c.category || 'Charge',
-          type: 'charge',
-          meta: (c.category || 'Charge') + ' · ' + fmt(amount)
-        });
-      });
+  function socialInteractions(s){
+    if(!s) return 0;
+    return socialNum(s.likes) + socialNum(s.comments) + socialNum(s.shares) + socialNum(s.saves);
+  }
+
+  function socialEngagementRate(s){
+    if(!s) return 0;
+    var base = socialNum(s.reach) > 0 ? socialNum(s.reach) : socialNum(s.followers);
+    return base > 0 ? (socialInteractions(s) / base) * 100 : 0;
+  }
+
+  function periodStartDaysAgo(days){
+    var d = new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - days);
+    return d;
+  }
+
+  function snapshotsSince(platform, days){
+    var minDate = periodStartDaysAgo(days);
+    return getSnapshots(platform).filter(function(s){ var d = socialDate(s.date); return d && d >= minDate; });
+  }
+
+  function platformSummary(platform){
+    var snapshots = getSnapshots(platform);
+    var latest = snapshots.length ? snapshots[snapshots.length-1] : null;
+    var prev30 = snapshotsSince(platform, 30);
+    var oldest30 = prev30.length ? prev30[0] : (snapshots.length ? snapshots[0] : null);
+    var followerGrowth = latest && oldest30 ? socialNum(latest.followers) - socialNum(oldest30.followers) : 0;
+    var avgEng = prev30.length ? (prev30.reduce(function(sum, s){ return sum + socialEngagementRate(s); }, 0) / prev30.length) : (latest ? socialEngagementRate(latest) : 0);
+    var totalInteractions30 = prev30.reduce(function(sum, s){ return sum + socialInteractions(s); }, 0);
+    var totalViews30 = prev30.reduce(function(sum, s){ return sum + socialNum(s.views); }, 0);
+    return {
+      platform: platform,
+      latest: latest,
+      snapshots: snapshots,
+      followers: latest ? socialNum(latest.followers) : 0,
+      contentCount: latest ? socialNum(latest.contentCount) : 0,
+      avgEngagement: avgEng,
+      growth30: followerGrowth,
+      interactions30: totalInteractions30,
+      views30: totalViews30,
+      snapshotCount: snapshots.length
+    };
+  }
+
+  function globalSocialSummary(){
+    var ig = platformSummary('instagram');
+    var tt = platformSummary('tiktok');
+    var combinedSnapshots = (DB.socialMedia && DB.socialMedia.snapshots || []);
+    return {
+      totalFollowers: ig.followers + tt.followers,
+      growth30: ig.growth30 + tt.growth30,
+      avgEngagement: ((ig.avgEngagement || 0) + (tt.avgEngagement || 0)) / 2,
+      snapshots: combinedSnapshots.length,
+      interactions30: ig.interactions30 + tt.interactions30,
+      views30: ig.views30 + tt.views30
+    };
+  }
+
+  function socialUpsertChart(id, config){
+    var el = document.getElementById(id);
+    if(!el) return;
+    if(el._socialChart){ try{ el._socialChart.destroy(); }catch(e){} }
+    el._socialChart = new Chart(el, config);
+  }
+
+  function monthlyFollowerDelta(platform){
+    var data = {};
+    getSnapshots(platform).forEach(function(s){
+      var key = socialMonthKey(s.date);
+      if(!key) return;
+      if(!data[key]) data[key] = { first:socialNum(s.followers), last:socialNum(s.followers) };
+      data[key].last = socialNum(s.followers);
+    });
+    var months = Object.keys(data).sort();
+    return { labels: months, values: months.map(function(m){ return (data[m].last - data[m].first); }) };
+  }
+
+  function combinedTimeline(){
+    var labels = Array.from(new Set((DB.socialMedia.snapshots || []).map(function(s){ return s.date; }))).sort();
+    var series = { instagramFollowers:[], tiktokFollowers:[], instagramEng:[], tiktokEng:[] };
+    labels.forEach(function(date){
+      var ig = getSnapshots('instagram').filter(function(s){ return s.date <= date; }).slice(-1)[0] || null;
+      var tt = getSnapshots('tiktok').filter(function(s){ return s.date <= date; }).slice(-1)[0] || null;
+      series.instagramFollowers.push(ig ? socialNum(ig.followers) : null);
+      series.tiktokFollowers.push(tt ? socialNum(tt.followers) : null);
+      series.instagramEng.push(ig ? Number(socialEngagementRate(ig).toFixed(2)) : null);
+      series.tiktokEng.push(tt ? Number(socialEngagementRate(tt).toFixed(2)) : null);
+    });
+    return { labels: labels.map(function(d){ return formatDate(d); }), series: series };
+  }
+
+  function socialTableRows(){
+    return getSnapshots().slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).slice(0, 24).map(function(s){
+      return '<tr>' +
+        '<td>' + formatDate(s.date) + '</td>' +
+        '<td><span class="badge ' + (s.platform==='instagram'?'social-badge-ig':'social-badge-tt') + '">' + escapeHtml(socialPlatformLabel(s.platform)) + '</span></td>' +
+        '<td class="r mono">' + fmtN(s.followers||0) + '</td>' +
+        '<td class="r mono">' + fmtN(socialInteractions(s)) + '</td>' +
+        '<td class="r mono">' + fmtN(s.views||0) + '</td>' +
+        '<td class="r mono">' + socialFmtPct(socialEngagementRate(s)) + '</td>' +
+        '<td class="mono" style="font-size:11px;color:var(--muted);">' + escapeHtml(s.notes||'') + '</td>' +
+        '<td class="c"><button class="btn-icon" onclick="openSocialSnapshotForm(' + Number(s.id) + ')">✏️</button> <button class="btn-icon" onclick="deleteSocialSnapshot(' + Number(s.id) + ')">🗑</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function profileCardHtml(summary){
+    var profile = DB.socialMedia.profiles[summary.platform] || SOCIAL_PROFILES_DEFAULT[summary.platform];
+    var latest = summary.latest;
+    var latestDate = latest ? formatDate(latest.date) : '—';
+    return ''+
+      '<div class="social-card social-profile-card">' +
+        '<div class="social-profile-head">' +
+          '<div>' +
+            '<div class="social-tag ' + (summary.platform==='instagram'?'social-badge-ig':'social-badge-tt') + '">' + escapeHtml(profile.label || summary.platform) + '</div>' +
+            '<div class="social-handle">' + escapeHtml(profile.handle || summary.platform) + '</div>' +
+            '<div class="social-sub">Dernier relevé le ' + latestDate + ' · ' + (summary.snapshotCount || 0) + ' snapshot(s)</div>' +
+          '</div>' +
+          '<div class="social-actions">' +
+            '<button class="btn btn-secondary btn-sm" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button>' +
+            '<button class="btn btn-secondary btn-sm" onclick="window.open(\'' + String(profile.url||'').replace(/'/g, "\\'") + '\',\'_blank\')">Ouvrir</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="social-stat-row">' +
+          '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">compteur actuel</div></div>' +
+          '<div class="social-stat"><div class="label">Croissance 30 j</div><div class="value">' + (summary.growth30 >= 0 ? '+' : '') + fmtN(summary.growth30) + '</div><div class="social-mini">vs relevé 30 j</div></div>' +
+          '<div class="social-stat"><div class="label">Engagement moyen</div><div class="value">' + socialFmtPct(summary.avgEngagement) + '</div><div class="social-mini">interactions / portée ou abonnés</div></div>' +
+          '<div class="social-stat"><div class="label">Interactions 30 j</div><div class="value">' + fmtN(summary.interactions30) + '</div><div class="social-mini">likes, commentaires, partages, saves</div></div>' +
+        '</div>' +
+        '<div class="social-inline-kpis" style="margin-top:12px;">' +
+          '<div class="social-stat"><div class="label">Posts / vidéos</div><div class="value">' + fmtN(summary.contentCount) + '</div></div>' +
+          '<div class="social-stat"><div class="label">Vues 30 j</div><div class="value">' + fmtN(summary.views30) + '</div></div>' +
+          '<div class="social-stat"><div class="label">Dernière portée</div><div class="value">' + fmtN(latest ? latest.reach : 0) + '</div></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderSocialDashboard(){
+    injectSocialUI();
+    ensureSocialDefaults();
+    var root = document.getElementById('social-dashboard-root');
+    if(!root) return;
+    var overall = globalSocialSummary();
+    var ig = platformSummary('instagram');
+    var tt = platformSummary('tiktok');
+    root.innerHTML = ''+
+      '<div class="social-note" style="margin-bottom:16px;">' +
+        '<strong>Mode local premium.</strong> Cette section suit déjà l’évolution des réseaux avec des relevés datés, les courbes de croissance et le taux d’engagement. Pour un compteur vraiment live sans saisie manuelle, il faudra ensuite brancher une API ou une passerelle serveur. Ici, tout est prêt côté dashboard.' +
+      '</div>' +
+      '<div class="social-wide-kpis">' +
+        '<div class="metric-box"><div class="label">Audience totale</div><div class="value">' + fmtN(overall.totalFollowers) + '</div><div class="inline-stat">Instagram + TikTok</div></div>' +
+        '<div class="metric-box"><div class="label">Croissance 30 jours</div><div class="value">' + (overall.growth30 >= 0 ? '+' : '') + fmtN(overall.growth30) + '</div><div class="inline-stat">sur la base des derniers relevés</div></div>' +
+        '<div class="metric-box"><div class="label">Engagement moyen</div><div class="value">' + socialFmtPct(overall.avgEngagement) + '</div><div class="inline-stat">moyenne IG / TikTok</div></div>' +
+        '<div class="metric-box"><div class="label">Snapshots</div><div class="value">' + fmtN(overall.snapshots) + '</div><div class="inline-stat">historique disponible</div></div>' +
+      '</div>' +
+      '<div class="social-grid">' + profileCardHtml(ig) + profileCardHtml(tt) + '</div>' +
+      '<div class="social-grid">' +
+        '<div class="card"><div class="card-header"><span class="card-title">Évolution des abonnés</span><span class="inline-stat">Instagram vs TikTok</span></div><div style="position:relative;height:280px;"><canvas id="social-followers-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">Engagement dans le temps</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:280px;"><canvas id="social-engagement-chart"></canvas></div></div>' +
+      '</div>' +
+      '<div class="social-grid">' +
+        '<div class="card"><div class="card-header"><span class="card-title">Croissance mensuelle des abonnés</span><span class="inline-stat">variation intra-mois</span></div><div style="position:relative;height:260px;"><canvas id="social-growth-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">Derniers relevés</span><span class="inline-stat">24 derniers snapshots</span></div><div class="table-wrap social-table"><table><thead><tr><th>Date</th><th>Plateforme</th><th class="r">Abonnés</th><th class="r">Interactions</th><th class="r">Vues</th><th class="r">Engagement</th><th>Note</th><th></th></tr></thead><tbody>' + (socialTableRows() || '<tr><td colspan="8" class="empty-state">Aucun relevé social pour le moment.</td></tr>') + '</tbody></table></div></div>' +
+      '</div>';
+
+    var timeline = combinedTimeline();
+    socialUpsertChart('social-followers-chart', {
+      type:'line',
+      data:{ labels:timeline.labels, datasets:[
+        { label:'Instagram', data:timeline.series.instagramFollowers, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.12)', fill:true, tension:0.3, spanGaps:true },
+        { label:'TikTok', data:timeline.series.tiktokFollowers, borderColor:'#12192B', backgroundColor:'rgba(18,25,43,0.08)', fill:true, tension:0.3, spanGaps:true }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:false } } }
     });
 
-    return events.sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
-  };
+    socialUpsertChart('social-engagement-chart', {
+      type:'line',
+      data:{ labels:timeline.labels, datasets:[
+        { label:'Instagram', data:timeline.series.instagramEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, spanGaps:true },
+        { label:'TikTok', data:timeline.series.tiktokEng, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.08)', tension:0.35, spanGaps:true }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v + '%'; } } } } }
+    });
 
-  openRecurringChargeForm = function(i){
-    var categories = getAvailableChargeCategories();
-    var c = i==null
-      ? {label:'', amount:'', frequency:'monthly', startDate:today().slice(0,7)+'-01', active:true, category:categories[0] || 'Charge récurrente', dayOfMonth:new Date().getDate(), showInCalendar:true}
-      : normalizeRecurringChargeModel((DB.recurringCharges || [])[i] || {});
-    openModal(
-      '<div class="modal-title">'+(i==null?'Nouvelle charge récurrente':'Modifier la charge récurrente')+'</div>'+
-      '<div class="modal-sub">Crée un prélèvement automatique mensuel. Il sera ajouté automatiquement à la date prévue lorsque le site est ouvert ou rechargé.</div>'+
-      '<div class="grid2" style="margin-bottom:12px;">'+
-        '<div class="field"><label>Libellé</label><input class="input" id="rc-label" value="'+escapeHtml(c.label||'')+'" placeholder="Ex: Shopify"></div>'+
-        '<div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" value="'+(c.amount||'')+'"></div>'+
-      '</div>'+
-      '<div class="grid3" style="margin-bottom:12px;">'+
-        '<div class="field"><label>Catégorie</label><select class="select" id="rc-category">'+categories.map(function(cat){return '<option value="'+escapeHtml(cat)+'"'+((c.category||'')===cat?' selected':'')+'>'+escapeHtml(cat)+'</option>';}).join('')+'</select></div>'+
-        '<div class="field"><label>Jour de prélèvement</label><input type="number" class="input input-yellow" id="rc-day" min="1" max="31" value="'+(c.dayOfMonth||inferRecurringDay(c))+'"></div>'+
-        '<div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="'+(c.startDate||today())+'"></div>'+
-      '</div>'+
-      '<div class="grid2" style="margin-bottom:14px;">'+
-        '<div class="field"><label>Visible dans le calendrier</label><select class="select" id="rc-calendar"><option value="true"'+(c.showInCalendar!==false?' selected':'')+'>Oui</option><option value="false"'+(c.showInCalendar===false?' selected':'')+'>Non</option></select></div>'+
-        '<div class="field"><label>Active</label><select class="select" id="rc-active"><option value="true"'+(c.active!==false?' selected':'')+'>Oui</option><option value="false"'+(c.active===false?' selected':'')+'>Non</option></select></div>'+
-      '</div>'+
-      '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-        '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-        '<button class="btn btn-primary" onclick="saveRecurringCharge('+(i==null?'null':i)+')">'+(i==null?'Créer':'Enregistrer')+'</button>'+
-      '</div>'
+    var igGrowth = monthlyFollowerDelta('instagram');
+    var ttGrowth = monthlyFollowerDelta('tiktok');
+    var growthLabels = Array.from(new Set(igGrowth.labels.concat(ttGrowth.labels))).sort();
+    var igMap = {}; igGrowth.labels.forEach(function(m, idx){ igMap[m] = igGrowth.values[idx]; });
+    var ttMap = {}; ttGrowth.labels.forEach(function(m, idx){ ttMap[m] = ttGrowth.values[idx]; });
+    socialUpsertChart('social-growth-chart', {
+      type:'bar',
+      data:{ labels:growthLabels, datasets:[
+        { label:'Instagram', data:growthLabels.map(function(m){ return igMap[m] || 0; }), backgroundColor:'#C9A84C', borderRadius:8 },
+        { label:'TikTok', data:growthLabels.map(function(m){ return ttMap[m] || 0; }), backgroundColor:'#7C879A', borderRadius:8 }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } }
+    });
+  }
+
+  function profileSelectOptions(selected){
+    return Object.keys(DB.socialMedia.profiles).map(function(key){
+      var p = DB.socialMedia.profiles[key];
+      return '<option value="' + escapeHtml(key) + '"' + (selected===key?' selected':'') + '>' + escapeHtml(p.label) + '</option>';
+    }).join('');
+  }
+
+  window.openSocialProfilesManager = function(){
+    ensureSocialDefaults();
+    var ig = DB.socialMedia.profiles.instagram;
+    var tt = DB.socialMedia.profiles.tiktok;
+    openModal(''+
+      '<div class="modal-title">Profils réseaux sociaux</div>' +
+      '<div class="modal-sub">Tu peux personnaliser les handles, URLs et libellés. Le dashboard reste réservé à l\'admin.</div>' +
+      '<div class="social-grid" style="margin-bottom:14px;">' +
+        '<div class="social-card"><div class="field" style="margin-bottom:10px;"><label>Instagram · label</label><input class="input" id="sm-ig-label" value="' + escapeHtml(ig.label||'Instagram') + '"></div><div class="field" style="margin-bottom:10px;"><label>Instagram · handle</label><input class="input" id="sm-ig-handle" value="' + escapeHtml(ig.handle||'') + '"></div><div class="field"><label>Instagram · URL</label><input class="input" id="sm-ig-url" value="' + escapeHtml(ig.url||'') + '"></div></div>' +
+        '<div class="social-card"><div class="field" style="margin-bottom:10px;"><label>TikTok · label</label><input class="input" id="sm-tt-label" value="' + escapeHtml(tt.label||'TikTok') + '"></div><div class="field" style="margin-bottom:10px;"><label>TikTok · handle</label><input class="input" id="sm-tt-handle" value="' + escapeHtml(tt.handle||'') + '"></div><div class="field"><label>TikTok · URL</label><input class="input" id="sm-tt-url" value="' + escapeHtml(tt.url||'') + '"></div></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveSocialProfilesManager()">Enregistrer</button></div>'
     );
   };
 
-  saveRecurringCharge = function(i){
-    var item = normalizeRecurringChargeModel({
-      id: i==null ? Date.now() : ((DB.recurringCharges[i] && DB.recurringCharges[i].id) || Date.now()),
-      label: document.getElementById('rc-label').value,
-      amount: parseFloat(document.getElementById('rc-amount').value) || 0,
-      frequency: 'monthly',
-      startDate: document.getElementById('rc-start').value,
-      dayOfMonth: parseInt(document.getElementById('rc-day').value, 10) || 1,
-      showInCalendar: document.getElementById('rc-calendar').value === 'true',
-      active: document.getElementById('rc-active').value === 'true',
-      category: document.getElementById('rc-category').value
-    });
-    item.dayOfMonth = Math.max(1, Math.min(31, item.dayOfMonth || 1));
-    if(!item.label || !item.amount){
-      toast('Libellé et montant requis');
-      return;
-    }
-    if(i==null) DB.recurringCharges.unshift(item); else DB.recurringCharges[i] = item;
-    syncRecurringChargeExecutions();
-    saveDB();
+  window.saveSocialProfilesManager = function(){
+    ensureSocialDefaults();
+    DB.socialMedia.profiles.instagram.label = document.getElementById('sm-ig-label').value || 'Instagram';
+    DB.socialMedia.profiles.instagram.handle = document.getElementById('sm-ig-handle').value || '@instagram';
+    DB.socialMedia.profiles.instagram.url = document.getElementById('sm-ig-url').value || SOCIAL_PROFILES_DEFAULT.instagram.url;
+    DB.socialMedia.profiles.tiktok.label = document.getElementById('sm-tt-label').value || 'TikTok';
+    DB.socialMedia.profiles.tiktok.handle = document.getElementById('sm-tt-handle').value || '@tiktok';
+    DB.socialMedia.profiles.tiktok.url = document.getElementById('sm-tt-url').value || SOCIAL_PROFILES_DEFAULT.tiktok.url;
+    saveDB('Profils sociaux mis à jour');
     closeModal();
-    renderCompta();
-    renderCalendarPlanning();
-    recordAction('Charge récurrente enregistrée : ' + item.label);
+    renderSocialDashboard();
+    toast('Profils réseaux sociaux mis à jour');
   };
 
-  var __premium_prev_renderCompta = renderCompta;
-  renderCompta = function(){
-    syncRecurringChargeExecutions();
-    __premium_prev_renderCompta();
+  function findSnapshotIndexById(id){
+    return (DB.socialMedia.snapshots || []).findIndex(function(s){ return Number(s.id) === Number(id); });
+  }
 
-    var recurringEl = document.getElementById('recurring-charges-list');
-    if(recurringEl){
-      var rec = (DB.recurringCharges || []).map(normalizeRecurringChargeModel);
-      recurringEl.innerHTML = rec.length ? rec.map(function(c,i){
-        var next = nextRecurringOccurrence(c);
-        return '<div class="rec-charge-card">'+
-          '<div class="rec-charge-main">'+
-            '<div class="rec-charge-title">'+escapeHtml(c.label || 'Charge récurrente')+'</div>'+
-            '<div class="rec-charge-sub">'+escapeHtml(c.category || 'Charge récurrente')+'</div>'+
-            '<div class="rec-charge-meta">'+
-              '<span class="rec-charge-chip">Chaque '+(c.dayOfMonth||1)+' du mois</span>'+
-              '<span class="rec-charge-chip">Prochain : '+(next ? formatDate(next.toISOString().slice(0,10)) : '—')+'</span>'+
-              '<span class="rec-charge-chip">'+(c.showInCalendar!==false ? 'Calendrier : oui' : 'Calendrier : non')+'</span>'+
-              '<span class="rec-charge-chip">'+(c.active===false ? 'Inactive' : 'Active')+'</span>'+
-            '</div>'+
-          '</div>'+
-          '<div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">'+
-            '<span class="mono" style="font-size:14px;font-weight:700;">'+fmt(c.amount||0)+'/mois</span>'+
-            '<button class="btn-icon" onclick="openRecurringChargeForm('+i+')" title="Modifier">✏️</button>'+
-            '<button class="btn-icon" onclick="deleteRecurringCharge('+i+')" title="Supprimer">🗑</button>'+
-          '</div>'+
-        '</div>';
-      }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal ou tout autre abonnement mensuel.</div>';
+  window.openSocialSnapshotForm = function(id, presetPlatform){
+    ensureSocialDefaults();
+    var idx = id==null ? -1 : findSnapshotIndexById(id);
+    var base = idx > -1 ? socialClone(DB.socialMedia.snapshots[idx]) : {};
+    if(idx === -1){
+      var platform = presetPlatform || 'instagram';
+      var latest = latestSnapshot(platform);
+      base = Object.assign({ id: Date.now(), platform: platform, date: today(), followers:'', contentCount:'', views:'', reach:'', likes:'', comments:'', shares:'', saves:'', profileVisits:'', websiteClicks:'', notes:'' }, latest ? {
+        platform: platform,
+        followers: latest.followers,
+        contentCount: latest.contentCount,
+        views: latest.views,
+        reach: latest.reach,
+        likes: latest.likes,
+        comments: latest.comments,
+        shares: latest.shares,
+        saves: latest.saves,
+        profileVisits: latest.profileVisits,
+        websiteClicks: latest.websiteClicks,
+        notes: ''
+      } : {});
+    }
+    openModal(''+
+      '<div class="modal-title">' + (idx > -1 ? 'Modifier un relevé social' : 'Ajouter un relevé social') + '</div>' +
+      '<div class="modal-sub">Renseigne les chiffres visibles publiquement ou ceux de tes outils. Le taux d\'engagement sera calculé automatiquement.</div>' +
+      '<div class="grid3" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Plateforme</label><select class="select social-platform-select" id="ss-platform">' + profileSelectOptions(base.platform || 'instagram') + '</select></div>' +
+        '<div class="field"><label>Date du relevé</label><input type="date" class="input" id="ss-date" value="' + escapeHtml(base.date || today()) + '"></div>' +
+        '<div class="field"><label>Abonnés</label><input type="number" class="input input-yellow" id="ss-followers" value="' + escapeHtml(base.followers || '') + '"></div>' +
+      '</div>' +
+      '<div class="grid3" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Posts / vidéos</label><input type="number" class="input" id="ss-content" value="' + escapeHtml(base.contentCount || '') + '"></div>' +
+        '<div class="field"><label>Vues</label><input type="number" class="input" id="ss-views" value="' + escapeHtml(base.views || '') + '"></div>' +
+        '<div class="field"><label>Portée</label><input type="number" class="input" id="ss-reach" value="' + escapeHtml(base.reach || '') + '"></div>' +
+      '</div>' +
+      '<div class="grid4" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Likes</label><input type="number" class="input" id="ss-likes" value="' + escapeHtml(base.likes || '') + '"></div>' +
+        '<div class="field"><label>Commentaires</label><input type="number" class="input" id="ss-comments" value="' + escapeHtml(base.comments || '') + '"></div>' +
+        '<div class="field"><label>Partages</label><input type="number" class="input" id="ss-shares" value="' + escapeHtml(base.shares || '') + '"></div>' +
+        '<div class="field"><label>Saves</label><input type="number" class="input" id="ss-saves" value="' + escapeHtml(base.saves || '') + '"></div>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Visites profil</label><input type="number" class="input" id="ss-visits" value="' + escapeHtml(base.profileVisits || '') + '"></div>' +
+        '<div class="field"><label>Clics site web</label><input type="number" class="input" id="ss-clicks" value="' + escapeHtml(base.websiteClicks || '') + '"></div>' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:14px;"><label>Note</label><input class="input" id="ss-notes" value="' + escapeHtml(base.notes || '') + '" placeholder="Ex: reel fort, collab, post produit, concours..."></div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveSocialSnapshot(' + (idx > -1 ? Number(base.id) : 'null') + ')">' + (idx > -1 ? 'Enregistrer' : 'Ajouter le relevé') + '</button></div>'
+    );
+  };
+
+  window.saveSocialSnapshot = function(id){
+    ensureSocialDefaults();
+    var snapshot = {
+      id: id==null ? Date.now() : Number(id),
+      platform: document.getElementById('ss-platform').value,
+      date: document.getElementById('ss-date').value,
+      followers: socialNum(document.getElementById('ss-followers').value),
+      contentCount: socialNum(document.getElementById('ss-content').value),
+      views: socialNum(document.getElementById('ss-views').value),
+      reach: socialNum(document.getElementById('ss-reach').value),
+      likes: socialNum(document.getElementById('ss-likes').value),
+      comments: socialNum(document.getElementById('ss-comments').value),
+      shares: socialNum(document.getElementById('ss-shares').value),
+      saves: socialNum(document.getElementById('ss-saves').value),
+      profileVisits: socialNum(document.getElementById('ss-visits').value),
+      websiteClicks: socialNum(document.getElementById('ss-clicks').value),
+      notes: document.getElementById('ss-notes').value || ''
+    };
+    if(!snapshot.date){ toast('Ajoute une date de relevé'); return; }
+    if(!snapshot.platform){ toast('Choisis une plateforme'); return; }
+    var idx = id==null ? -1 : findSnapshotIndexById(id);
+    if(idx > -1) DB.socialMedia.snapshots[idx] = snapshot; else DB.socialMedia.snapshots.push(snapshot);
+    DB.socialMedia.snapshots.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+    saveDB('Relevé social enregistré');
+    closeModal();
+    renderSocialDashboard();
+    toast('Relevé social enregistré');
+  };
+
+  window.deleteSocialSnapshot = function(id){
+    var idx = findSnapshotIndexById(id);
+    if(idx === -1) return;
+    if(!confirm('Supprimer ce relevé social ?')) return;
+    DB.socialMedia.snapshots.splice(idx, 1);
+    saveDB('Relevé social supprimé');
+    renderSocialDashboard();
+    toast('Relevé supprimé');
+  };
+
+  var __socialPrevGoTo = goTo;
+  goTo = function(page){
+    __socialPrevGoTo(page);
+    if(page === 'social-media'){
+      if(((DB.preferences||{}).role || 'admin') !== 'admin'){
+        toast('Cet onglet est réservé à l\'admin');
+        __socialPrevGoTo('dashboard');
+        return;
+      }
+      var t = document.getElementById('page-title');
+      if(t) t.textContent = 'Réseaux sociaux';
+      renderSocialDashboard();
     }
   };
 
-  var __premium_prev_renderAll = renderAll;
+  var __socialPrevRenderAll = renderAll;
   renderAll = function(){
-    syncRecurringChargeExecutions();
-    __premium_prev_renderAll();
-    renderCalendarPlanning();
+    __socialPrevRenderAll();
+    injectSocialUI();
+    if(document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')) renderSocialDashboard();
+  };
+
+  var __socialPrevLoadDB = loadDB;
+  loadDB = async function(){
+    await __socialPrevLoadDB();
+    ensureSocialDefaults();
+    injectSocialUI();
+    if(typeof applyRolePreferences === 'function') applyRolePreferences();
+    if(document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')) renderSocialDashboard();
   };
 
   document.addEventListener('DOMContentLoaded', function(){
-    var title = document.querySelector('#page-catalogue .card-title');
-    if(title && !document.getElementById('catalogue-premium-note')){
-      var note = document.createElement('div');
-      note.id = 'catalogue-premium-note';
-      note.className = 'catalogue-premium-note';
-      note.textContent = 'Palette et interface alignées sur la DA du site vitrine : plus claire, plus éditoriale et plus premium.';
-      var header = title.closest('.card-header');
-      if(header) header.appendChild(note);
-    }
+    injectSocialUI();
+    ensureSocialDefaults();
+    if(typeof applyRolePreferences === 'function' && sessionStorage.getItem('meridies_authed') === '1') applyRolePreferences();
   });
 })();
 
