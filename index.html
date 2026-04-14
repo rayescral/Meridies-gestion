@@ -361,6 +361,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
   <div class="topbar-actions">
     <input type="file" id="import-json-input" accept=".json,application/json" style="display:none" onchange="importAllDataFromFile(event)">
     <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()">⬆ Import JSON</button>
+    <button class="btn btn-secondary btn-sm" onclick="restoreFoundationData()">↺ Restaurer base</button>
     <button class="btn btn-secondary btn-sm" onclick="exportExcelWorkbook()">⬇ Export Excel</button>
     <button class="btn btn-secondary btn-sm" onclick="exportAllData()">⬇ Export JSON</button>
     <button class="btn btn-danger btn-sm" onclick="resetAllData()">🗑 Réinitialiser</button>
@@ -439,9 +440,9 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
 
 <div class="page" id="page-saisie-vente">
   <div class="card">
-    <div class="card-header"><span class="card-title">Enregistrer une vente</span></div>
+    <div class="card-header"><span class="card-title">Enregistrer une vente</span><div class="section-actions"><button class="btn btn-secondary btn-sm" onclick="openManageSaleChannels()">⚙️ Gérer les canaux</button></div></div>
     <div class="grid3" style="margin-bottom:16px;">
-      <div class="field"><label>Canal de vente</label><select class="select" id="vente-canal"><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option><option value="Collaboration">Collaboration</option><option value="Restaurant JSP">Restaurant JSP</option></select></div>
+      <div class="field"><label>Canal de vente</label><select class="select" id="vente-canal"></select></div>
       <div class="field"><label>Rechercher un Article</label>
         <input type="text" class="input" id="vente-code" list="vente-code-list" oninput="onVenteCodeChange()" placeholder="Taper pour chercher...">
         <datalist id="vente-code-list"></datalist>
@@ -479,7 +480,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
   <div class="card">
     <div class="card-header"><span class="card-title">Historique des ventes</span>
       <div class="section-actions">
-        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:160px;"><option value="">Tous canaux</option><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option><option value="Collaboration">Collaboration</option><option value="Restaurant JSP">Restaurant JSP</option></select>
+        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:160px;"></select>
         <button class="btn btn-secondary btn-sm" onclick="exportVentesCSV()">⬇ Export CSV</button>
       </div>
     </div>
@@ -605,7 +606,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
     <div class="card-header">
       <span class="card-title">Trésorerie initiale & charges récurrentes</span>
       <div class="section-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openRecurringChargeForm()">+ Charge récurrente</button>
+        <button class="btn btn-secondary btn-sm" onclick="openManageChargeCategories()">⚙️ Catégories rapides</button><button class="btn btn-secondary btn-sm" onclick="openRecurringChargeForm()">+ Charge récurrente</button>
       </div>
     </div>
     <div class="grid2" style="margin-bottom:16px;">
@@ -618,7 +619,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
       </div>
       <div class="field">
         <label>Catégories rapides</label>
-        <div class="quick-tags">
+        <div class="quick-tags" id="quick-charge-tags">
           <span class="quick-tag" onclick="openAddCashflow('Matos du stand')">Matos du stand</span>
           <span class="quick-tag" onclick="openAddCashflow('Shopify')">Shopify</span>
           <span class="quick-tag" onclick="openAddCashflow('Boxerai')">Boxerai</span>
@@ -760,6 +761,56 @@ var DB = {
 // ============================================================
 var EMBEDDED_BACKUP = {"catalogue":[{"pa":0,"pv":35,"ref":"LP-0100","code":"LP-0100-001-XS","design":"Lou Pescadou","taille":"XS","couleur":"Rose","designation":"Lou Pescadou Rose"},{"pa":0,"pv":35,"ref":"LP-0100","code":"LP-0100-001-S","design":"Lou Pescadou","taille":"S","couleur":"Rose","designation":"Lou Pescadou Rose"},{"pa":0,"pv":35,"ref":"LP-0100","code":"LP-0100-001-M","design":"Lou Pescadou","taille":"M","couleur":"Rose","designation":"Lou Pescadou Rose"},{"pa":0,"pv":35,"ref":"LP-0100","code":"LP-0100-001-L","design":"Lou Pescadou","taille":"L","couleur":"Rose","designation":"Lou Pescadou Rose"},{"pa":0,"pv":35,"ref":"LP-0200","code":"LP-0200-001-XS","design":"Lou Pescadou","taille":"XS","couleur":"Bleu","designation":"Lou Pescadou Bleu"},{"pa":0,"pv":35,"ref":"LP-0200","code":"LP-0200-001-S","design":"Lou Pescadou","taille":"S","couleur":"Bleu","designation":"Lou Pescadou Bleu"},{"pa":0,"pv":35,"ref":"LP-0200","code":"LP-0200-001-M","design":"Lou Pescadou","taille":"M","couleur":"Bleu","designation":"Lou Pescadou Bleu"},{"pa":0,"pv":35,"ref":"LP-0200","code":"LP-0200-001-L","design":"Lou Pescadou","taille":"L","couleur":"Bleu","designation":"Lou Pescadou Bleu"},{"pa":0,"pv":35,"ref":"LP-0300","code":"LP-0300-001-XS","design":"Lou Pescadou","taille":"XS","couleur":"Vert","designation":"Lou Pescadou Vert"},{"pa":0,"pv":35,"ref":"LP-0300","code":"LP-0300-001-S","design":"Lou Pescadou","taille":"S","couleur":"Vert","designation":"Lou Pescadou Vert"},{"pa":0,"pv":35,"ref":"LP-0300","code":"LP-0300-001-M","design":"Lou Pescadou","taille":"M","couleur":"Vert","designation":"Lou Pescadou Vert"},{"pa":0,"pv":35,"ref":"LP-0300","code":"LP-0300-001-L","design":"Lou Pescadou","taille":"L","couleur":"Vert","designation":"Lou Pescadou Vert"},{"pa":0,"pv":35,"ref":"LP-0400","code":"LP-0400-001-XS","design":"Lou Pescadou","taille":"XS","couleur":"Violet","designation":"Lou Pescadou Violet"},{"pa":0,"pv":35,"ref":"LP-0400","code":"LP-0400-001-S","design":"Lou Pescadou","taille":"S","couleur":"Violet","designation":"Lou Pescadou Violet"},{"pa":0,"pv":35,"ref":"LP-0400","code":"LP-0400-001-M","design":"Lou Pescadou","taille":"M","couleur":"Violet","designation":"Lou Pescadou Violet"},{"pa":0,"pv":35,"ref":"LP-0400","code":"LP-0400-001-L","design":"Lou Pescadou","taille":"L","couleur":"Violet","designation":"Lou Pescadou Violet"},{"pa":0,"pv":35,"ref":"LP-0500","code":"LP-0500-001-XS","design":"Lou Pescadou","taille":"XS","couleur":"Blanc","designation":"Lou Pescadou Blanc"},{"pa":0,"pv":35,"ref":"LP-0500","code":"LP-0500-001-S","design":"Lou Pescadou","taille":"S","couleur":"Blanc","designation":"Lou Pescadou Blanc"},{"pa":0,"pv":35,"ref":"LP-0500","code":"LP-0500-001-M","design":"Lou Pescadou","taille":"M","couleur":"Blanc","designation":"Lou Pescadou Blanc"},{"pa":0,"pv":35,"ref":"LP-0500","code":"LP-0500-001-L","design":"Lou Pescadou","taille":"L","couleur":"Blanc","designation":"Lou Pescadou Blanc"},{"pa":0,"pv":35,"ref":"LP-0600","code":"LP-0600-001-XS","design":"Lou Pescadou","taille":"XS","couleur":"Marron","designation":"Lou Pescadou Marron"},{"pa":0,"pv":35,"ref":"LP-0600","code":"LP-0600-001-S","design":"Lou Pescadou","taille":"S","couleur":"Marron","designation":"Lou Pescadou Marron"},{"pa":0,"pv":35,"ref":"LP-0600","code":"LP-0600-001-M","design":"Lou Pescadou","taille":"M","couleur":"Marron","designation":"Lou Pescadou Marron"},{"pa":0,"pv":35,"ref":"LP-0600","code":"LP-0600-001-L","design":"Lou Pescadou","taille":"L","couleur":"Marron","designation":"Lou Pescadou Marron"},{"pa":0,"pv":35,"ref":"LI-0500","code":"LI-0500-002-XS","design":"Li d'elo dóu Sud","taille":"XS","couleur":"Blanc","designation":"Li d'elo dóu Sud Blanc"},{"pa":0,"pv":35,"ref":"LI-0500","code":"LI-0500-002-S","design":"Li d'elo dóu Sud","taille":"S","couleur":"Blanc","designation":"Li d'elo dóu Sud Blanc"},{"pa":0,"pv":35,"ref":"LI-0500","code":"LI-0500-002-M","design":"Li d'elo dóu Sud","taille":"M","couleur":"Blanc","designation":"Li d'elo dóu Sud Blanc"},{"pa":0,"pv":35,"ref":"LI-0500","code":"LI-0500-002-L","design":"Li d'elo dóu Sud","taille":"L","couleur":"Blanc","designation":"Li d'elo dóu Sud Blanc"},{"pa":0,"pv":35,"ref":"LI-0700","code":"LI-0700-002-XS","design":"Li d'elo dóu Sud","taille":"XS","couleur":"Noir","designation":"Li d'elo dóu Sud Noir"},{"pa":0,"pv":35,"ref":"LI-0700","code":"LI-0700-002-S","design":"Li d'elo dóu Sud","taille":"S","couleur":"Noir","designation":"Li d'elo dóu Sud Noir"},{"pa":0,"pv":35,"ref":"LI-0700","code":"LI-0700-002-M","design":"Li d'elo dóu Sud","taille":"M","couleur":"Noir","designation":"Li d'elo dóu Sud Noir"},{"pa":0,"pv":35,"ref":"LI-0700","code":"LI-0700-002-L","design":"Li d'elo dóu Sud","taille":"L","couleur":"Noir","designation":"Li d'elo dóu Sud Noir"},{"pa":0,"pv":35,"ref":"LI-0300","code":"LI-0300-002-XS","design":"Li d'elo dóu Sud","taille":"XS","couleur":"Vert","designation":"Li d'elo dóu Sud Vert"},{"pa":0,"pv":35,"ref":"LI-0300","code":"LI-0300-002-S","design":"Li d'elo dóu Sud","taille":"S","couleur":"Vert","designation":"Li d'elo dóu Sud Vert"},{"pa":0,"pv":35,"ref":"LI-0300","code":"LI-0300-002-M","design":"Li d'elo dóu Sud","taille":"M","couleur":"Vert","designation":"Li d'elo dóu Sud Vert"},{"pa":0,"pv":35,"ref":"LI-0300","code":"LI-0300-002-L","design":"Li d'elo dóu Sud","taille":"L","couleur":"Vert","designation":"Li d'elo dóu Sud Vert"},{"pa":0,"pv":35,"ref":"LI-0900","code":"LI-0900-002-XS","design":"Li d'elo dóu Sud","taille":"XS","couleur":"Jaune","designation":"Li d'elo dóu Sud Jaune"},{"pa":0,"pv":35,"ref":"LI-0900","code":"LI-0900-002-S","design":"Li d'elo dóu Sud","taille":"S","couleur":"Jaune","designation":"Li d'elo dóu Sud Jaune"},{"pa":0,"pv":35,"ref":"LI-0900","code":"LI-0900-002-M","design":"Li d'elo dóu Sud","taille":"M","couleur":"Jaune","designation":"Li d'elo dóu Sud Jaune"},{"pa":0,"pv":35,"ref":"LI-0900","code":"LI-0900-002-L","design":"Li d'elo dóu Sud","taille":"L","couleur":"Jaune","designation":"Li d'elo dóu Sud Jaune"},{"pa":0,"pv":35,"ref":"MT-0200","code":"MT-0200-003-XS","design":"Mercatus","taille":"XS","couleur":"Bleu","designation":"Mercatus Bleu"},{"pa":0,"pv":35,"ref":"MT-0200","code":"MT-0200-003-S","design":"Mercatus","taille":"S","couleur":"Bleu","designation":"Mercatus Bleu"},{"pa":0,"pv":35,"ref":"MT-0200","code":"MT-0200-003-M","design":"Mercatus","taille":"M","couleur":"Bleu","designation":"Mercatus Bleu"},{"pa":0,"pv":35,"ref":"MT-0200","code":"MT-0200-003-L","design":"Mercatus","taille":"L","couleur":"Bleu","designation":"Mercatus Bleu"},{"pa":0,"pv":35,"ref":"MT-0700","code":"MT-0700-003-XS","design":"Mercatus","taille":"XS","couleur":"Noir","designation":"Mercatus Noir"},{"pa":0,"pv":35,"ref":"MT-0700","code":"MT-0700-003-S","design":"Mercatus","taille":"S","couleur":"Noir","designation":"Mercatus Noir"},{"pa":0,"pv":35,"ref":"MT-0700","code":"MT-0700-003-M","design":"Mercatus","taille":"M","couleur":"Noir","designation":"Mercatus Noir"},{"pa":0,"pv":35,"ref":"MT-0700","code":"MT-0700-003-L","design":"Mercatus","taille":"L","couleur":"Noir","designation":"Mercatus Noir"},{"pa":0,"pv":35,"ref":"ML-1300","code":"ML-1300-004-XS","design":"Massilia","taille":"XS","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc"},{"pa":0,"pv":35,"ref":"ML-1300","code":"ML-1300-004-S","design":"Massilia","taille":"S","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc"},{"pa":0,"pv":35,"ref":"ML-1300","code":"ML-1300-004-M","design":"Massilia","taille":"M","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc"},{"pa":0,"pv":35,"ref":"ML-1300","code":"ML-1300-004-L","design":"Massilia","taille":"L","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc"},{"pa":0,"pv":35,"ref":"ML-1300","code":"ML-1300-004-XL","design":"Massilia","taille":"XL","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc"},{"pa":0,"pv":35,"ref":"ML-2100","code":"ML-2100-004-XS","design":"Massilia","taille":"XS","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu"},{"pa":0,"pv":35,"ref":"ML-2100","code":"ML-2100-004-S","design":"Massilia","taille":"S","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu"},{"pa":0,"pv":35,"ref":"ML-2100","code":"ML-2100-004-M","design":"Massilia","taille":"M","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu"},{"pa":0,"pv":35,"ref":"ML-2100","code":"ML-2100-004-L","design":"Massilia","taille":"L","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu"},{"pa":0,"pv":35,"ref":"ML-2100","code":"ML-2100-004-XL","design":"Massilia","taille":"XL","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu"},{"pa":0,"pv":35,"ref":"ML-1400","code":"ML-1400-004-XS","design":"Massilia","taille":"XS","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu"},{"pa":0,"pv":35,"ref":"ML-1400","code":"ML-1400-004-S","design":"Massilia","taille":"S","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu"},{"pa":0,"pv":35,"ref":"ML-1400","code":"ML-1400-004-M","design":"Massilia","taille":"M","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu"},{"pa":0,"pv":35,"ref":"ML-1400","code":"ML-1400-004-L","design":"Massilia","taille":"L","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu"},{"pa":0,"pv":35,"ref":"ML-1400","code":"ML-1400-004-XL","design":"Massilia","taille":"XL","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu"},{"pa":0,"pv":35,"ref":"ML-1500","code":"ML-1500-004-XS","design":"Massilia","taille":"XS","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc"},{"pa":0,"pv":35,"ref":"ML-1500","code":"ML-1500-004-S","design":"Massilia","taille":"S","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc"},{"pa":0,"pv":35,"ref":"ML-1500","code":"ML-1500-004-M","design":"Massilia","taille":"M","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc"},{"pa":0,"pv":35,"ref":"ML-1500","code":"ML-1500-004-L","design":"Massilia","taille":"L","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc"},{"pa":0,"pv":35,"ref":"ML-1500","code":"ML-1500-004-XL","design":"Massilia","taille":"XL","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc"},{"pa":0,"pv":55,"ref":"LM-1600","code":"LM-1600-006-XS","design":"Lou Mistrau","taille":"XS","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose"},{"pa":0,"pv":55,"ref":"LM-1600","code":"LM-1600-006-S","design":"Lou Mistrau","taille":"S","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose"},{"pa":0,"pv":55,"ref":"LM-1600","code":"LM-1600-006-M","design":"Lou Mistrau","taille":"M","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose"},{"pa":0,"pv":55,"ref":"LM-1600","code":"LM-1600-006-L","design":"Lou Mistrau","taille":"L","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose"},{"pa":0,"pv":55,"ref":"LM-1600","code":"LM-1600-006-XL","design":"Lou Mistrau","taille":"XL","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose"},{"pa":0,"pv":55,"ref":"LM-1400","code":"LM-1400-006-XS","design":"Lou Mistrau","taille":"XS","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu"},{"pa":0,"pv":55,"ref":"LM-1400","code":"LM-1400-006-S","design":"Lou Mistrau","taille":"S","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu"},{"pa":0,"pv":55,"ref":"LM-1400","code":"LM-1400-006-M","design":"Lou Mistrau","taille":"M","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu"},{"pa":0,"pv":55,"ref":"LM-1400","code":"LM-1400-006-L","design":"Lou Mistrau","taille":"L","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu"},{"pa":0,"pv":55,"ref":"LM-1400","code":"LM-1400-006-XL","design":"Lou Mistrau","taille":"XL","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu"},{"pa":0,"pv":55,"ref":"LM-1800","code":"LM-1800-006-XS","design":"Lou Mistrau","taille":"XS","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert"},{"pa":0,"pv":55,"ref":"LM-1800","code":"LM-1800-006-S","design":"Lou Mistrau","taille":"S","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert"},{"pa":0,"pv":55,"ref":"LM-1800","code":"LM-1800-006-M","design":"Lou Mistrau","taille":"M","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert"},{"pa":0,"pv":55,"ref":"LM-1800","code":"LM-1800-006-L","design":"Lou Mistrau","taille":"L","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert"},{"pa":0,"pv":55,"ref":"LM-1800","code":"LM-1800-006-XL","design":"Lou Mistrau","taille":"XL","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert"},{"pa":0,"pv":55,"ref":"LM-1900","code":"LM-1900-006-XS","design":"Lou Mistrau","taille":"XS","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc"},{"pa":0,"pv":55,"ref":"LM-1900","code":"LM-1900-006-S","design":"Lou Mistrau","taille":"S","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc"},{"pa":0,"pv":55,"ref":"LM-1900","code":"LM-1900-006-M","design":"Lou Mistrau","taille":"M","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc"},{"pa":0,"pv":55,"ref":"LM-1900","code":"LM-1900-006-L","design":"Lou Mistrau","taille":"L","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc"},{"pa":0,"pv":55,"ref":"LM-1900","code":"LM-1900-006-XL","design":"Lou Mistrau","taille":"XL","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc"},{"pa":0,"pv":55,"ref":"LM-2000","code":"LM-2000-006-XS","design":"Lou Mistrau","taille":"XS","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose"},{"pa":0,"pv":55,"ref":"LM-2000","code":"LM-2000-006-S","design":"Lou Mistrau","taille":"S","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose"},{"pa":0,"pv":55,"ref":"LM-2000","code":"LM-2000-006-M","design":"Lou Mistrau","taille":"M","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose"},{"pa":0,"pv":55,"ref":"LM-2000","code":"LM-2000-006-L","design":"Lou Mistrau","taille":"L","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose"},{"pa":0,"pv":55,"ref":"LM-2000","code":"LM-2000-006-XL","design":"Lou Mistrau","taille":"XL","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose"},{"pa":0,"pv":30,"ref":"CP-0200","code":"CP-0200-005-U","design":"Capèu","taille":"U","couleur":"Bleu","designation":"Capèu Bleu"},{"pa":0,"pv":30,"ref":"CP-0300","code":"CP-0300-005-U","design":"Capèu","taille":"U","couleur":"Vert","designation":"Capèu Vert"},{"pa":0,"pv":30,"ref":"CP-1200","code":"CP-1200-005-U","design":"Capèu","taille":"U","couleur":"Beige","designation":"Capèu Beige"},{"pa":0,"pv":35,"ref":"LS-0700","code":"LS-0700-007-XS","design":"Lou Serein","taille":"XS","couleur":"Noir","designation":"Lou Serein Noir"},{"pa":0,"pv":35,"ref":"LS-0700","code":"LS-0700-007-S","design":"Lou Serein","taille":"S","couleur":"Noir","designation":"Lou Serein Noir"},{"pa":0,"pv":35,"ref":"LS-0700","code":"LS-0700-007-M","design":"Lou Serein","taille":"M","couleur":"Noir","designation":"Lou Serein Noir"},{"pa":0,"pv":35,"ref":"LS-0700","code":"LS-0700-007-L","design":"Lou Serein","taille":"L","couleur":"Noir","designation":"Lou Serein Noir"},{"pa":0,"pv":35,"ref":"LS-0700","code":"LS-0700-007-XL","design":"Lou Serein","taille":"XL","couleur":"Noir","designation":"Lou Serein Noir"},{"pa":0,"pv":35,"ref":"LS-0500","code":"LS-0500-007-XS","design":"Lou Serein","taille":"XS","couleur":"Blanc","designation":"Lou Serein Blanc"},{"pa":0,"pv":35,"ref":"LS-0500","code":"LS-0500-007-S","design":"Lou Serein","taille":"S","couleur":"Blanc","designation":"Lou Serein Blanc"},{"pa":0,"pv":35,"ref":"LS-0500","code":"LS-0500-007-M","design":"Lou Serein","taille":"M","couleur":"Blanc","designation":"Lou Serein Blanc"},{"pa":0,"pv":35,"ref":"LS-0500","code":"LS-0500-007-L","design":"Lou Serein","taille":"L","couleur":"Blanc","designation":"Lou Serein Blanc"},{"pa":0,"pv":35,"ref":"LS-0500","code":"LS-0500-007-XL","design":"Lou Serein","taille":"XL","couleur":"Blanc","designation":"Lou Serein Blanc"}],"stockVierge":[{"l":2,"m":2,"s":3,"pa":9,"xl":0,"xs":0,"ref":"T135","xxl":0,"seuil":3,"couleur":"Noir","enCommande":0},{"l":0,"m":2,"s":2,"pa":8.5,"xl":0,"xs":3,"ref":"BY102","xxl":0,"seuil":3,"couleur":"Bleu Marine","enCommande":0},{"l":0,"m":2,"s":2,"pa":8.5,"xl":0,"xs":2,"ref":"BY102","xxl":0,"seuil":3,"couleur":"Bleu Ciel","enCommande":0},{"l":1,"m":2,"s":4,"pa":8.5,"xl":0,"xs":4,"ref":"BY102","xxl":0,"seuil":3,"couleur":"Beige","enCommande":0},{"l":1,"m":1,"s":1,"pa":8.5,"xl":1,"xs":4,"ref":"BY102","xxl":0,"seuil":3,"couleur":"Blanc","enCommande":0},{"l":2,"m":3,"s":2,"pa":8.88,"xl":0,"xs":3,"ref":"E220","xxl":0,"seuil":3,"couleur":"Noir","enCommande":0},{"l":2,"m":1,"s":2,"pa":8.88,"xl":0,"xs":0,"ref":"E220","xxl":0,"seuil":3,"couleur":"Blanc","enCommande":0},{"l":0,"m":2,"s":2,"pa":21.6,"xl":1,"xs":2,"ref":"Pull","xxl":0,"seuil":2,"couleur":"Noir","enCommande":0},{"l":1,"m":0,"s":0,"pa":21.6,"xl":0,"xs":1,"ref":"Pull","xxl":0,"seuil":2,"couleur":"Blanc","enCommande":0},{"l":0,"m":0,"s":2,"pa":15,"xl":0,"xs":0,"ref":"Brut","xxl":0,"seuil":2,"couleur":"Beige","enCommande":0}],"stockDTF":[{"pa":2.4,"nom":"Lou Pescadou Rose","ref":"LP-0100","seuil":3,"stock":6,"enCommande":0},{"pa":2.4,"nom":"Lou Pescadou Bleu","ref":"LP-0200","seuil":3,"stock":2,"enCommande":0},{"pa":2.4,"nom":"Lou Pescadou Vert","ref":"LP-0300","seuil":3,"stock":17,"enCommande":0},{"pa":2.4,"nom":"Lou Pescadou Violet","ref":"LP-0400","seuil":3,"stock":1,"enCommande":0},{"pa":2.4,"nom":"Lou Pescadou Blanc","ref":"LP-0500","seuil":3,"stock":2,"enCommande":0},{"pa":2.4,"nom":"Lou Pescadou Marron","ref":"LP-0600","seuil":3,"stock":7,"enCommande":0},{"pa":2.4,"nom":"Li d'elo dóu Sud Blanc","ref":"LI-0500","seuil":3,"stock":11,"enCommande":0},{"pa":2.4,"nom":"Li d'elo dóu Sud Noir","ref":"LI-0700","seuil":3,"stock":5,"enCommande":0},{"pa":2.4,"nom":"Li d'elo dóu Sud Vert","ref":"LI-0300","seuil":3,"stock":11,"enCommande":0},{"pa":2.4,"nom":"Li d'elo dóu Sud Jaune","ref":"LI-0900","seuil":3,"stock":9,"enCommande":0},{"pa":2.4,"nom":"Mercatus Bleu","ref":"MT-0200","seuil":3,"stock":10,"enCommande":0},{"pa":2.4,"nom":"Mercatus Noir","ref":"MT-0700","seuil":3,"stock":0,"enCommande":0},{"pa":2.4,"nom":"Massilia Blanc","ref":"ML-1300","seuil":3,"stock":5,"enCommande":0},{"pa":2.4,"nom":"Massilia Bleu ciel / Bleu","ref":"ML-2100","seuil":3,"stock":13,"enCommande":0},{"pa":2.4,"nom":"Massilia Bleu","ref":"ML-1400","seuil":3,"stock":13,"enCommande":0},{"pa":2.4,"nom":"Massilia Bleu marine / Blanc","ref":"ML-1500","seuil":3,"stock":5,"enCommande":0},{"pa":2.4,"nom":"Lou Mistrau Blanc / Rose","ref":"LM-1600","seuil":3,"stock":3,"enCommande":0},{"pa":2.4,"nom":"Lou Mistrau Blanc / Bleu","ref":"LM-1400","seuil":3,"stock":1,"enCommande":0},{"pa":2.4,"nom":"Lou Mistrau Blanc / Vert","ref":"LM-1800","seuil":3,"stock":3,"enCommande":0},{"pa":2.4,"nom":"Lou Mistrau Noir / Blanc","ref":"LM-1900","seuil":3,"stock":0,"enCommande":0},{"pa":2.4,"nom":"Lou Mistrau Noir / Rose","ref":"LM-2000","seuil":3,"stock":4,"enCommande":0},{"pa":2.4,"nom":"Lou Serein Noir","ref":"LS-0700","seuil":3,"stock":0,"enCommande":0},{"pa":2.4,"nom":"Lou Serein Blanc","ref":"LS-0500","seuil":3,"stock":0,"enCommande":0}],"stockFini":[],"ventes":[{"id":1776112143447,"pv":35,"qte":20,"ref":"LP-0300","code":"LP-0300-001-XS","date":"2026-04-13","canal":"Web","email":"","design":"Lou Pescadou","numCde":"1000","taille":"XS","designation":"Lou Pescadou Vert"}],"fournisseurs":[{"nom":"Influence 13","notes":{"com":3,"prix":3,"delais":3,"qualite":4},"contact":"contact@influence13.fr","notes_txt":"","typesProduits":"T-shirt"},{"nom":"CDP13","rdv":true,"devis":false,"notes":{"com":3,"prix":3,"delais":3,"qualite":3},"contact":"","produits":"T-shirt","typesProduits":"T-shirt"},{"nom":"Cottonmade","rdv":false,"devis":false,"notes":{"com":3,"prix":3,"delais":3,"qualite":3},"contact":"","produits":"T-shirt","typesProduits":"T-shirt"},{"nom":"Alibaba","rdv":false,"devis":false,"notes":"Plusieurs fournisseurs","contact":"","produits":"Chemise","typesProduits":"Chemise"}],"bonsCommande":[{"id":"BC-20260413-001","date":"2026-04-13","email":"contact@influence13.fr","total":1140,"statut":"EN ATTENTE","articles":[{"qte":60,"ref":"CASQ-BE","prix":19,"taille":"U","couleur":"Beige","montant":1140,"qteRecue":0,"designation":"Casquette Beige"}],"paiement":"Comptant","totalQte":60,"createdAt":"2026-04-13T20:26:30.907Z","livraison":"2026-04-27","receptions":[],"commentaire":"","fournisseur":"Influence 13","totalQteRecue":0}],"todos":[{"due":"2026-03-31","prio":"A","task":"S'inscrire marché La Ciotat 2026","owner":"Quentin","status":"TERMINER"},{"due":"","prio":"A","task":"S'occuper des fournisseurs","owner":"Eliott","status":"EN COURS"},{"due":"","prio":"B","task":"Faire la matrice automatisée pour le stock","owner":"Quentin","status":"TERMINER"},{"due":"2026-04-09","prio":"B","task":"Plan d'action TikTok + planning","owner":"Seb","status":"A TRAITER"},{"due":"","prio":"A","task":"Calculer coûts de revient 2026","owner":"Quentin / Eliott","status":"EN ATTENTE"},{"due":"2026-04-09","prio":"A","task":"Stratégie de com + support lancement drop","owner":"Seb","status":"A TRAITER"},{"due":"","prio":"A","task":"Stock + prévisions 2026 (~300 pièces)","owner":"Quentin / Eliott","status":"A TRAITER"},{"due":"","prio":"A","task":"Devis Alibaba (sur mesure + échantillons)","owner":"Quentin","status":"A TRAITER"},{"due":"2026-04-07","prio":"A","task":"Créer modèle bon de commande fournisseur","owner":"Seb","status":"TERMINER"}]};
 
+function buildMergeMap(arr, keyFn) {
+  var map = {};
+  (arr || []).forEach(function(item){
+    try {
+      var key = keyFn(item);
+      if(key) map[key] = true;
+    } catch(e) {}
+  });
+  return map;
+}
+
+function mergeMissingItems(targetArr, seedArr, keyFn) {
+  var added = 0;
+  var seen = buildMergeMap(targetArr, keyFn);
+  (seedArr || []).forEach(function(item){
+    try {
+      var key = keyFn(item);
+      if(key && !seen[key]) {
+        targetArr.push(JSON.parse(JSON.stringify(item)));
+        seen[key] = true;
+        added++;
+      }
+    } catch(e) {}
+  });
+  return added;
+}
+
+function ensureBaseSeedData() {
+  var changed = 0;
+  changed += mergeMissingItems(DB.catalogue, EMBEDDED_BACKUP.catalogue, function(i){ return i && i.code; });
+  changed += mergeMissingItems(DB.stockVierge, EMBEDDED_BACKUP.stockVierge, function(i){ return i && [i.ref, i.couleur].join('|'); });
+  changed += mergeMissingItems(DB.stockDTF, EMBEDDED_BACKUP.stockDTF, function(i){ return i && i.ref; });
+  changed += mergeMissingItems(DB.fournisseurs, EMBEDDED_BACKUP.fournisseurs, function(i){ return i && i.nom; });
+  changed += mergeMissingItems(DB.todos, EMBEDDED_BACKUP.todos, function(i){ return i && [i.task, i.owner].join('|'); });
+  if(changed>0) {
+    initDatalists();
+    try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+  }
+  return changed;
+}
+
+function restoreFoundationData() {
+  if(!confirm('Restaurer les données de base manquantes sans supprimer vos ventes, commandes et saisies récentes ?')) return;
+  var added = ensureBaseSeedData();
+  saveDB();
+  renderAll();
+  enhanceLoadPostActions();
+  toast(added>0 ? ('Données de base restaurées : ' + added + ' élément(s) ajoutés') : 'Les données de base sont déjà présentes');
+}
+
 function normalizeRestoredDB(data) {
   var restored = {
     catalogue: Array.isArray(data.catalogue) ? data.catalogue : [],
@@ -896,6 +947,7 @@ async function loadDB() {
     if(!f.notes || typeof f.notes !== 'object') f.notes = { qualite: 3, prix: 3, delais: 3, com: 3 };
   });
 
+  ensureBaseSeedData();
   initDatalists();
   renderAll();
   renderSaleCart();
@@ -2746,6 +2798,526 @@ var __origGoTo = goTo;
 goTo = function(page){ __origGoTo(page); if(page==='pilotage') renderPilotage(); if(page==='clients') renderClients(); if(page==='backups') renderBackups(); };
 var __origRenderAll = renderAll;
 renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); renderBackups(); };
+
+
+// ============================================================
+// V4 FIXES — catalogue / ventes multi-articles / todo edit / settings
+// ============================================================
+var DEFAULT_SALE_CHANNELS = ['Marché','Web','B2B','Collaboration','Restaurant JSP'];
+var DEFAULT_CHARGE_CATEGORIES = ['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant JSP','Autre'];
+var DEFAULT_TODO_OWNERS = ['Quentin','Eliott','Seb','Quentin / Eliott'];
+
+function normalizeUniqueStrings(arr, defaults){
+  var out = [];
+  var seen = {};
+  (Array.isArray(arr) ? arr : defaults).forEach(function(v){
+    v = String(v == null ? '' : v).trim();
+    if(v && !seen[v]){
+      out.push(v);
+      seen[v] = true;
+    }
+  });
+  if(!out.length && Array.isArray(defaults)){
+    defaults.forEach(function(v){
+      v = String(v == null ? '' : v).trim();
+      if(v && !seen[v]){
+        out.push(v);
+        seen[v] = true;
+      }
+    });
+  }
+  return out;
+}
+
+function ensureConfigCollections(){
+  if(!DB.settings || typeof DB.settings !== 'object') DB.settings = {};
+  DB.settings.saleChannels = normalizeUniqueStrings(DB.settings.saleChannels, DEFAULT_SALE_CHANNELS);
+  DB.settings.chargeCategories = normalizeUniqueStrings(DB.settings.chargeCategories, DEFAULT_CHARGE_CATEGORIES);
+  DB.settings.todoOwners = normalizeUniqueStrings(DB.settings.todoOwners, DEFAULT_TODO_OWNERS);
+}
+
+var __v4_prev_normalize = normalizeRestoredDB;
+normalizeRestoredDB = function(data){
+  var restored = __v4_prev_normalize(data || {});
+  restored.settings = restored.settings && typeof restored.settings === 'object' ? restored.settings : {};
+  restored.settings.saleChannels = normalizeUniqueStrings(restored.settings.saleChannels, DEFAULT_SALE_CHANNELS);
+  restored.settings.chargeCategories = normalizeUniqueStrings(restored.settings.chargeCategories, DEFAULT_CHARGE_CATEGORIES);
+  restored.settings.todoOwners = normalizeUniqueStrings(restored.settings.todoOwners, DEFAULT_TODO_OWNERS);
+  return restored;
+};
+
+var __v4_prev_defaults = ensureEnhancementDefaults;
+ensureEnhancementDefaults = function(){
+  __v4_prev_defaults();
+  ensureConfigCollections();
+};
+
+function ensureCatalogueLoaded(){
+  if((!DB.catalogue || !DB.catalogue.length) && EMBEDDED_BACKUP && Array.isArray(EMBEDDED_BACKUP.catalogue) && EMBEDDED_BACKUP.catalogue.length){
+    ensureBaseSeedData();
+  }
+}
+
+function updateCatalogueCounters(){
+  var total = (DB.catalogue || []).length;
+  var pageCount = document.getElementById('cat-count');
+  var navCount = document.getElementById('nav-cat-count');
+  if(pageCount) pageCount.textContent = total;
+  if(navCount) navCount.textContent = total;
+}
+
+var __v4_prev_renderCatalogue = renderCatalogue;
+renderCatalogue = function(){
+  ensureCatalogueLoaded();
+  __v4_prev_renderCatalogue();
+  updateCatalogueCounters();
+};
+
+function getAvailableSaleChannels(){
+  ensureConfigCollections();
+  return normalizeUniqueStrings((DB.settings && DB.settings.saleChannels || []).concat((DB.ventes || []).map(function(v){ return v.canal; })), DEFAULT_SALE_CHANNELS);
+}
+
+function getAvailableChargeCategories(){
+  ensureConfigCollections();
+  return normalizeUniqueStrings(
+    (DB.settings && DB.settings.chargeCategories || [])
+      .concat((DB.cashflows || []).map(function(f){ return f.category; }))
+      .concat((DB.recurringCharges || []).map(function(f){ return f.category; })),
+    DEFAULT_CHARGE_CATEGORIES
+  );
+}
+
+function renderSaleChannelSelectors(){
+  ensureConfigCollections();
+  var channels = getAvailableSaleChannels();
+  var saleSelect = document.getElementById('vente-canal');
+  if(saleSelect){
+    var current = saleSelect.value;
+    saleSelect.innerHTML = channels.map(function(c){ return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>'; }).join('');
+    saleSelect.value = channels.indexOf(current) > -1 ? current : channels[0];
+  }
+  var filter = document.getElementById('ventes-filter-canal');
+  if(filter){
+    var currentFilter = filter.value;
+    filter.innerHTML = '<option value="">Tous canaux</option>' + channels.map(function(c){ return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>'; }).join('');
+    filter.value = channels.indexOf(currentFilter) > -1 ? currentFilter : '';
+  }
+}
+
+function renderQuickChargeTags(){
+  ensureConfigCollections();
+  var host = document.getElementById('quick-charge-tags');
+  if(!host) return;
+  var categories = getAvailableChargeCategories();
+  host.innerHTML = categories.map(function(cat){
+    return '<span class="quick-tag" onclick="openAddCashflow(\''+String(cat).replace(/'/g,"\\'")+'\')">'+escapeHtml(cat)+'</span>';
+  }).join('');
+}
+
+function openManageListModal(title, lines, saveFn, helperText){
+  openModal(
+    '<div class="modal-title">'+escapeHtml(title)+'</div>'+
+    '<div class="modal-sub">'+escapeHtml(helperText || 'Mettez une valeur par ligne. Vous pouvez ajouter, modifier ou supprimer des lignes.')+'</div>'+
+    '<div class="field" style="margin-bottom:14px;">'+
+      '<label>Valeurs</label>'+
+      '<textarea class="input" id="manage-list-text" style="min-height:240px;resize:vertical;">'+escapeHtml((lines||[]).join('\n'))+'</textarea>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+      '<button class="btn btn-primary" onclick="'+saveFn+'()">Enregistrer</button>'+
+    '</div>'
+  );
+}
+function openManageSaleChannels(){
+  ensureConfigCollections();
+  openManageListModal('Gérer les canaux de vente', DB.settings.saleChannels, 'saveManagedSaleChannels', 'Une ligne = un canal de vente. Exemple : Marché, Web, Collaboration...');
+}
+function saveManagedSaleChannels(){
+  var values = normalizeUniqueStrings((document.getElementById('manage-list-text').value || '').split('\n'), DEFAULT_SALE_CHANNELS);
+  if(!values.length){ toast('Ajoute au moins un canal'); return; }
+  DB.settings.saleChannels = values;
+  saveDB('Canaux de vente mis à jour');
+  closeModal();
+  renderSaleChannelSelectors();
+  renderVentes();
+  toast('Canaux de vente mis à jour');
+}
+function openManageChargeCategories(){
+  ensureConfigCollections();
+  openManageListModal('Gérer les catégories rapides de charge', DB.settings.chargeCategories, 'saveManagedChargeCategories', 'Une ligne = une catégorie rapide. Exemple : Shopify, Boxtal, Matos du stand...');
+}
+function saveManagedChargeCategories(){
+  var values = normalizeUniqueStrings((document.getElementById('manage-list-text').value || '').split('\n'), DEFAULT_CHARGE_CATEGORIES);
+  if(!values.length){ toast('Ajoute au moins une catégorie'); return; }
+  DB.settings.chargeCategories = values;
+  saveDB('Catégories rapides mises à jour');
+  closeModal();
+  renderQuickChargeTags();
+  renderCompta();
+  toast('Catégories rapides mises à jour');
+}
+
+function getTodoOwnerOptions(selected){
+  ensureConfigCollections();
+  return (DB.settings.todoOwners || DEFAULT_TODO_OWNERS).map(function(o){
+    return '<option value="'+escapeHtml(o)+'"'+(selected===o?' selected':'')+'>'+escapeHtml(o)+'</option>';
+  }).join('');
+}
+
+openAddTodo = function() {
+  ensureConfigCollections();
+  openModal(
+    '<div class="modal-title">Nouvelle tâche</div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Tâche</label><input type="text" class="input" id="nt-task"></div>'+
+    '<div class="grid3" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Owner</label><select class="select" id="nt-owner">'+getTodoOwnerOptions((DB.settings.todoOwners||DEFAULT_TODO_OWNERS)[0])+'</select></div>'+
+      '<div class="field"><label>Priorité</label><select class="select" id="nt-prio"><option>A</option><option>B</option><option>C</option></select></div>'+
+      '<div class="field"><label>Échéance</label><input type="date" class="input" id="nt-due"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="addTodo()">Ajouter</button></div>'
+  );
+};
+
+function openEditTodo(i){
+  var t = DB.todos[i];
+  if(!t) return;
+  openModal(
+    '<div class="modal-title">Modifier la tâche</div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Tâche</label><input type="text" class="input" id="et-task" value="'+escapeHtml(t.task||'')+'"></div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Owner</label><select class="select" id="et-owner">'+getTodoOwnerOptions(t.owner||'')+'</select></div>'+
+      '<div class="field"><label>Priorité</label><select class="select" id="et-prio">'+['A','B','C'].map(function(p){return '<option value="'+p+'"'+(t.prio===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>'+
+    '</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Échéance</label><input type="date" class="input" id="et-due" value="'+escapeHtml(t.due||'')+'"></div>'+
+      '<div class="field"><label>Statut</label><select class="select" id="et-status">'+['A TRAITER','EN COURS','EN ATTENTE','TERMINER','ANNULÉ'].map(function(s){return '<option value="'+escapeHtml(s)+'"'+((t.status||'')===s?' selected':'')+'>'+escapeHtml(s)+'</option>';}).join('')+'</select></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveTodoEdit('+i+')">Enregistrer</button></div>'
+  );
+}
+function saveTodoEdit(i){
+  var t = DB.todos[i];
+  if(!t) return;
+  var task = (document.getElementById('et-task').value || '').trim();
+  if(!task){ toast('Le texte de la tâche est requis'); return; }
+  DB.todos[i] = Object.assign({}, t, {
+    task: task,
+    owner: document.getElementById('et-owner').value,
+    prio: document.getElementById('et-prio').value,
+    due: document.getElementById('et-due').value,
+    status: document.getElementById('et-status').value
+  });
+  saveDB('Tâche modifiée');
+  closeModal();
+  renderTodos();
+  renderCalendarPlanning();
+  toast('Tâche modifiée');
+}
+
+renderTodos = function(){
+  ensureConfigCollections();
+  var filter = document.getElementById('todo-filter') ? document.getElementById('todo-filter').value : '';
+  var items = (DB.todos||[]).filter(function(t){ return !filter || t.status === filter; });
+  var mode = document.getElementById('todo-view-mode') ? document.getElementById('todo-view-mode').value : 'table';
+  var table = document.getElementById('todo-table-view');
+  var kanban = document.getElementById('todo-kanban-view');
+  if(mode === 'kanban'){
+    if(table) table.style.display = 'none';
+    if(kanban) kanban.style.display = 'block';
+    renderTodosKanban(items);
+    return;
+  }
+  if(table) table.style.display = 'block';
+  if(kanban) kanban.style.display = 'none';
+  var tbody = document.getElementById('todo-body');
+  if(!tbody) return;
+  if(items.length===0){ tbody.innerHTML='<tr><td colspan="6" class="empty-state">Aucune tâche</td></tr>'; return; }
+  tbody.innerHTML = items.map(function(t){
+    var idx = DB.todos.indexOf(t);
+    return '<tr>'+
+      '<td>'+escapeHtml(t.owner||'—')+'</td>'+
+      '<td style="font-weight:500;">'+escapeHtml(t.task||'')+'</td>'+
+      '<td><span class="badge badge-neutral">'+escapeHtml(t.prio||'—')+'</span></td>'+
+      '<td>'+(t.due?formatDate(t.due):'—')+'</td>'+
+      '<td><span class="badge '+((t.status||'')==='TERMINER'?'badge-ok':(t.status||'')==='EN COURS'?'badge-info':(t.status||'')==='EN ATTENTE'?'badge-warn':'badge-neutral')+'">'+escapeHtml(t.status||'A TRAITER')+'</span></td>'+
+      '<td style="white-space:nowrap;"><button class="btn-icon" onclick="openEditTodo('+idx+')" title="Modifier">✏️</button> <button class="btn-icon" onclick="deleteTodo('+idx+')" title="Supprimer">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+};
+
+function saleTransactionKey(v, idx){
+  return v.venteId || ('legacy_'+(v.id||idx));
+}
+
+function clearVenteLineFields(){
+  var ids = ['vente-code','vente-desig','vente-taille','vente-pv'];
+  ids.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  var q = document.getElementById('vente-qte'); if(q) q.value='1';
+}
+
+clearVenteForm = function() {
+  clearVenteLineFields();
+  var n = document.getElementById('vente-numcde'); if(n) n.value='';
+  var e = document.getElementById('vente-email'); if(e) e.value='';
+  var d = document.getElementById('vente-date'); if(d && !d.value) d.value = today();
+};
+
+function renderSaleCart(){
+  var tbody = document.getElementById('vente-cart-body');
+  var badge = document.getElementById('vente-cart-badge');
+  var qtyEl = document.getElementById('vente-cart-qty');
+  var totalEl = document.getElementById('vente-cart-total');
+  if(!tbody) return;
+  var totalQty = (currentSaleItems||[]).reduce(function(s,it){ return s + (it.qte||0); },0);
+  var totalAmount = (currentSaleItems||[]).reduce(function(s,it){ return s + ((it.pv||0)*(it.qte||0)); },0);
+  if(badge) badge.textContent = (currentSaleItems||[]).length + ' article' + ((currentSaleItems||[]).length>1?'s':'');
+  if(qtyEl) qtyEl.textContent = totalQty + ' pièce' + (totalQty>1?'s':'');
+  if(totalEl) totalEl.textContent = fmt(totalAmount);
+  if(!currentSaleItems || !currentSaleItems.length){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Ajoute un ou plusieurs articles pour créer une vraie transaction.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = currentSaleItems.map(function(it, i){
+    return '<tr>'+
+      '<td class="mono">'+escapeHtml(it.code)+'</td>'+
+      '<td>'+escapeHtml(it.designation)+'</td>'+
+      '<td class="c">'+escapeHtml(it.taille||'')+'</td>'+
+      '<td class="r"><input type="number" class="input-sm" min="1" value="'+(it.qte||1)+'" onchange="updateSaleCartQty('+i+', this.value)" style="width:64px;text-align:center;"></td>'+
+      '<td class="r mono">'+fmt(it.pv||0)+'</td>'+
+      '<td class="r mono">'+fmt((it.pv||0)*(it.qte||0))+'</td>'+
+      '<td><button class="btn-icon" onclick="removeSaleCartItem('+i+')" title="Supprimer">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function getReservedCartQty(code, ignoreIndex){
+  return (currentSaleItems||[]).reduce(function(s,it,idx){
+    if(idx === ignoreIndex) return s;
+    return s + (it.code===code ? (it.qte||0) : 0);
+  },0);
+}
+
+function addArticleToSale(showMessage){
+  var code = (document.getElementById('vente-code').value || '').trim();
+  if(!code){ toast('Choisis un article avant de l’ajouter'); return false; }
+  var prod = (DB.catalogue||[]).find(function(p){ return p.code === code; });
+  if(!prod){ toast('Article non trouvé dans le catalogue'); return false; }
+  var qte = parseInt(document.getElementById('vente-qte').value, 10) || 0;
+  if(qte <= 0){ toast('La quantité doit être supérieure à 0'); return false; }
+  var sf = (DB.stockFini||[]).find(function(f){ return f.code === code; });
+  var reserved = getReservedCartQty(code);
+  if(sf && ((sf.stock||0) < (reserved + qte))){
+    toast('Stock insuffisant pour ajouter cette quantité');
+    return false;
+  }
+  var existing = (currentSaleItems||[]).find(function(it){ return it.code === code; });
+  if(existing) existing.qte += qte;
+  else currentSaleItems.push({
+    code: prod.code,
+    ref: prod.ref,
+    design: prod.design,
+    designation: prod.designation,
+    taille: prod.taille,
+    couleur: prod.couleur,
+    pv: prod.pv,
+    qte: qte
+  });
+  renderSaleCart();
+  clearVenteLineFields();
+  if(showMessage !== false) toast('Article ajouté à la vente');
+  return true;
+}
+
+function updateSaleCartQty(i, value){
+  var item = currentSaleItems[i];
+  if(!item) return;
+  var qte = parseInt(value, 10) || 0;
+  if(qte <= 0){ removeSaleCartItem(i); return; }
+  var sf = (DB.stockFini||[]).find(function(f){ return f.code === item.code; });
+  var reserved = getReservedCartQty(item.code, i);
+  if(sf && ((sf.stock||0) < (reserved + qte))){
+    toast('Stock insuffisant');
+    renderSaleCart();
+    return;
+  }
+  item.qte = qte;
+  renderSaleCart();
+}
+
+function removeSaleCartItem(i){
+  currentSaleItems.splice(i,1);
+  renderSaleCart();
+}
+
+function resetCurrentSaleCart(){
+  currentSaleItems = [];
+  renderSaleCart();
+  clearVenteLineFields();
+}
+
+function enregistrerVente() {
+  ensureConfigCollections();
+  if((document.getElementById('vente-code').value || '').trim()){
+    if(!addArticleToSale(false)) return;
+  }
+  if(!currentSaleItems.length){ toast('Ajoute au moins un article à la vente'); return; }
+  var date = document.getElementById('vente-date').value || today();
+  var canal = document.getElementById('vente-canal').value || getAvailableSaleChannels()[0];
+  var numCde = document.getElementById('vente-numcde').value || '';
+  var email = document.getElementById('vente-email').value || '';
+  var venteId = 'VT-' + Date.now();
+
+  for(var i=0;i<currentSaleItems.length;i++){
+    var line = currentSaleItems[i];
+    var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
+    if(sf && (sf.stock||0) < (line.qte||0)){
+      toast('Stock insuffisant pour ' + line.designation);
+      return;
+    }
+  }
+
+  currentSaleItems.forEach(function(line, idx){
+    DB.ventes.push({
+      id: Date.now() + idx,
+      venteId: venteId,
+      date: date,
+      canal: canal,
+      code: line.code,
+      ref: line.ref,
+      design: line.design,
+      designation: line.designation,
+      taille: line.taille,
+      pv: line.pv,
+      qte: line.qte,
+      numCde: numCde,
+      email: email
+    });
+    var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
+    if(sf) sf.stock = Math.max(0, (sf.stock||0) - (line.qte||0));
+  });
+
+  saveDB('Vente enregistrée');
+  resetCurrentSaleCart();
+  clearVenteForm();
+  refreshBusinessViews('Vente enregistrée !');
+}
+
+function getGroupedSales(filterCanal){
+  var groups = {};
+  (DB.ventes || []).forEach(function(v, idx){
+    if(filterCanal && v.canal !== filterCanal) return;
+    var key = saleTransactionKey(v, idx);
+    if(!groups[key]){
+      groups[key] = {
+        id: key,
+        date: v.date || '',
+        canal: v.canal || '',
+        total: 0,
+        qty: 0,
+        numCde: v.numCde || '',
+        lines: []
+      };
+    }
+    groups[key].lines.push(v);
+    groups[key].total += (v.pv || 0) * (v.qte || 1);
+    groups[key].qty += (v.qte || 1);
+  });
+  return Object.keys(groups).map(function(k){
+    var g = groups[k];
+    g.lines = g.lines.sort(function(a,b){ return (a.designation||'').localeCompare(b.designation||''); });
+    return g;
+  }).sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+}
+
+renderVentes = function() {
+  renderSaleChannelSelectors();
+  var canal = document.getElementById('ventes-filter-canal') ? document.getElementById('ventes-filter-canal').value : '';
+  var items = getGroupedSales(canal);
+  var tbody = document.getElementById('ventes-body');
+  if(!tbody) return;
+  if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Aucune vente</td></tr>'; return; }
+  tbody.innerHTML = items.slice(0, 100).map(function(v){
+    var first = v.lines[0] || {};
+    var codeLabel = v.lines.length > 1 ? escapeHtml(first.code || '') + ' <span style="color:var(--muted);">+'+(v.lines.length-1)+'</span>' : escapeHtml(first.code || '');
+    var desigs = v.lines.map(function(line){ return escapeHtml(line.designation) + ' ×' + (line.qte||1); }).join(' · ');
+    return '<tr>'+
+      '<td>'+formatDate(v.date)+'</td>'+
+      '<td><span class="badge badge-neutral">'+escapeHtml(v.canal||'—')+'</span></td>'+
+      '<td class="mono">'+codeLabel+'</td>'+
+      '<td style="font-weight:600;">'+desigs+'</td>'+
+      '<td class="c">'+(v.lines.length>1?'Multi':escapeHtml(first.taille||'—'))+'</td>'+
+      '<td class="r">'+(v.qty||0)+'</td>'+
+      '<td class="r mono">'+(v.lines.length>1?'<span style="color:var(--hint)">—</span>':fmt(first.pv||0))+'</td>'+
+      '<td class="r mono" style="font-weight:700;">'+fmt(v.total||0)+'</td>'+
+      '<td class="mono" style="color:var(--muted);">'+escapeHtml(v.numCde||'—')+'</td>'+
+      '<td><button class="btn-icon" onclick="deleteVente(\''+String(v.id).replace(/'/g,"\\'")+'\')" title="Supprimer la vente">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+};
+
+function deleteVente(id) {
+  if(!confirm('Supprimer cette vente complète ?')) return;
+  var removed = [];
+  DB.ventes = (DB.ventes || []).filter(function(v, idx){
+    var keep = saleTransactionKey(v, idx) !== id;
+    if(!keep) removed.push(v);
+    return keep;
+  });
+  removed.forEach(function(v){
+    var sf = (DB.stockFini||[]).find(function(f){ return f.code===v.code; });
+    if(sf) sf.stock = (sf.stock||0) + (v.qte||1);
+  });
+  saveDB('Vente supprimée');
+  refreshBusinessViews('Vente supprimée');
+}
+
+openRecurringChargeForm = function(i){
+  var categories = getAvailableChargeCategories();
+  var c = i==null ? {label:'',amount:'',frequency:'monthly',startDate:today().slice(0,7)+'-01',active:true,category:categories[0] || 'Charge récurrente'} : (DB.recurringCharges||[])[i];
+  openModal(
+    '<div class="modal-title">'+(i==null?'Nouvelle charge récurrente':'Modifier la charge récurrente')+'</div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Libellé</label><input class="input" id="rc-label" value="'+escapeHtml(c.label||'')+'" placeholder="Ex: Shopify"></div><div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" value="'+(c.amount||'')+'"></div></div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="rc-category">'+categories.map(function(cat){return '<option value="'+escapeHtml(cat)+'"'+((c.category||'')===cat?' selected':'')+'>'+escapeHtml(cat)+'</option>';}).join('')+'</select></div><div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="'+(c.startDate||today())+'"></div></div>'+
+    '<div class="field" style="margin-bottom:12px;"><label>Active</label><select class="select" id="rc-active"><option value="true"'+(c.active!==false?' selected':'')+'>Oui</option><option value="false"'+(c.active===false?' selected':'')+'>Non</option></select></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveRecurringCharge('+(i==null?'null':i)+')">'+(i==null?'Créer':'Enregistrer')+'</button></div>'
+  );
+};
+
+openAddCashflow = function(prefillCategory){
+  var options = getAvailableChargeCategories();
+  if(prefillCategory && options.indexOf(prefillCategory) === -1) options.unshift(prefillCategory);
+  openModal(
+    '<div class="modal-title">Ajouter un flux</div>'+
+    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie" selected>Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="cf-category">'+options.map(function(cat){return '<option value="'+escapeHtml(cat)+'"'+(((prefillCategory||'')===cat)?' selected':'')+'>'+escapeHtml(cat)+'</option>';}).join('')+'</select></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Abonnement mensuel Shopify"></div></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCashflow()">Enregistrer</button></div>'
+  );
+};
+
+var __v4_prev_renderCompta = renderCompta;
+renderCompta = function(){
+  __v4_prev_renderCompta();
+  renderQuickChargeTags();
+};
+
+var __v4_prev_renderAll = renderAll;
+renderAll = function(){
+  ensureEnhancementDefaults();
+  __v4_prev_renderAll();
+  renderSaleChannelSelectors();
+  renderQuickChargeTags();
+  updateCatalogueCounters();
+  renderSaleCart();
+};
+
+var __v4_prev_renderVentePage = renderVentePage;
+renderVentePage = function(){
+  __v4_prev_renderVentePage();
+  renderSaleChannelSelectors();
+  renderSaleCart();
+};
+
 
 document.addEventListener('DOMContentLoaded', function() {
   applyTheme(localStorage.getItem('meridies_theme') || 'light');
