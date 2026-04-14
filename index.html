@@ -1846,7 +1846,7 @@ function renderCompta(){
   var el=document.getElementById('compta-chart'); if(el){ if(el._c){ try{el._c.destroy();}catch(e){} } el._c=new Chart(el,{type:'bar',data:{labels:labels,datasets:[{data:data}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }
 }
 function openAddCashflow(prefillCategory){
-  var options=['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
+  var options=['Matériel du stand','Shopify','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
   openModal('<div class="modal-title">Ajouter un flux</div>'+
     '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie" selected>Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
     '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="cf-category">'+options.map(function(cat){return '<option'+(((prefillCategory||'')===cat)?' selected':'')+'>'+cat+'</option>';}).join('')+'</select></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Abonnement mensuel Shopify"></div></div>'+
@@ -2973,7 +2973,7 @@ function saveManagedSaleChannels(){
 }
 function openManageChargeCategories(){
   ensureConfigCollections();
-  openManageListModal('Gérer les catégories rapides de charge', DB.settings.chargeCategories, 'saveManagedChargeCategories', 'Une ligne = une catégorie rapide. Exemple : Shopify, Boxtal, Matos du stand...');
+  openManageListModal('Gérer les catégories rapides de charge', DB.settings.chargeCategories, 'saveManagedChargeCategories', 'Une ligne = une catégorie rapide. Exemple : Shopify, Boxtal, Matériel du stand...');
 }
 function saveManagedChargeCategories(){
   var values = normalizeUniqueStrings((document.getElementById('manage-list-text').value || '').split('\n'), DEFAULT_CHARGE_CATEGORIES);
