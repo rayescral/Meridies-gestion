@@ -279,52 +279,328 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
 @media(max-width:768px){.pilot-grid,.metric-row{grid-template-columns:1fr;}.mobile-quickbar{display:flex;}}
 
 
+/* ===== PREMIUM DA OVERRIDE — MERIDIES OFFICIEL ===== */
+:root{
+  --noir:#1D1A17;
+  --noir2:#26211D;
+  --noir3:#322B25;
+  --gold:#C7A57A;
+  --gold-dim:rgba(199,165,122,0.16);
+  --gold-text:rgba(199,165,122,0.76);
+  --surface:#FFFCF8;
+  --surface2:#F7F1EA;
+  --surface3:#ECE2D6;
+  --border:rgba(54,42,32,0.08);
+  --border2:rgba(54,42,32,0.14);
+  --text:#201B17;
+  --muted:#7A6E63;
+  --hint:#A19588;
+  --success:#496D5C;
+  --success-bg:#EEF6F1;
+  --warning:#B47A38;
+  --warning-bg:#FFF5E8;
+  --danger:#B24F43;
+  --danger-bg:#FEF1EF;
+  --info:#6A8095;
+  --info-bg:#EEF3F8;
+  --charge:#8A5A34;
+  --charge-bg:#F9EFE5;
+  --r:12px;
+  --r-lg:18px;
+  --shadow:0 8px 24px rgba(32,27,23,0.06);
+  --shadow-lg:0 18px 48px rgba(32,27,23,0.12);
+}
+body{
+  background:
+    radial-gradient(circle at top left, rgba(199,165,122,0.10), transparent 28%),
+    linear-gradient(180deg, #FBF7F2 0%, #F5EFE8 100%);
+  color:var(--text);
+}
+.topbar{
+  background:rgba(255,252,248,0.92);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(54,42,32,0.08);
+}
+.sidebar{
+  background:linear-gradient(180deg,#1A1714 0%, #221D19 100%);
+  border-right:1px solid rgba(199,165,122,0.12);
+}
+.sidebar-brand h1{
+  letter-spacing:.18em;
+  font-size:19px;
+}
+.sidebar-brand p{ color:rgba(231,216,198,0.62); }
+.nav-item{
+  border:1px solid transparent;
+  border-radius:12px;
+}
+.nav-item:hover{
+  background:rgba(255,255,255,0.05);
+  border-color:rgba(199,165,122,0.12);
+}
+.nav-item.active{
+  background:linear-gradient(135deg, rgba(199,165,122,0.18), rgba(199,165,122,0.08));
+  border-color:rgba(199,165,122,0.18);
+}
+.card, .kpi, .modal{
+  background:rgba(255,252,248,0.94);
+  box-shadow:var(--shadow);
+  border-color:rgba(54,42,32,0.07);
+}
+.card-header{
+  padding-bottom:14px;
+  border-bottom:1px solid rgba(54,42,32,0.07);
+}
+.card-title{
+  color:#6E6258;
+  letter-spacing:.14em;
+}
+.kpi{
+  position:relative;
+  overflow:hidden;
+}
+.kpi:before{
+  content:'';
+  position:absolute;
+  inset:0 auto auto 0;
+  height:3px;
+  width:100%;
+  background:linear-gradient(90deg, rgba(199,165,122,0.95), rgba(199,165,122,0.15));
+}
+.kpi-value{
+  letter-spacing:-0.02em;
+}
+.btn{
+  border-radius:12px;
+  box-shadow:none;
+}
+.btn-primary{
+  background:linear-gradient(135deg, #D2B48C 0%, #BA9065 100%);
+  color:#1D1A17;
+  box-shadow:0 10px 22px rgba(186,144,101,0.22);
+}
+.btn-primary:hover{
+  opacity:1;
+  transform:translateY(-1px);
+  box-shadow:0 14px 26px rgba(186,144,101,0.24);
+}
+.btn-secondary, .btn-icon{
+  background:rgba(255,252,248,0.8);
+  border-color:rgba(54,42,32,0.10);
+}
+.btn-secondary:hover, .btn-icon:hover{
+  background:#F7F1EA;
+}
+.input,.select{
+  background:rgba(255,255,255,0.72);
+  border-color:rgba(54,42,32,0.12);
+  border-radius:12px;
+}
+.input:focus,.select:focus{
+  box-shadow:0 0 0 4px rgba(199,165,122,0.14);
+}
+.table-wrap{
+  border-radius:16px;
+}
+table thead th{
+  background:#F4EDE5;
+  color:#75695E;
+}
+tbody tr td{
+  background:rgba(255,255,255,0.42);
+}
+tbody tr:hover td{
+  background:#FBF6F0 !important;
+}
+.badge{
+  border:1px solid transparent;
+}
+.badge-neutral{
+  background:#F2EBE2;
+  color:#786D61;
+}
+.toast{
+  background:#201B17;
+  color:#F3E5D4;
+  border-color:rgba(199,165,122,0.22);
+}
+.quick-tag{
+  background:#F3E8DC;
+  color:#6E6258;
+  border:1px solid rgba(199,165,122,0.16);
+}
+.quick-tag:hover{
+  background:#EBDCCB;
+}
+.calendar-day{
+  background:rgba(255,252,248,0.92);
+  border:1px solid rgba(54,42,32,0.08);
+  min-height:132px;
+  box-shadow:0 4px 14px rgba(32,27,23,0.04);
+}
+.calendar-day-head{
+  color:#5A5148;
+}
+.calendar-event{
+  border-radius:10px;
+  background:#F5EFE8;
+  border-left-width:4px;
+  box-shadow:none;
+}
+.calendar-event.charge{
+  border-left-color:var(--charge);
+  background:var(--charge-bg);
+}
+.calendar-event .inline-stat{
+  color:#7E7061;
+}
+.role-chip{
+  background:rgba(199,165,122,0.12);
+  color:#9A7447;
+}
+.client-card,.backup-item,.history-item,.reco-item,.metric-box,.kanban-col,.kanban-card{
+  background:rgba(255,252,248,0.84);
+  border-color:rgba(54,42,32,0.08);
+}
+.topbar-search input{
+  background:rgba(255,255,255,0.72);
+}
+body.dark{
+  --surface:#171310;
+  --surface2:#1F1A16;
+  --surface3:#29231E;
+  --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.12);
+  --text:#F0E8E0;
+  --muted:#B9ABA0;
+  --hint:#9A8F86;
+  background:#120F0C;
+}
+body.dark .card,
+body.dark .kpi,
+body.dark .topbar,
+body.dark .modal{
+  background:rgba(23,19,16,0.94);
+}
+body.dark table thead th{
+  background:#221C17;
+}
+body.dark tbody tr td{
+  background:rgba(255,255,255,0.02);
+}
+body.dark .quick-tag{
+  background:#2A241F;
+  color:#DCC7AF;
+  border-color:rgba(199,165,122,0.16);
+}
+body.dark .calendar-event{
+  background:#231D18;
+}
+body.dark .calendar-event.charge{
+  background:#302118;
+}
+body.dark .btn-secondary,
+body.dark .btn-icon,
+body.dark .input,
+body.dark .select{
+  background:#1C1713;
+}
 
-/* ===== PATCH V11 : ALIGNEMENTS STOCKS + COULEUR CHARGES ===== */
-#page-stock-vierge table th,
-#page-stock-vierge table td,
-#page-stock-dtf table th,
-#page-stock-dtf table td{vertical-align:middle;}
-
-#page-stock-vierge table th:nth-child(n+3):nth-child(-n+15),
-#page-stock-vierge table td:nth-child(n+3):nth-child(-n+15),
-#page-stock-dtf table th:nth-child(n+3):nth-child(-n+8),
-#page-stock-dtf table td:nth-child(n+3):nth-child(-n+8){text-align:center;}
-
-#page-stock-vierge table th:nth-child(1),
-#page-stock-vierge table td:nth-child(1),
-#page-stock-vierge table th:nth-child(2),
-#page-stock-vierge table td:nth-child(2),
-#page-stock-dtf table th:nth-child(1),
-#page-stock-dtf table td:nth-child(1),
-#page-stock-dtf table th:nth-child(2),
-#page-stock-dtf table td:nth-child(2){text-align:left;}
-
-#page-stock-vierge table th:nth-child(16),
-#page-stock-vierge table td:nth-child(16),
-#page-stock-dtf table th:nth-child(10),
-#page-stock-dtf table td:nth-child(10){text-align:center;}
-
-#page-stock-vierge td.c,
+/* Alignements premium stock */
+#page-stock-vierge table,
+#page-stock-dtf table,
+#page-stock-fini table{
+  min-width:1280px;
+}
+#page-stock-vierge th:nth-child(n+3),
+#page-stock-vierge td:nth-child(n+3),
+#page-stock-dtf th:nth-child(n+3),
+#page-stock-dtf td:nth-child(n+3),
+#page-stock-fini th:nth-child(n+3),
+#page-stock-fini td:nth-child(n+3){
+  text-align:center !important;
+}
+#page-stock-vierge td,
+#page-stock-dtf td,
+#page-stock-fini td,
+#page-stock-vierge th,
+#page-stock-dtf th,
+#page-stock-fini th{
+  vertical-align:middle !important;
+}
 #page-stock-vierge td.r,
-#page-stock-dtf td.c,
 #page-stock-dtf td.r,
-#page-stock-vierge td:nth-child(n+3):nth-child(-n+15),
-#page-stock-dtf td:nth-child(n+3):nth-child(-n+8){padding-left:10px;padding-right:10px;}
-
-#page-stock-vierge td .badge,
-#page-stock-dtf td .badge{margin:0 auto;display:inline-flex;}
-
-#page-stock-vierge td .btn-icon,
-#page-stock-dtf td .btn-icon{display:flex;align-items:center;justify-content:center;margin:0 auto;}
-
-#page-stock-vierge td input.input-sm,
-#page-stock-dtf td input.input-sm,
-#page-stock-vierge td .input-sm,
-#page-stock-dtf td .input-sm{display:block;margin:0 auto;text-align:center;}
-
-.calendar-event.charge{border-left-color:#DC2626;background:#FEF2F2;}
-body.dark .calendar-event.charge{background:rgba(220,38,38,0.14);}
+#page-stock-fini td.r,
+#page-stock-vierge td.mono,
+#page-stock-dtf td.mono,
+#page-stock-fini td.mono{
+  text-align:center !important;
+}
+#page-stock-vierge tbody tr td,
+#page-stock-dtf tbody tr td,
+#page-stock-fini tbody tr td{
+  padding-top:10px;
+  padding-bottom:10px;
+}
+#page-stock-vierge .input-sm,
+#page-stock-dtf .input-sm,
+#page-stock-fini .input-sm{
+  height:32px !important;
+  border-radius:10px;
+  background:#FFFDFC;
+  border:1px solid rgba(54,42,32,0.10);
+}
+#page-stock-vierge .btn-icon,
+#page-stock-dtf .btn-icon,
+#page-stock-fini .btn-icon{
+  width:34px;
+  height:34px;
+}
+.rec-charge-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:14px 16px;
+  border:1px solid rgba(54,42,32,0.08);
+  border-radius:16px;
+  background:rgba(255,252,248,0.86);
+  margin-bottom:10px;
+}
+.rec-charge-meta{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.rec-charge-chip{
+  display:inline-flex;
+  align-items:center;
+  padding:4px 9px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  background:#F4EADF;
+  color:#725F4A;
+  border:1px solid rgba(199,165,122,0.18);
+}
+.rec-charge-main{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.rec-charge-title{
+  font-size:14px;
+  font-weight:700;
+}
+.rec-charge-sub{
+  font-size:12px;
+  color:var(--muted);
+}
+.catalogue-premium-note{
+  font-size:12px;
+  color:var(--muted);
+}
 
 </style>
 </head>
@@ -4135,240 +4411,245 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
   });
 })();
 
-</script>
-
-<script>
-/* ===== PATCH V11 : CHARGES RECURRENTES MENSUELLES + CALENDRIER ===== */
+/* ===== PREMIUM THEME + CHARGES CALENDRIER PATCH ===== */
 (function(){
-  function clampRecurringDay(day, year, monthIndex){
-    var max = new Date(year, monthIndex + 1, 0).getDate();
-    var n = parseInt(day, 10);
-    if(!n || n < 1) n = 1;
-    if(n > max) n = max;
-    return n;
+  function parseSafeDate(str){
+    if(!str) return null;
+    var d = new Date(String(str) + 'T00:00:00');
+    return isNaN(d.getTime()) ? null : d;
   }
-  function inferRecurringChargeDay(charge){
-    if(charge && parseInt(charge.dayOfMonth, 10) >= 1) return Math.min(31, Math.max(1, parseInt(charge.dayOfMonth, 10)));
-    if(charge && charge.startDate){
-      var parts = String(charge.startDate).split('-');
-      if(parts.length === 3){
-        var parsed = parseInt(parts[2], 10);
-        if(parsed >= 1) return Math.min(31, parsed);
-      }
-    }
-    return 1;
+  function inferRecurringDay(c){
+    var direct = parseInt(c && c.dayOfMonth, 10);
+    if(direct > 0) return Math.min(31, direct);
+    var parts = String((c && c.startDate) || today()).split('-');
+    var fallback = parseInt(parts[2], 10) || 1;
+    return Math.min(31, Math.max(1, fallback));
   }
-  function recurringChargeDueDate(charge, year, monthIndex){
-    var day = clampRecurringDay(inferRecurringChargeDay(charge), year, monthIndex);
-    var d = new Date(year, monthIndex, day);
-    d.setHours(0,0,0,0);
-    return d;
+  function normalizeRecurringChargeModel(c){
+    c = c || {};
+    c.dayOfMonth = inferRecurringDay(c);
+    if(typeof c.showInCalendar !== 'boolean') c.showInCalendar = true;
+    if(!c.frequency) c.frequency = 'monthly';
+    return c;
   }
-  function chargeStartBoundary(charge){
-    var s = charge && charge.startDate ? new Date(charge.startDate + 'T00:00:00') : new Date();
-    if(isNaN(s.getTime())) s = new Date();
-    s.setHours(0,0,0,0);
-    return s;
-  }
-  function nextRecurringChargeDate(charge, fromDate){
-    if(!charge || charge.active === false) return null;
-    var start = chargeStartBoundary(charge);
-    var ref = fromDate ? new Date(fromDate) : new Date();
-    ref.setHours(0,0,0,0);
-    var cursor = new Date(Math.max(start.getTime(), ref.getTime()));
-    var candidate = recurringChargeDueDate(charge, cursor.getFullYear(), cursor.getMonth());
-    if(candidate < start || candidate < ref){
-      candidate = recurringChargeDueDate(charge, cursor.getFullYear(), cursor.getMonth() + 1);
-    }
-    return candidate;
-  }
-  function recurringChargeScheduleBetween(charge, startDate, endDate, includeFuture){
-    var out = [];
-    if(!charge || charge.active === false) return out;
-    var amount = parseFloat(charge.amount) || 0;
-    if(amount <= 0) return out;
-    var start = chargeStartBoundary(charge);
-    var from = new Date(startDate);
-    var to = new Date(endDate);
-    from.setHours(0,0,0,0);
-    to.setHours(23,59,59,999);
-    var monthCursor = new Date(Math.max(start.getTime(), from.getTime()));
-    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
-    var todayDate = new Date();
-    todayDate.setHours(23,59,59,999);
-    while(monthCursor <= to){
-      var due = recurringChargeDueDate(charge, monthCursor.getFullYear(), monthCursor.getMonth());
-      if(due >= start && due >= from && due <= to){
-        if(includeFuture || due <= todayDate){
-          out.push({
-            id: 'rec_' + (charge.id || '') + '_' + due.toISOString().slice(0,10),
-            date: due.toISOString().slice(0,10),
-            type: 'sortie',
-            category: charge.category || 'Charge récurrente',
-            label: charge.label || 'Charge récurrente',
-            amount: amount,
-            auto: true,
-            recurringId: charge.id
-          });
-        }
-      }
-      monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
-    }
-    return out;
-  }
-
-  var __v11_prev_normalize = normalizeRestoredDB;
+  var __premium_prev_normalize = normalizeRestoredDB;
   normalizeRestoredDB = function(data){
-    var restored = __v11_prev_normalize(data || {});
-    restored.recurringCharges = (restored.recurringCharges || []).map(function(c){
-      var clone = Object.assign({}, c || {});
-      clone.dayOfMonth = inferRecurringChargeDay(clone);
-      if(typeof clone.showInCalendar === 'undefined') clone.showInCalendar = true;
-      return clone;
-    });
+    var restored = __premium_prev_normalize(data || {});
+    restored.recurringCharges = (restored.recurringCharges || []).map(normalizeRecurringChargeModel);
     return restored;
   };
 
-  var __v11_prev_ensureEnhancementDefaults = ensureEnhancementDefaults;
-  ensureEnhancementDefaults = function(){
-    __v11_prev_ensureEnhancementDefaults();
-    DB.recurringCharges = (DB.recurringCharges || []).map(function(c){
-      c.dayOfMonth = inferRecurringChargeDay(c);
-      if(typeof c.showInCalendar === 'undefined') c.showInCalendar = true;
-      return c;
-    });
-  };
+  function occurrenceForMonth(c, year, month){
+    c = normalizeRecurringChargeModel(c);
+    var maxDay = new Date(year, month + 1, 0).getDate();
+    var day = Math.min(maxDay, Math.max(1, parseInt(c.dayOfMonth, 10) || 1));
+    var occ = new Date(year, month, day);
+    var start = parseSafeDate(c.startDate || today());
+    if(start && occ < new Date(start.getFullYear(), start.getMonth(), start.getDate())) return null;
+    return occ;
+  }
+  function recurringOccurrenceKey(c, occ){
+    return ['rcauto', c.id || '', occ.getFullYear(), occ.getMonth() + 1, occ.getDate()].join('_');
+  }
+  function nextRecurringOccurrence(c, fromDate){
+    c = normalizeRecurringChargeModel(c);
+    var cursor = fromDate ? new Date(fromDate) : new Date();
+    cursor.setHours(0,0,0,0);
+    var y = cursor.getFullYear();
+    var m = cursor.getMonth();
+    for(var i=0;i<24;i++){
+      var occ = occurrenceForMonth(c, y, m);
+      if(occ && occ >= cursor) return occ;
+      m += 1;
+      if(m > 11){ m = 0; y += 1; }
+    }
+    return null;
+  }
+  function syncRecurringChargeExecutions(){
+    if(!DB) return false;
+    DB.cashflows = Array.isArray(DB.cashflows) ? DB.cashflows : [];
+    DB.recurringCharges = Array.isArray(DB.recurringCharges) ? DB.recurringCharges.map(normalizeRecurringChargeModel) : [];
+    var now = new Date();
+    now.setHours(0,0,0,0);
+    var changed = false;
 
-  buildRecurringCashflows = function(){
-    var flows = [];
-    var startWindow = new Date(2024, 0, 1);
-    var endWindow = new Date();
-    (DB.recurringCharges || []).forEach(function(charge){
-      flows = flows.concat(recurringChargeScheduleBetween(charge, startWindow, endWindow, false));
-    });
-    return flows;
-  };
+    (DB.recurringCharges || []).forEach(function(c){
+      if(!c || c.active === false) return;
+      var amount = parseFloat(c.amount) || 0;
+      if(amount <= 0) return;
+      var start = parseSafeDate(c.startDate || today()) || new Date(now.getFullYear(), now.getMonth(), 1);
+      var loop = new Date(start.getFullYear(), start.getMonth(), 1);
 
-  function buildRecurringChargeCalendarEvents(){
-    var cursor = (typeof calendarCursor !== 'undefined' && calendarCursor) ? new Date(calendarCursor) : new Date();
-    var start = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
-    var end = new Date(cursor.getFullYear(), cursor.getMonth() + 2, 0);
-    var events = [];
-    (DB.recurringCharges || []).forEach(function(charge){
-      if(!charge || charge.active === false || charge.showInCalendar === false) return;
-      recurringChargeScheduleBetween(charge, start, end, true).forEach(function(flow){
+      while(loop <= now){
+        var occ = occurrenceForMonth(c, loop.getFullYear(), loop.getMonth());
+        if(occ && occ <= now){
+          var key = recurringOccurrenceKey(c, occ);
+          var exists = (DB.cashflows || []).some(function(f){
+            return f && f.autoRecurring === true && f.recurringKey === key;
+          });
+          if(!exists){
+            DB.cashflows.push({
+              id: Date.now() + Math.random(),
+              date: occ.toISOString().slice(0,10),
+              type: 'sortie',
+              category: c.category || 'Charge récurrente',
+              label: c.label || 'Charge récurrente',
+              amount: amount,
+              autoRecurring: true,
+              auto: true,
+              recurringId: c.id,
+              recurringKey: key
+            });
+            changed = true;
+          }
+        }
+        loop = new Date(loop.getFullYear(), loop.getMonth() + 1, 1);
+      }
+    });
+
+    if(changed){
+      try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e){}
+    }
+    return changed;
+  }
+
+  buildRecurringCashflows = function(){ return []; };
+
+  var __premium_prev_getCalendarEvents = getCalendarEvents;
+  getCalendarEvents = function(){
+    var events = __premium_prev_getCalendarEvents();
+    var base = (typeof calendarCursor !== 'undefined' && calendarCursor) ? new Date(calendarCursor) : new Date();
+    var monthSeeds = [
+      new Date(base.getFullYear(), base.getMonth()-1, 1),
+      new Date(base.getFullYear(), base.getMonth(), 1),
+      new Date(base.getFullYear(), base.getMonth()+1, 1)
+    ];
+
+    (DB.recurringCharges || []).forEach(function(c){
+      c = normalizeRecurringChargeModel(c);
+      if(c.active === false || c.showInCalendar === false) return;
+      var amount = parseFloat(c.amount) || 0;
+      if(amount <= 0) return;
+      monthSeeds.forEach(function(seed){
+        var occ = occurrenceForMonth(c, seed.getFullYear(), seed.getMonth());
+        if(!occ) return;
         events.push({
-          date: flow.date,
-          title: flow.label,
+          date: occ.toISOString().slice(0,10),
+          title: c.label || c.category || 'Charge',
           type: 'charge',
-          meta: (charge.category || 'Charge récurrente') + ' · ' + fmt(flow.amount) + ' · le ' + inferRecurringChargeDay(charge)
+          meta: (c.category || 'Charge') + ' · ' + fmt(amount)
         });
       });
     });
-    return events;
-  }
 
-  var __v11_prev_getCalendarEvents = getCalendarEvents;
-  getCalendarEvents = function(){
-    var base = __v11_prev_getCalendarEvents();
-    var extra = buildRecurringChargeCalendarEvents();
-    return base.concat(extra).sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+    return events.sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
   };
 
   openRecurringChargeForm = function(i){
     var categories = getAvailableChargeCategories();
-    var charge = i == null
-      ? {label:'', amount:'', frequency:'monthly', startDate:today(), active:true, category:(categories[0] || 'Charge récurrente'), dayOfMonth:(new Date().getDate()), showInCalendar:true}
-      : Object.assign({}, (DB.recurringCharges || [])[i]);
-    charge.dayOfMonth = inferRecurringChargeDay(charge);
-    if(typeof charge.showInCalendar === 'undefined') charge.showInCalendar = true;
-
+    var c = i==null
+      ? {label:'', amount:'', frequency:'monthly', startDate:today().slice(0,7)+'-01', active:true, category:categories[0] || 'Charge récurrente', dayOfMonth:new Date().getDate(), showInCalendar:true}
+      : normalizeRecurringChargeModel((DB.recurringCharges || [])[i] || {});
     openModal(
-      '<div class="modal-title">' + (i == null ? 'Nouvelle charge récurrente' : 'Modifier la charge récurrente') + '</div>' +
-      '<div class="modal-sub">Définis un abonnement mensuel comme Shopify, Boxtal ou tout autre prélèvement automatique.</div>' +
-      '<div class="grid2" style="margin-bottom:12px;">' +
-        '<div class="field"><label>Libellé</label><input class="input" id="rc-label" value="' + escapeHtml(charge.label || '') + '" placeholder="Ex: Shopify"></div>' +
-        '<div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" min="0" value="' + escapeHtml(charge.amount || '') + '"></div>' +
-      '</div>' +
-      '<div class="grid3" style="margin-bottom:12px;">' +
-        '<div class="field"><label>Catégorie</label><select class="select" id="rc-category">' + categories.map(function(cat){ return '<option value="' + escapeHtml(cat) + '"' + ((charge.category || '') === cat ? ' selected' : '') + '>' + escapeHtml(cat) + '</option>'; }).join('') + '</select></div>' +
-        '<div class="field"><label>Jour de prélèvement</label><input type="number" class="input input-yellow" id="rc-day" min="1" max="31" value="' + charge.dayOfMonth + '"></div>' +
-        '<div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="' + escapeHtml(charge.startDate || today()) + '"></div>' +
-      '</div>' +
-      '<div class="grid2" style="margin-bottom:12px;">' +
-        '<div class="field"><label>Active</label><select class="select" id="rc-active"><option value="true"' + (charge.active !== false ? ' selected' : '') + '>Oui</option><option value="false"' + (charge.active === false ? ' selected' : '') + '>Non</option></select></div>' +
-        '<div class="field"><label>Afficher dans le calendrier</label><select class="select" id="rc-calendar"><option value="true"' + (charge.showInCalendar !== false ? ' selected' : '') + '>Oui</option><option value="false"' + (charge.showInCalendar === false ? ' selected' : '') + '>Non</option></select></div>' +
-      '</div>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveRecurringCharge(' + (i == null ? 'null' : i) + ')">' + (i == null ? 'Créer' : 'Enregistrer') + '</button></div>'
+      '<div class="modal-title">'+(i==null?'Nouvelle charge récurrente':'Modifier la charge récurrente')+'</div>'+
+      '<div class="modal-sub">Crée un prélèvement automatique mensuel. Il sera ajouté automatiquement à la date prévue lorsque le site est ouvert ou rechargé.</div>'+
+      '<div class="grid2" style="margin-bottom:12px;">'+
+        '<div class="field"><label>Libellé</label><input class="input" id="rc-label" value="'+escapeHtml(c.label||'')+'" placeholder="Ex: Shopify"></div>'+
+        '<div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" value="'+(c.amount||'')+'"></div>'+
+      '</div>'+
+      '<div class="grid3" style="margin-bottom:12px;">'+
+        '<div class="field"><label>Catégorie</label><select class="select" id="rc-category">'+categories.map(function(cat){return '<option value="'+escapeHtml(cat)+'"'+((c.category||'')===cat?' selected':'')+'>'+escapeHtml(cat)+'</option>';}).join('')+'</select></div>'+
+        '<div class="field"><label>Jour de prélèvement</label><input type="number" class="input input-yellow" id="rc-day" min="1" max="31" value="'+(c.dayOfMonth||inferRecurringDay(c))+'"></div>'+
+        '<div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="'+(c.startDate||today())+'"></div>'+
+      '</div>'+
+      '<div class="grid2" style="margin-bottom:14px;">'+
+        '<div class="field"><label>Visible dans le calendrier</label><select class="select" id="rc-calendar"><option value="true"'+(c.showInCalendar!==false?' selected':'')+'>Oui</option><option value="false"'+(c.showInCalendar===false?' selected':'')+'>Non</option></select></div>'+
+        '<div class="field"><label>Active</label><select class="select" id="rc-active"><option value="true"'+(c.active!==false?' selected':'')+'>Oui</option><option value="false"'+(c.active===false?' selected':'')+'>Non</option></select></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+        '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+        '<button class="btn btn-primary" onclick="saveRecurringCharge('+(i==null?'null':i)+')">'+(i==null?'Créer':'Enregistrer')+'</button>'+
+      '</div>'
     );
   };
 
   saveRecurringCharge = function(i){
-    var label = (document.getElementById('rc-label').value || '').trim();
-    var amount = parseFloat(document.getElementById('rc-amount').value) || 0;
-    var startDate = document.getElementById('rc-start').value;
-    var dayOfMonth = Math.min(31, Math.max(1, parseInt(document.getElementById('rc-day').value, 10) || 1));
-    var charge = {
-      id: i == null ? Date.now() : (((DB.recurringCharges || [])[i] || {}).id || Date.now()),
-      label: label,
-      amount: amount,
+    var item = normalizeRecurringChargeModel({
+      id: i==null ? Date.now() : ((DB.recurringCharges[i] && DB.recurringCharges[i].id) || Date.now()),
+      label: document.getElementById('rc-label').value,
+      amount: parseFloat(document.getElementById('rc-amount').value) || 0,
       frequency: 'monthly',
-      startDate: startDate,
+      startDate: document.getElementById('rc-start').value,
+      dayOfMonth: parseInt(document.getElementById('rc-day').value, 10) || 1,
+      showInCalendar: document.getElementById('rc-calendar').value === 'true',
       active: document.getElementById('rc-active').value === 'true',
-      category: document.getElementById('rc-category').value,
-      dayOfMonth: dayOfMonth,
-      showInCalendar: document.getElementById('rc-calendar').value === 'true'
-    };
-    if(!charge.label || !charge.amount || !charge.startDate){ toast('Libellé, montant et date de début requis'); return; }
-    if(i == null) (DB.recurringCharges = DB.recurringCharges || []).unshift(charge); else DB.recurringCharges[i] = charge;
-    saveDB('Charge récurrente enregistrée : ' + charge.label);
+      category: document.getElementById('rc-category').value
+    });
+    item.dayOfMonth = Math.max(1, Math.min(31, item.dayOfMonth || 1));
+    if(!item.label || !item.amount){
+      toast('Libellé et montant requis');
+      return;
+    }
+    if(i==null) DB.recurringCharges.unshift(item); else DB.recurringCharges[i] = item;
+    syncRecurringChargeExecutions();
+    saveDB();
     closeModal();
     renderCompta();
     renderCalendarPlanning();
-    recordAction('Charge récurrente enregistrée : ' + charge.label);
-    toast('Charge récurrente enregistrée');
+    recordAction('Charge récurrente enregistrée : ' + item.label);
   };
 
-  var __v11_prev_deleteRecurringCharge = deleteRecurringCharge;
-  deleteRecurringCharge = function(i){
-    __v11_prev_deleteRecurringCharge(i);
-    renderCalendarPlanning();
-  };
-
-  var __v11_prev_renderCompta = renderCompta;
+  var __premium_prev_renderCompta = renderCompta;
   renderCompta = function(){
-    __v11_prev_renderCompta();
-    var host = document.getElementById('recurring-charges-list');
-    if(!host) return;
-    var items = DB.recurringCharges || [];
-    host.innerHTML = items.length ? items.map(function(charge, i){
-      var nextDate = nextRecurringChargeDate(charge, new Date());
-      var nextLabel = nextDate ? formatDate(nextDate.toISOString().slice(0,10)) : '—';
-      var dayLabel = inferRecurringChargeDay(charge);
-      return '<div class="backup-item">' +
-        '<div>' +
-          '<div style="font-weight:700">' + escapeHtml(charge.label || 'Charge') + '</div>' +
-          '<div style="font-size:12px;color:var(--muted);">' +
-            escapeHtml(charge.category || 'Charge récurrente') + ' · chaque ' + dayLabel + ' du mois · prochain prélèvement ' + nextLabel + ' · ' + (charge.active === false ? 'inactive' : 'active') +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:8px;align-items:center;">' +
-          '<span class="mono">' + fmt(charge.amount || 0) + '/mois</span>' +
-          '<button class="btn-icon" onclick="openRecurringChargeForm(' + i + ')">✏️</button>' +
-          '<button class="btn-icon" onclick="deleteRecurringCharge(' + i + ')">🗑</button>' +
-        '</div>' +
-      '</div>';
-    }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal ou tout autre abonnement mensuel.</div>';
+    syncRecurringChargeExecutions();
+    __premium_prev_renderCompta();
+
+    var recurringEl = document.getElementById('recurring-charges-list');
+    if(recurringEl){
+      var rec = (DB.recurringCharges || []).map(normalizeRecurringChargeModel);
+      recurringEl.innerHTML = rec.length ? rec.map(function(c,i){
+        var next = nextRecurringOccurrence(c);
+        return '<div class="rec-charge-card">'+
+          '<div class="rec-charge-main">'+
+            '<div class="rec-charge-title">'+escapeHtml(c.label || 'Charge récurrente')+'</div>'+
+            '<div class="rec-charge-sub">'+escapeHtml(c.category || 'Charge récurrente')+'</div>'+
+            '<div class="rec-charge-meta">'+
+              '<span class="rec-charge-chip">Chaque '+(c.dayOfMonth||1)+' du mois</span>'+
+              '<span class="rec-charge-chip">Prochain : '+(next ? formatDate(next.toISOString().slice(0,10)) : '—')+'</span>'+
+              '<span class="rec-charge-chip">'+(c.showInCalendar!==false ? 'Calendrier : oui' : 'Calendrier : non')+'</span>'+
+              '<span class="rec-charge-chip">'+(c.active===false ? 'Inactive' : 'Active')+'</span>'+
+            '</div>'+
+          '</div>'+
+          '<div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;">'+
+            '<span class="mono" style="font-size:14px;font-weight:700;">'+fmt(c.amount||0)+'/mois</span>'+
+            '<button class="btn-icon" onclick="openRecurringChargeForm('+i+')" title="Modifier">✏️</button>'+
+            '<button class="btn-icon" onclick="deleteRecurringCharge('+i+')" title="Supprimer">🗑</button>'+
+          '</div>'+
+        '</div>';
+      }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal ou tout autre abonnement mensuel.</div>';
+    }
   };
 
-  var __v11_prev_renderAll = renderAll;
+  var __premium_prev_renderAll = renderAll;
   renderAll = function(){
-    __v11_prev_renderAll();
+    syncRecurringChargeExecutions();
+    __premium_prev_renderAll();
     renderCalendarPlanning();
-    renderCompta();
   };
-})();
-</script>
 
+  document.addEventListener('DOMContentLoaded', function(){
+    var title = document.querySelector('#page-catalogue .card-title');
+    if(title && !document.getElementById('catalogue-premium-note')){
+      var note = document.createElement('div');
+      note.id = 'catalogue-premium-note';
+      note.className = 'catalogue-premium-note';
+      note.textContent = 'Palette et interface alignées sur la DA du site vitrine : plus claire, plus éditoriale et plus premium.';
+      var header = title.closest('.card-header');
+      if(header) header.appendChild(note);
+    }
+  });
+})();
+
+</script>
 </body>
 </html>
