@@ -173,7 +173,7 @@ tr:hover td{background:var(--surface2);}
 .progress-bar{height:100%;background:var(--gold);border-radius:3px;transition:width .3s;}
 @media print{
   body{background:#fff!important;padding:0!important;}
-  .layout>.sidebar,.main>.topbar,.no-print{display:none!important;}
+  .layout>.sidebar,.main>.topbar,.no-print,.mobile-toggle{display:none!important;}
   .main{margin-left:0!important;}
   .page{display:none!important;}
   #pdf-preview{display:block!important;}
@@ -295,7 +295,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
   </div>
 </div>
 
-<button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+<button class="mobile-toggle no-print" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
 <div class="layout">
 <div class="sidebar" id="sidebar">
@@ -441,7 +441,7 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
   <div class="card">
     <div class="card-header"><span class="card-title">Enregistrer une vente</span></div>
     <div class="grid3" style="margin-bottom:16px;">
-      <div class="field"><label>Canal de vente</label><select class="select" id="vente-canal"><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option></select></div>
+      <div class="field"><label>Canal de vente</label><select class="select" id="vente-canal"><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option><option value="Collaboration">Collaboration</option><option value="Restaurant JSP">Restaurant JSP</option></select></div>
       <div class="field"><label>Rechercher un Article</label>
         <input type="text" class="input" id="vente-code" list="vente-code-list" oninput="onVenteCodeChange()" placeholder="Taper pour chercher...">
         <datalist id="vente-code-list"></datalist>
@@ -455,18 +455,31 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
       <div class="field"><label>Quantité</label><input type="number" class="input input-yellow" id="vente-qte" value="1" min="1"></div>
     </div>
     <div class="grid2" style="margin-bottom:16px;">
-      <div class="field"><label>N° Commande (web)</label><input type="text" class="input" id="vente-numcde" placeholder="Ex: #1080"></div>
-      <div class="field"><label>Email client (web)</label><input type="email" class="input" id="vente-email" placeholder="client@email.com"></div>
+      <div class="field"><label>N° Commande / vente</label><input type="text" class="input" id="vente-numcde" placeholder="Ex: #1080"></div>
+      <div class="field"><label>Email client</label><input type="email" class="input" id="vente-email" placeholder="client@email.com"></div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn btn-secondary" onclick="clearVenteForm()">Annuler</button>
-      <button class="btn btn-primary" onclick="enregistrerVente()">✓ Enregistrer la vente</button>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="btn btn-secondary" onclick="clearVenteLineFields()">Effacer la ligne</button>
+      <button class="btn btn-secondary" onclick="resetCurrentSaleCart()">Vider la vente</button>
+      <button class="btn btn-secondary" onclick="addArticleToSale()">+ Ajouter l'article à la vente</button>
+      <button class="btn btn-primary" onclick="enregistrerVente()">✓ Enregistrer la vente complète</button>
+    </div>
+    <div class="card-sm" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <strong style="font-size:13px;">Articles dans cette vente</strong>
+        <span class="badge badge-info" id="vente-cart-badge">0 article</span>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Code</th><th>Désignation</th><th>Taille</th><th class="r">Qté</th><th class="r">PV</th><th class="r">Total</th><th></th></tr></thead><tbody id="vente-cart-body"><tr><td colspan="7" class="empty-state">Ajoute un ou plusieurs articles pour créer une vraie transaction.</td></tr></tbody></table></div>
+      <div style="display:flex;justify-content:flex-end;gap:18px;margin-top:12px;flex-wrap:wrap;">
+        <div class="mono" id="vente-cart-qty">0 article</div>
+        <div class="mono" id="vente-cart-total">0,00 €</div>
+      </div>
     </div>
   </div>
   <div class="card">
     <div class="card-header"><span class="card-title">Historique des ventes</span>
       <div class="section-actions">
-        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:120px;"><option value="">Tous canaux</option><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option></select>
+        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:160px;"><option value="">Tous canaux</option><option value="Marché">Marché</option><option value="Web">Web</option><option value="B2B">B2B</option><option value="Collaboration">Collaboration</option><option value="Restaurant JSP">Restaurant JSP</option></select>
         <button class="btn btn-secondary btn-sm" onclick="exportVentesCSV()">⬇ Export CSV</button>
       </div>
     </div>
@@ -588,18 +601,51 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
 
 <div class="page" id="page-compta">
   <div class="kpi-grid" id="compta-kpis"></div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Trésorerie initiale & charges récurrentes</span>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openRecurringChargeForm()">+ Charge récurrente</button>
+      </div>
+    </div>
+    <div class="grid2" style="margin-bottom:16px;">
+      <div class="field">
+        <label>Trésorerie disponible de départ (€)</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" class="input input-yellow" id="opening-treasury-input" step="0.01" placeholder="Ex: 2500">
+          <button class="btn btn-primary" onclick="saveOpeningTreasury()">Enregistrer</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Catégories rapides</label>
+        <div class="quick-tags">
+          <span class="quick-tag" onclick="openAddCashflow('Matos du stand')">Matos du stand</span>
+          <span class="quick-tag" onclick="openAddCashflow('Shopify')">Shopify</span>
+          <span class="quick-tag" onclick="openAddCashflow('Boxerai')">Boxerai</span>
+          <span class="quick-tag" onclick="openAddCashflow('Boxtal')">Boxtal</span>
+          <span class="quick-tag" onclick="openAddCashflow('Packaging')">Packaging</span>
+          <span class="quick-tag" onclick="openAddCashflow('Publicité')">Publicité</span>
+        </div>
+      </div>
+    </div>
+    <div id="recurring-charges-list"></div>
+  </div>
   <div class="grid2">
     <div class="card">
       <div class="card-header"><span class="card-title">Flux de trésorerie mensuels</span></div>
       <div style="position:relative;height:260px;"><canvas id="compta-chart"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-header">
-        <span class="card-title">Entrées / sorties manuelles</span>
-        <button class="btn btn-primary btn-sm" onclick="openAddCashflow()">+ Ajouter</button>
-      </div>
-      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Libellé</th><th class="r">Montant</th><th></th></tr></thead><tbody id="cashflow-body"></tbody></table></div>
+      <div class="card-header"><span class="card-title">Compte de résultat simplifié</span></div>
+      <div id="compta-pnl"></div>
     </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Entrées / sorties manuelles</span>
+      <button class="btn btn-primary btn-sm" onclick="openAddCashflow()">+ Ajouter</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Libellé</th><th class="r">Montant</th><th></th></tr></thead><tbody id="cashflow-body"></tbody></table></div>
   </div>
 </div>
 
@@ -704,6 +750,8 @@ var DB = {
   clients: [],
   backups: [],
   history: [],
+  comptaSettings: { openingTreasury: 0 },
+  recurringCharges: [],
   preferences: { theme: 'light', role: 'admin' }
 };
 
@@ -729,8 +777,12 @@ function normalizeRestoredDB(data) {
     clients: Array.isArray(data.clients) ? data.clients : [],
     backups: Array.isArray(data.backups) ? data.backups : [],
     history: Array.isArray(data.history) ? data.history : [],
+    comptaSettings: data.comptaSettings && typeof data.comptaSettings === 'object' ? data.comptaSettings : { openingTreasury: 0 },
+    recurringCharges: Array.isArray(data.recurringCharges) ? data.recurringCharges : [],
     preferences: data.preferences && typeof data.preferences === 'object' ? data.preferences : { theme: 'light', role:'admin' }
   };
+  if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
+  restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
   restored.fournisseurs.forEach(function(f) {
     if(!f.typesProduits) f.typesProduits = f.produits || "T-shirt";
     if(!f.notes || typeof f.notes !== 'object') f.notes = { qualite: 3, prix: 3, delais: 3, com: 3 };
@@ -745,6 +797,7 @@ function restoreEmbeddedBackup(forceSupabaseSync) {
   } catch(e) {}
   if (typeof initDatalists === 'function') initDatalists();
   if (typeof renderAll === 'function') renderAll();
+  if (typeof renderSaleCart === 'function') { currentSaleItems=[]; renderSaleCart(); }
   if (typeof goTo === 'function') goTo('dashboard');
   if (forceSupabaseSync) {
     supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
@@ -770,6 +823,7 @@ function restoreCleanResetBackup(forceSupabaseSync) {
   } catch(e) {}
   if (typeof initDatalists === 'function') initDatalists();
   if (typeof renderAll === 'function') renderAll();
+  if (typeof renderSaleCart === 'function') { currentSaleItems=[]; renderSaleCart(); }
   if (typeof goTo === 'function') goTo('dashboard');
   if (forceSupabaseSync) {
     supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
@@ -844,6 +898,8 @@ async function loadDB() {
 
   initDatalists();
   renderAll();
+  renderSaleCart();
+  clearVenteForm();
   enhanceLoadPostActions();
 }
 
@@ -880,7 +936,18 @@ function renderAll() {
   if (typeof renderCompta === 'function') renderCompta();
   if (typeof renderMarketJournal === 'function') renderMarketJournal();
   if (typeof renderSav === 'function') renderSav();
+  if (typeof renderHistory === 'function') renderHistory();
+  if (typeof renderPilotage === 'function') renderPilotage();
+  if (typeof renderClients === 'function') renderClients();
+  if (typeof renderBackups === 'function') renderBackups();
 }
+
+function refreshBusinessViews(message) {
+  renderAll();
+  if (message) toast(message);
+}
+
+var currentSaleItems = [];
 
 function initDefaultData() {
   // Pre-populate catalogue from DATABASE
@@ -969,19 +1036,32 @@ function getVendusByRef(ref) { return DB.ventes.filter(function(v){ return v.cod
 // ============================================================
 // DASHBOARD
 // ============================================================
+function getSalesTransactions(){
+  var groups = {};
+  (DB.ventes||[]).forEach(function(v, idx){
+    var key = v.venteId || ('legacy_' + (v.id||idx));
+    if(!groups[key]) groups[key] = { id:key, date:v.date||'', canal:v.canal||'', total:0, items:0, lines:0 };
+    groups[key].total += (v.pv||0) * (v.qte||1);
+    groups[key].items += (v.qte||1);
+    groups[key].lines += 1;
+  });
+  return Object.keys(groups).map(function(k){ return groups[k]; });
+}
+
 function renderDashboard() {
   var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var nbVentes=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
+  var nbArticles=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
+  var transactions=getSalesTransactions();
   var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
   var dtfTot=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
   var viergeTot=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
-  var panier=nbVentes>0?caTotal/nbVentes:0;
+  var panier=transactions.length>0?caTotal/transactions.length:0;
   document.getElementById('dash-kpis').innerHTML=
-    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbVentes+' pièces vendues</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+DB.ventes.length+' transactions</div></div>'+
+    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbArticles+' pièces vendues</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+transactions.length+' transaction(s)</div></div>'+
     '<div class="kpi kpi-success"><div class="kpi-label">Stock pret a vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
     '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTot+' / '+dtfTot+'</div><div class="kpi-sub">vierges / DTF</div></div>';
-  
+
   var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
   function mkC(id,type,labels,data,colors,extra){
     var el=document.getElementById(id);if(!el)return;
@@ -1000,17 +1080,12 @@ function renderDashboard() {
   var ts={};DB.ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
   var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
   mkC('ch4','pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
-  var last=DB.ventes.slice(-10).reverse();
-  var tbody=document.getElementById('dash-last-sales');
-  tbody.innerHTML=last.length?last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td><span class="badge badge-neutral">'+v.canal+'</span></td><td class="r mono">'+fmt(v.pv*(v.qte||1))+'</td></tr>';}).join(''):'<tr><td colspan="4" class="empty-state">Aucune vente enregistree</td></tr>';
-  
-  var alerts=[];
-  DB.stockFini.forEach(function(f){if(f.stock<=(f.seuil||2))alerts.push({name:f.designation+' '+f.taille,stock:f.stock,type:'Fini',seuil:f.seuil||2});});
-  DB.stockDTF.forEach(function(d){if((d.stock||0)<=(d.seuil||3))alerts.push({name:d.nom,stock:d.stock||0,type:'DTF',seuil:d.seuil||3});});
-  DB.stockVierge.forEach(function(v){var t=v.xs+v.s+v.m+v.l+v.xl+v.xxl;if(t<=v.seuil)alerts.push({name:v.ref+' '+v.couleur,stock:t,type:'Vierge',seuil:v.seuil});});
-  var ad=document.getElementById('dash-alerts');
-  ad.innerHTML=alerts.length?alerts.map(function(a){return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong style="font-size:13px;">'+a.name+'</strong><br><span style="font-size:11px;color:var(--muted);">'+a.type+'</span></div>'+statusBadge(a.stock,a.seuil||1)+'</div>';}).join(''):'<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
-  document.getElementById('nav-cat-count').textContent = DB.catalogue.length;
+  var last=(DB.ventes||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,8);
+  document.getElementById('dash-last-sales').innerHTML = last.length? last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td>'+v.canal+'</td><td class="r mono">'+fmt((v.pv||0)*(v.qte||1))+'</td></tr>';}).join('') : '<tr><td colspan="4" class="empty-state">Aucune vente</td></tr>';
+  var alerts=[]; (DB.stockFini||[]).forEach(function(i){ if((i.stock||0) <= (i.seuil||0)) alerts.push(i.code+' sous seuil'); });
+  (DB.stockDTF||[]).forEach(function(i){ if((i.stock||0) <= (i.seuil||0)) alerts.push('DTF '+i.ref+' sous seuil'); });
+  (DB.stockVierge||[]).forEach(function(i){ var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0); if(tot <= (i.seuil||0)) alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil'); });
+  document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){ return '<div class="reco-item">'+a+'</div>'; }).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte critique</div>';
 }
 
 // ============================================================
@@ -1147,8 +1222,18 @@ function renderStockFini() {
       '<td><button class="btn-icon" onclick="deleteSF('+i+')">🗑</button></td></tr>';
   }).join('');
 }
-function updateSF(i,val) { DB.stockFini[i].stock=parseInt(val)||0; saveDB(); renderStockFini(); }
-function deleteSF(i) { if(confirm('Supprimer ?')){ DB.stockFini.splice(i,1); saveDB(); renderStockFini(); } }
+function updateSF(i,val) {
+  DB.stockFini[i].stock = parseInt(val) || 0;
+  saveDB();
+  refreshBusinessViews();
+}
+function deleteSF(i) {
+  if(confirm('Supprimer ?')){
+    DB.stockFini.splice(i,1);
+    saveDB();
+    refreshBusinessViews();
+  }
+}
 
 // ============================================================
 // VENTES (Ajout barre de recherche Datalist)
@@ -1169,17 +1254,27 @@ function enregistrerVente() {
   if(!code){toast('Saisissez ou choisissez un article');return;}
   var prod=DB.catalogue.find(function(p){return p.code===code;});
   if(!prod){toast('Article non trouvé dans le catalogue');return;}
+  var qte = parseInt(document.getElementById('vente-qte').value, 10) || 1;
+  if(qte <= 0){toast('La quantité doit être supérieure à 0');return;}
+
+  var sf = DB.stockFini.find(function(f){return f.code===code;});
+  if(sf && (sf.stock||0) < qte){
+    toast('Stock insuffisant pour cette vente');
+    return;
+  }
+
   var vente = {
     id: Date.now(), date: document.getElementById('vente-date').value || today(),
     canal: document.getElementById('vente-canal').value, code: code, ref: prod.ref,
     design: prod.design, designation: prod.designation, taille: prod.taille, pv: prod.pv,
-    qte: parseInt(document.getElementById('vente-qte').value) || 1,
+    qte: qte,
     numCde: document.getElementById('vente-numcde').value, email: document.getElementById('vente-email').value
   };
   DB.ventes.push(vente);
-  var sf = DB.stockFini.find(function(f){return f.code===code;});
-  if(sf) { sf.stock = Math.max(0, sf.stock - vente.qte); }
-  saveDB(); toast('Vente enregistrée !'); clearVenteForm(); renderVentes();
+  if(sf) { sf.stock = Math.max(0, (sf.stock||0) - vente.qte); }
+  saveDB();
+  clearVenteForm();
+  refreshBusinessViews('Vente enregistrée !');
 }
 function clearVenteForm() {
   document.getElementById('vente-code').value=''; document.getElementById('vente-desig').value='';
@@ -1202,8 +1297,14 @@ function renderVentes() {
 }
 function deleteVente(id) {
   if(!confirm('Supprimer cette vente ?')) return;
+  var vente = DB.ventes.find(function(v){ return v.id===id; });
+  if(vente){
+    var sf = DB.stockFini.find(function(f){ return f.code===vente.code; });
+    if(sf) sf.stock = (sf.stock||0) + (vente.qte||1);
+  }
   DB.ventes = DB.ventes.filter(function(v){return v.id!==id;});
-  saveDB(); renderVentes(); toast('Vente supprimée');
+  saveDB();
+  refreshBusinessViews('Vente supprimée');
 }
 
 // ============================================================
@@ -1396,7 +1497,8 @@ function validerBC(){
     statut:'EN ATTENTE',receptions:[],createdAt:new Date().toISOString()
   };
   DB.bonsCommande.unshift(bc);saveDB();
-  toast('Bon de commande '+bc.id+' enregistré !');resetBCForm();renderCommandes();
+  resetBCForm();
+  refreshBusinessViews('Bon de commande '+bc.id+' enregistré !');
 }
 function renderBCHist(){
   var tbody=document.getElementById('bc-hist-body');
@@ -1574,42 +1676,135 @@ function deleteDrop(i){ if(confirm('Supprimer ce drop ?')){ DB.drops.splice(i,1)
 // ============================================================
 // COMPTABILITÉ SIMPLIFIÉE
 // ============================================================
+function chargeTypeLabel(t){ return t==='entrée' ? 'Entrée' : 'Sortie'; }
+function normalizeCashflowType(t){
+  var v=String(t||'').toLowerCase();
+  return (v==='entrée' || v==='entree') ? 'entrée' : 'sortie';
+}
+function buildRecurringCashflows(){
+  var flows=[];
+  var now=new Date();
+  (DB.recurringCharges||[]).forEach(function(c){
+    if(!c || c.active===false) return;
+    var amount=parseFloat(c.amount)||0;
+    if(amount<=0) return;
+    var start = c.startDate ? new Date(c.startDate+'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
+    if(isNaN(start.getTime())) start = new Date(now.getFullYear(), now.getMonth(), 1);
+    var d = new Date(start.getFullYear(), start.getMonth(), 1);
+    while(d <= now){
+      flows.push({
+        id:'rec_'+(c.id||'')+'_'+d.getFullYear()+'_'+(d.getMonth()+1),
+        date:d.toISOString().slice(0,10),
+        type:'sortie',
+        category:c.category || 'Charge récurrente',
+        label:c.label || 'Charge récurrente',
+        amount:amount,
+        auto:true,
+        recurringId:c.id
+      });
+      d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+    }
+  });
+  return flows;
+}
 function buildAutoCashflows(){
   var auto=[];
-  (DB.ventes||[]).forEach(function(v){ auto.push({date:v.date,type:'entrée',category:'Vente',label:(v.canal||'')+' · '+(v.designation||''),amount:(v.pv||0)*(v.qte||1)}); });
-  (DB.bonsCommande||[]).forEach(function(b){ auto.push({date:b.date||today(),type:'sortie',category:'Achat fournisseur',label:b.id+' · '+(b.fournisseur||''),amount:b.total||0}); });
-  (DB.marketSessions||[]).forEach(function(m){ if((m.ca||0)>0) auto.push({date:m.date,type:'entrée',category:'Marché',label:m.city||'Marché',amount:m.ca||0}); if((m.fees||0)>0) auto.push({date:m.date,type:'sortie',category:'Frais marché',label:m.city||'Marché',amount:m.fees||0}); });
-  return auto;
+  var seenSales={};
+  (DB.ventes||[]).forEach(function(v, idx){
+    var key=v.venteId || ('legacy_'+(v.id||idx));
+    if(seenSales[key]) return;
+    seenSales[key]=true;
+    var amount=0;
+    (DB.ventes||[]).forEach(function(line, lineIdx){
+      var k=line.venteId || ('legacy_'+(line.id||lineIdx));
+      if(k===key) amount += (line.pv||0)*(line.qte||1);
+    });
+    auto.push({date:v.date,type:'entrée',category:'Vente',label:(v.canal||'Vente') + (v.numCde?' · '+v.numCde:''),amount:amount,auto:true});
+  });
+  (DB.bonsCommande||[]).forEach(function(b){ auto.push({date:b.date||today(),type:'sortie',category:'Achat fournisseur',label:b.id+' · '+(b.fournisseur||''),amount:b.total||0,auto:true}); });
+  (DB.marketSessions||[]).forEach(function(m){ if((m.ca||0)>0) auto.push({date:m.date,type:'entrée',category:'Marché',label:m.city||'Marché',amount:m.ca||0,auto:true}); if((m.fees||0)>0) auto.push({date:m.date,type:'sortie',category:'Frais marché',label:m.city||'Marché',amount:m.fees||0,auto:true}); });
+  return auto.concat(buildRecurringCashflows());
 }
-function allCashflows(){ return buildAutoCashflows().concat(DB.cashflows||[]); }
+function allCashflows(){ return buildAutoCashflows().concat((DB.cashflows||[]).map(function(f){ return Object.assign({}, f, {type:normalizeCashflowType(f.type)}); })); }
+function saveOpeningTreasury(){
+  if(!DB.comptaSettings || typeof DB.comptaSettings!=='object') DB.comptaSettings={openingTreasury:0};
+  DB.comptaSettings.openingTreasury = parseFloat(document.getElementById('opening-treasury-input').value)||0;
+  saveDB(); renderCompta(); recordAction('Trésorerie initiale mise à jour');
+  toast('Trésorerie initiale enregistrée');
+}
+function openRecurringChargeForm(i){
+  var c = i==null ? {label:'',amount:'',frequency:'monthly',startDate:today().slice(0,7)+'-01',active:true,category:'Charge récurrente'} : (DB.recurringCharges||[])[i];
+  openModal('<div class="modal-title">'+(i==null?'Nouvelle charge récurrente':'Modifier la charge récurrente')+'</div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Libellé</label><input class="input" id="rc-label" value="'+escapeHtml(c.label||'')+'" placeholder="Ex: Shopify"></div><div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" value="'+(c.amount||'')+'"></div></div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="rc-category">'+['Charge récurrente','Shopify','Boxerai','Boxtal','Matos du stand','Packaging','Publicité','Logistique'].map(function(cat){return '<option'+((c.category||'')===cat?' selected':'')+'>'+cat+'</option>';}).join('')+'</select></div><div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="'+(c.startDate||today())+'"></div></div>'+
+    '<div class="field" style="margin-bottom:12px;"><label>Active</label><select class="select" id="rc-active"><option value="true"'+(c.active!==false?' selected':'')+'>Oui</option><option value="false"'+(c.active===false?' selected':'')+'>Non</option></select></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveRecurringCharge('+(i==null?'null':i)+')">'+(i==null?'Créer':'Enregistrer')+'</button></div>');
+}
+function saveRecurringCharge(i){
+  var c={id:i==null?Date.now():(DB.recurringCharges[i]&&DB.recurringCharges[i].id)||Date.now(),label:document.getElementById('rc-label').value,amount:parseFloat(document.getElementById('rc-amount').value)||0,frequency:'monthly',startDate:document.getElementById('rc-start').value,active:document.getElementById('rc-active').value==='true',category:document.getElementById('rc-category').value};
+  if(!c.label || !c.amount){ toast('Libellé et montant requis'); return; }
+  if(i==null) DB.recurringCharges.unshift(c); else DB.recurringCharges[i]=c;
+  saveDB(); closeModal(); renderCompta(); recordAction('Charge récurrente enregistrée : '+c.label);
+}
+function deleteRecurringCharge(i){
+  if(confirm('Supprimer cette charge récurrente ?')){
+    DB.recurringCharges.splice(i,1); saveDB(); renderCompta();
+  }
+}
 function renderCompta(){
   var flows=allCashflows().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  var entries=flows.filter(function(f){ return f.type==='entrée'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
-  var exits=flows.filter(function(f){ return f.type==='sortie'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
-  var balance=entries-exits;
+  var entries=flows.filter(function(f){ return normalizeCashflowType(f.type)==='entrée'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
+  var exits=flows.filter(function(f){ return normalizeCashflowType(f.type)==='sortie'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
+  var opening=((DB.comptaSettings&&DB.comptaSettings.openingTreasury)||0);
+  var balance=opening + entries - exits;
+  var salesRevenue=(buildAutoCashflows().filter(function(f){ return f.category==='Vente' || f.category==='Marché'; }).reduce(function(s,f){ return s+(f.amount||0); },0));
+  var charges=(flows.filter(function(f){ return normalizeCashflowType(f.type)==='sortie'; }).reduce(function(s,f){ return s+(f.amount||0); },0));
+  var result=salesRevenue - charges;
   var k=document.getElementById('compta-kpis'); if(!k) return;
   k.innerHTML='<div class="kpi kpi-success"><div class="kpi-label">Entrées</div><div class="kpi-value">'+fmt(entries)+'</div></div>'+
     '<div class="kpi kpi-warning"><div class="kpi-label">Sorties</div><div class="kpi-value">'+fmt(exits)+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">Solde courant</div><div class="kpi-value">'+fmt(balance)+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Flux manuels</div><div class="kpi-value">'+(DB.cashflows||[]).length+'</div></div>';
+    '<div class="kpi kpi-accent"><div class="kpi-label">Trésorerie disponible</div><div class="kpi-value">'+fmt(balance)+'</div><div class="kpi-sub">Trésorerie initiale incluse</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Compte de résultat</div><div class="kpi-value">'+fmt(result)+'</div><div class="kpi-sub">CA - charges</div></div>';
+
+  var openingInput=document.getElementById('opening-treasury-input'); if(openingInput) openingInput.value=opening||0;
+
+  var recurringEl=document.getElementById('recurring-charges-list');
+  if(recurringEl){
+    var rec=(DB.recurringCharges||[]);
+    recurringEl.innerHTML = rec.length ? rec.map(function(c,i){
+      return '<div class="backup-item"><div><div style="font-weight:700">'+escapeHtml(c.label||'Charge')+'</div><div style="font-size:12px;color:var(--muted);">'+escapeHtml(c.category||'Charge récurrente')+' · début '+formatDate(c.startDate||today())+' · '+(c.active===false?'inactive':'active')+'</div></div><div style="display:flex;gap:8px;align-items:center;"><span class="mono">'+fmt(c.amount||0)+'/mois</span><button class="btn-icon" onclick="openRecurringChargeForm('+i+')">✏️</button><button class="btn-icon" onclick="deleteRecurringCharge('+i+')">🗑</button></div></div>';
+    }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal, matériel du stand, etc.</div>';
+  }
+
+  var pnl=document.getElementById('compta-pnl');
+  if(pnl){
+    pnl.innerHTML='<div class="reco-list">'+
+      '<div class="reco-item"><strong>Chiffre d\'affaires / encaissements auto</strong><br><span class="mono">'+fmt(salesRevenue)+'</span></div>'+
+      '<div class="reco-item"><strong>Charges totales</strong><br><span class="mono">'+fmt(charges)+'</span></div>'+
+      '<div class="reco-item"><strong>Résultat simplifié</strong><br><span class="mono">'+fmt(result)+'</span></div>'+
+      '<div class="reco-item"><strong>Trésorerie de départ</strong><br><span class="mono">'+fmt(opening)+'</span></div>'+
+    '</div>';
+  }
+
   var tbody=document.getElementById('cashflow-body');
   var manual=(DB.cashflows||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  tbody.innerHTML = manual.length ? manual.map(function(f,i){ return '<tr><td>'+formatDate(f.date)+'</td><td><span class="badge '+(f.type==='entrée'?'badge-ok':'badge-warn')+'">'+f.type+'</span></td><td>'+f.category+'</td><td>'+f.label+'</td><td class="r mono">'+fmt(f.amount)+'</td><td><button class="btn-icon" onclick="deleteCashflow('+i+')">🗑</button></td></tr>'; }).join('') : '<tr><td colspan="6" class="empty-state">Aucun flux manuel</td></tr>';
-  var months={}; flows.forEach(function(f){ var m=(f.date||'').slice(0,7); if(!m) return; months[m]=months[m]||0; months[m]+= (f.type==='entrée'?1:-1)*(f.amount||0); });
+  tbody.innerHTML = manual.length ? manual.map(function(f,i){ return '<tr><td>'+formatDate(f.date)+'</td><td><span class="badge '+(normalizeCashflowType(f.type)==='entrée'?'badge-ok':'badge-warn')+'">'+chargeTypeLabel(normalizeCashflowType(f.type))+'</span></td><td>'+escapeHtml(f.category||'')+'</td><td>'+escapeHtml(f.label||'')+'</td><td class="r mono">'+fmt(f.amount)+'</td><td><button class="btn-icon" onclick="deleteCashflow('+i+')">🗑</button></td></tr>'; }).join('') : '<tr><td colspan="6" class="empty-state">Aucun flux manuel</td></tr>';
+  var months={}; flows.forEach(function(f){ var m=(f.date||'').slice(0,7); if(!m) return; months[m]=months[m]||0; months[m]+= (normalizeCashflowType(f.type)==='entrée'?1:-1)*(f.amount||0); });
   var labels=Object.keys(months).sort();
   var data=labels.map(function(m){ return months[m]; });
   var el=document.getElementById('compta-chart'); if(el){ if(el._c){ try{el._c.destroy();}catch(e){} } el._c=new Chart(el,{type:'bar',data:{labels:labels,datasets:[{data:data}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }
 }
-function openAddCashflow(){
+function openAddCashflow(prefillCategory){
+  var options=['Matos du stand','Shopify','Boxerai','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant JSP','Autre'];
   openModal('<div class="modal-title">Ajouter un flux</div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie">Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><input class="input" id="cf-category" placeholder="Ex: Frais marché"></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Emplacement Cassis"></div></div>'+
+    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie" selected>Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
+    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="cf-category">'+options.map(function(cat){return '<option'+(((prefillCategory||'')===cat)?' selected':'')+'>'+cat+'</option>';}).join('')+'</select></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Abonnement mensuel Shopify"></div></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCashflow()">Enregistrer</button></div>');
 }
 function saveCashflow(){
-  var f={id:Date.now(),date:document.getElementById('cf-date').value,type:document.getElementById('cf-type').value,category:document.getElementById('cf-category').value,label:document.getElementById('cf-label').value,amount:parseFloat(document.getElementById('cf-amount').value)||0};
+  var f={id:Date.now(),date:document.getElementById('cf-date').value,type:normalizeCashflowType(document.getElementById('cf-type').value),category:document.getElementById('cf-category').value,label:document.getElementById('cf-label').value,amount:parseFloat(document.getElementById('cf-amount').value)||0};
   if(!f.date||!f.label||!f.amount){ toast('Champs incomplets'); return; }
-  DB.cashflows.unshift(f); saveDB(); closeModal(); renderCompta();
+  DB.cashflows.unshift(f); saveDB(); closeModal(); renderCompta(); recordAction('Flux manuel ajouté : '+f.label);
 }
 function deleteCashflow(i){ if(confirm('Supprimer ce flux ?')){ DB.cashflows.splice(i,1); saveDB(); renderCompta(); } }
 
@@ -1993,7 +2188,7 @@ function confirmerReception(){
   bc.totalQteRecue = (bc.articles||[]).reduce(function(s,a){ return s + (a.qteRecue||0); }, 0);
   var allDone = (bc.articles||[]).every(function(a){ return (a.qteRecue||0) >= (a.qte||0); });
   bc.statut = allDone ? 'LIVRÉ' : 'PARTIEL';
-  saveDB(); closeRecepModal(); renderCommandes(); toast('Réception enregistrée');
+  saveDB(); closeRecepModal(); refreshBusinessViews('Réception enregistrée');
 }
 
 function imprimerBC(id){
@@ -2013,7 +2208,7 @@ function imprimerBC(id){
   var html =
     '<div class="pdf-doc">' +
       '<div class="pdf-header">' +
-        '<div><div class="pdf-brand">MERIDIES</div><div class="pdf-brand-sub">Bon de commande fournisseur</div></div>' +
+        '<div style="padding-left:0;"><div class="pdf-brand" style="letter-spacing:.16em;">MERIDIES</div><div class="pdf-brand-sub">Bon de commande fournisseur</div></div>' +
         '<div><div class="pdf-bc-num">' + bc.id + '</div><div class="pdf-bc-date">Date: ' + formatDate(bc.date) + '</div></div>' +
       '</div>' +
       '<div class="pdf-body">' +
@@ -2435,25 +2630,36 @@ function renderPilotage(){
   var data = getPilotageData();
   var top = data.rows.slice().sort(function(a,b){ return b.margin-a.margin; }).slice(0,8);
   var marketCount = (DB.marketSessions||[]).length;
-  var totalCash = computeAutoCashflows().reduce(function(s,f){return s + (f.type==='Entrée'?f.amount:-f.amount);},0) + (DB.cashflows||[]).reduce(function(s,f){return s + (f.type==='Entrée'?f.amount:-f.amount);},0);
+  var totalCash = (((DB.comptaSettings&&DB.comptaSettings.openingTreasury)||0) + allCashflows().reduce(function(s,f){return s + (normalizeCashflowType(f.type)==='entrée'?f.amount:-f.amount);},0));
+  var salesCount = (DB.ventes||[]).reduce(function(s,v){ return s + (v.qte||1); }, 0);
+  var transactions = getSalesTransactions();
+  var panierMoyen = transactions.length ? data.totalRevenue / transactions.length : 0;
+  var upcomingDrops = (DB.drops||[]).filter(function(d){return d.startDate && d.startDate >= today();}).slice(0,3);
+  var guidance = [];
+  if(!(DB.ventes||[]).length) guidance.push('Ajoute tes premières ventes pour alimenter automatiquement le CA, la marge et le top produits.');
+  if(!(DB.stockFini||[]).length) guidance.push('Ajoute du stock fini pour voir les produits dormants et les ruptures potentielles.');
+  if(!(DB.marketSessions||[]).length) guidance.push('Renseigne le journal marchés pour suivre les performances terrain.');
+  if(!(DB.cashflows||[]).length && !buildAutoCashflows().length) guidance.push('Ajoute des flux comptables pour obtenir un solde courant plus parlant.');
+
   el.innerHTML =
     '<div class="metric-row">'+
-      '<div class="metric-box"><div class="label">CA cumulé</div><div class="value">'+fmt(data.totalRevenue)+'</div></div>'+
-      '<div class="metric-box"><div class="label">Marge estimée</div><div class="value">'+fmt(data.totalMargin)+'</div></div>'+
-      '<div class="metric-box"><div class="label">Marchés suivis</div><div class="value">'+marketCount+'</div></div>'+
-      '<div class="metric-box"><div class="label">Solde courant</div><div class="value">'+fmt(totalCash)+'</div></div>'+
+      '<div class="metric-box"><div class="label">CA cumulé</div><div class="value">'+fmt(data.totalRevenue)+'</div><div class="inline-stat">'+salesCount+' article(s) · panier moyen '+fmt(panierMoyen)+'</div></div>'+
+      '<div class="metric-box"><div class="label">Marge estimée</div><div class="value">'+fmt(data.totalMargin)+'</div><div class="inline-stat">Basée sur PV - PA catalogue</div></div>'+
+      '<div class="metric-box"><div class="label">Marchés suivis</div><div class="value">'+marketCount+'</div><div class="inline-stat">Sessions enregistrées</div></div>'+
+      '<div class="metric-box"><div class="label">Solde courant</div><div class="value">'+fmt(totalCash)+'</div><div class="inline-stat">Auto + manuel</div></div>'+
     '</div>'+
+    (guidance.length ? '<div class="card" style="margin-bottom:16px;"><div class="card-header"><span class="card-title">Pour alimenter le pilotage</span></div><div class="reco-list">'+guidance.map(function(item){ return '<div class="reco-item">'+escapeHtml(item)+'</div>'; }).join('')+'</div></div>' : '')+
     '<div class="pilot-grid">'+
       '<div><div class="card"><div class="card-header"><span class="card-title">Top produits par marge</span></div><div class="table-wrap"><table><thead><tr><th>Produit</th><th class="r">Vendus</th><th class="r">CA</th><th class="r">Marge</th><th class="r">Stock</th></tr></thead><tbody>'+
-      (top.length?top.map(function(r){return '<tr><td>'+escapeHtml(r.designation)+'</td><td class="r">'+r.sold+'</td><td class="r mono">'+fmt(r.revenue)+'</td><td class="r mono">'+fmt(r.margin)+'</td><td class="r">'+r.stock+'</td></tr>';}).join(''):'<tr><td colspan="5" class="empty-state">Pas assez de ventes</td></tr>')+
+      (top.length?top.map(function(r){return '<tr><td>'+escapeHtml(r.designation)+'</td><td class="r">'+r.sold+'</td><td class="r mono">'+fmt(r.revenue)+'</td><td class="r mono">'+fmt(r.margin)+'</td><td class="r">'+r.stock+'</td></tr>';}).join(''):'<tr><td colspan="5" class="empty-state">Pas assez de ventes pour classer les produits.</td></tr>')+
       '</tbody></table></div></div>'+
       '<div class="card"><div class="card-header"><span class="card-title">Produits dormants</span></div>'+
-      (data.dormant.length?'<div class="reco-list">'+data.dormant.slice(0,10).map(function(r){return '<div class="reco-item">'+escapeHtml(r.designation)+' · stock '+r.stock+'</div>';}).join('')+'</div>':'<div class="empty-state"><div class="icon">✨</div>Aucun produit dormant</div>')+
+      (data.dormant.length?'<div class="reco-list">'+data.dormant.slice(0,10).map(function(r){return '<div class="reco-item">'+escapeHtml(r.designation)+' · stock '+r.stock+'</div>';}).join('')+'</div>':'<div class="empty-state"><div class="icon">✨</div>Aucun produit dormant détecté.</div>')+
       '</div></div>'+
       '<div><div class="card"><div class="card-header"><span class="card-title">Automatisations / suggestions</span></div>'+
       '<div class="reco-list">'+
       (data.reorder.length?data.reorder.map(function(r){return '<div class="reco-item">'+escapeHtml(r)+'</div>';}).join(''):'<div class="reco-item">Aucune recommandation de réassort.</div>')+
-      ((DB.drops||[]).filter(function(d){return d.startDate && d.startDate >= today();}).slice(0,3).map(function(d){return '<div class="reco-item">Préparer le drop <strong>'+escapeHtml(d.name)+'</strong> · objectif '+fmt(d.goal||0)+'</div>';}).join(''))+
+      (upcomingDrops.length?upcomingDrops.map(function(d){return '<div class="reco-item">Préparer le drop <strong>'+escapeHtml(d.name)+'</strong> · objectif '+fmt(d.goal||0)+'</div>';}).join(''):'<div class="reco-item">Aucun drop futur planifié.</div>')+
       '</div></div>'+
       '<div class="card"><div class="card-header"><span class="card-title">Rôle actif</span></div><div class="role-chip">'+escapeHtml((DB.preferences&&DB.preferences.role)||'admin')+'</div><p style="font-size:12px;color:var(--muted);margin-top:10px;">Adapte les vues pour le terrain, la logistique ou la compta.</p></div></div>'+
     '</div>';
@@ -2477,7 +2683,11 @@ function saveClient(id){
   if(!c.name && !c.email) return toast('Nom ou email requis');
   var idx=(DB.clients||[]).findIndex(function(x){return x.id===c.id;});
   if(idx>-1) DB.clients[idx]=c; else DB.clients.unshift(c);
-  saveDB('Client enregistré'); closeModal(); renderClients(); recordAction('Client ' + (c.name||c.email) + ' enregistré'); toast('Client enregistré');
+  saveDB('Client enregistré');
+  closeModal();
+  refreshBusinessViews();
+  recordAction('Client ' + (c.name||c.email) + ' enregistré');
+  toast('Client enregistré');
 }
 var __origEditProduct = editProduct;
 editProduct = function(idx){
@@ -2491,7 +2701,11 @@ function saveProductEnhanced(idx){
   DB.catalogue[idx].pv = parseFloat(document.getElementById('edit-pv').value)||0;
   DB.catalogue[idx].pa = parseFloat(document.getElementById('edit-pa').value)||0;
   DB.catalogue[idx].story = document.getElementById('edit-story').value||'';
-  saveDB('Fiche produit mise à jour'); closeModal(); renderCatalogue(); renderPilotage(); recordAction('Produit '+DB.catalogue[idx].code+' mis à jour'); toast('Produit mis à jour');
+  saveDB('Fiche produit mise à jour');
+  closeModal();
+  refreshBusinessViews();
+  recordAction('Produit '+DB.catalogue[idx].code+' mis à jour');
+  toast('Produit mis à jour');
 }
 var __origOpenMarketSessionForm = openMarketSessionForm;
 openMarketSessionForm = function(i){
