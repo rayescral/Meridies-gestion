@@ -180,104 +180,6 @@ tr:hover td{background:var(--surface2);}
   .content{padding:0!important;}
 }
 #pdf-preview{display:none;}
-
-/* ===== ALIGNEMENTS TABLEAUX STOCK ===== */
-#page-stock-vierge td.c input.input-sm,
-#page-stock-dtf td.c input.input-sm,
-#page-stock-fini td.c input.input-sm,
-#page-stock-vierge td.c .input-sm,
-#page-stock-dtf td.c .input-sm,
-#page-stock-fini td.c .input-sm{display:block;margin:0 auto;width:54px!important;min-width:54px;text-align:center;height:28px;padding:4px 6px;}
-#page-stock-vierge td.r,#page-stock-dtf td.r,#page-stock-fini td.r{white-space:nowrap;}
-#page-stock-vierge .badge,#page-stock-dtf .badge,#page-stock-fini .badge{min-width:72px;justify-content:center;}
-#page-stock-vierge .btn-icon,#page-stock-dtf .btn-icon,#page-stock-fini .btn-icon{margin:0 auto;display:flex;}
-#page-stock-vierge table,#page-stock-dtf table,#page-stock-fini table{min-width:1250px;}
-
-/* ===== MODULES PILOTAGE ===== */
-.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
-.calendar-day{background:var(--surface);border:1px solid var(--border);border-radius:12px;min-height:120px;padding:10px;}
-.calendar-day.muted{opacity:.45;background:var(--surface2);}
-.calendar-day-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:11px;font-weight:700;}
-.calendar-event{font-size:11px;padding:6px 8px;border-radius:8px;margin-bottom:6px;background:var(--surface2);border-left:3px solid var(--gold);}
-.calendar-event.todo{border-left-color:var(--warning);}
-.calendar-event.bc{border-left-color:var(--info);}
-.calendar-event.market{border-left-color:var(--success);}
-.calendar-event.drop{border-left-color:#7C3AED;}
-.inline-stat{font-size:11px;color:var(--muted);}
-.progress-lite{height:8px;background:var(--surface3);border-radius:999px;overflow:hidden;}
-.progress-lite > div{height:100%;background:var(--gold);}
-.tag{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--surface3);color:var(--muted);}
-
-
-/* ===== ENHANCED UX ===== */
-body.dark{
-  --noir:#0B1020;--noir2:#111827;--noir3:#172033;
-  --surface:#0F172A;--surface2:#111827;--surface3:#1F2937;
-  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
-  --text:#E5E7EB;--muted:#9CA3AF;--hint:#6B7280;
-  background:#0B1020;color:var(--text);
-}
-body.dark .input, body.dark .select, body.dark .btn-secondary, body.dark .btn-icon { color:var(--text); }
-body.dark table tr:hover td{background:rgba(255,255,255,0.03);}
-body.dark .card, body.dark .topbar { background:var(--surface); }
-body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
-.topbar{gap:12px}
-.topbar-search{position:relative;min-width:280px;flex:1;max-width:520px;}
-.topbar-search input{padding-left:34px;}
-.topbar-search::before{content:'🔎';position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.55;font-size:13px;}
-.search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:var(--shadow-lg);padding:8px;display:none;z-index:300;}
-.search-results.open{display:block;}
-.search-result-item{padding:9px 10px;border-radius:8px;cursor:pointer;}
-.search-result-item:hover{background:var(--surface2);}
-.search-result-type{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;}
-.sidebar-toggle-wrap{padding:10px 12px;border-top:1px solid rgba(255,255,255,0.06);}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.switch{position:relative;display:inline-block;width:44px;height:24px;}
-.switch input{display:none;}
-.switch-slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:999px;transition:.2s;}
-.switch-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s;}
-.switch input:checked + .switch-slider{background:var(--gold);}
-.switch input:checked + .switch-slider:before{transform:translateX(20px);}
-.kanban-board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-.kanban-col{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:10px;min-height:280px;}
-.kanban-col h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
-.kanban-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:8px;cursor:grab;box-shadow:var(--shadow);}
-.kanban-card.dragging{opacity:.5;}
-.kanban-meta{font-size:11px;color:var(--muted);margin-top:6px;}
-.alert-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
-.alert-pill{padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;}
-.alert-pill.ok{background:var(--success-bg);color:var(--success);}
-.alert-pill.warn{background:var(--warning-bg);color:var(--warning);}
-.alert-pill.danger{background:var(--danger-bg);color:var(--danger);}
-.history-list{display:grid;gap:8px;}
-.history-item{padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:13px;}
-.history-time{font-size:11px;color:var(--muted);display:block;margin-bottom:3px;}
-.stock-align td,.stock-align th{vertical-align:middle!important;}
-.stock-align .input-sm{display:block;margin:0 auto;line-height:1.2;height:28px;}
-@media(max-width:768px){
-  .topbar{flex-wrap:wrap;padding-left:56px;}
-  .topbar-search{order:3;min-width:100%;max-width:none;}
-  .kanban-board{grid-template-columns:1fr;}
-}
-
-
-.role-select{margin-top:8px;width:100%;font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid rgba(201,168,76,0.25);background:#12192B;color:#fff;}
-.pilot-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;}
-.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
-.metric-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;}
-.metric-box .label{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;}
-.metric-box .value{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;}
-.reco-list{display:grid;gap:8px;}
-.reco-item{padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:13px;}
-.role-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:var(--gold-dim);color:var(--gold);font-size:11px;font-weight:700;}
-.backup-item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);margin-bottom:8px;}
-.client-card{padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);}
-.quick-tags{display:flex;gap:6px;flex-wrap:wrap;}
-.quick-tag{padding:4px 8px;border-radius:999px;background:var(--surface3);font-size:11px;color:var(--muted);cursor:pointer;}
-.mobile-quickbar{display:none;position:fixed;bottom:10px;left:10px;right:10px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);padding:8px;z-index:80;justify-content:space-around;}
-.mobile-quickbar button{border:none;background:none;font-size:12px;color:var(--text);font-weight:600;}
-@media(max-width:768px){.pilot-grid,.metric-row{grid-template-columns:1fr;}.mobile-quickbar{display:flex;}}
-
 </style>
 </head>
 <body>
@@ -303,12 +205,6 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
     <h1>MERIDIES</h1>
     <p>Gestion centralisée</p>
     <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.03em;">⏳ Connexion...</p>
-    <select id="role-select" class="role-select" onchange="changeRole(this.value)">
-      <option value="admin">Rôle: Admin</option>
-      <option value="terrain">Rôle: Terrain / Marchés</option>
-      <option value="logistique">Rôle: Logistique</option>
-      <option value="compta">Rôle: Compta</option>
-    </select>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">Principal</div>
@@ -329,40 +225,15 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
     
     <div class="nav-section">Outils</div>
     <div class="nav-item" onclick="goTo('todo')"><span class="icon">✏️</span>Tâches</div>
-
-    <div class="nav-section">Pilotage</div>
-    <div class="nav-item" onclick="goTo('calendar')"><span class="icon">📅</span>Calendrier</div>
-    <div class="nav-item" onclick="goTo('drops')"><span class="icon">🚀</span>Drops</div>
-    <div class="nav-item" onclick="goTo('compta')"><span class="icon">💶</span>Compta simplifiée</div>
-    <div class="nav-item" onclick="goTo('journal')"><span class="icon">🧭</span>Journal marchés</div>
-    <div class="nav-item" onclick="goTo('sav')"><span class="icon">↩️</span>Retours / SAV</div>
-    <div class="nav-item" onclick="goTo('history')"><span class="icon">🕘</span>Historique</div>
-  
-    <div class="nav-item" onclick="goTo('pilotage')"><span class="icon">🎯</span>Pilotage</div>
-    <div class="nav-item" onclick="goTo('clients')"><span class="icon">👥</span>Clients / CRM</div>
-    <div class="nav-item" onclick="goTo('backups')"><span class="icon">💾</span>Sauvegardes</div>
   </nav>
-  <div class="sidebar-toggle-wrap">
-    <div class="toggle-row">
-      <span style="font-size:12px;color:rgba(255,255,255,0.75);">Mode sombre</span>
-      <label class="switch"><input type="checkbox" id="theme-toggle" onchange="toggleTheme()"><span class="switch-slider"></span></label>
-    </div>
-  </div>
   <div class="sidebar-footer">Meridies Brand © 2026<br>Données stockées localement</div>
 </div>
 
 <div class="main">
 <div class="topbar">
   <div class="topbar-title" id="page-title">Tableau de bord</div>
-  <div class="topbar-search">
-    <input type="text" class="input input-sm" id="global-search" placeholder="Recherche globale : articles, BC, fournisseurs, tâches..." oninput="runGlobalSearch(this.value)" onfocus="runGlobalSearch(this.value)">
-    <div class="search-results" id="global-search-results"></div>
-  </div>
   <div class="topbar-actions">
-    <input type="file" id="import-json-input" accept=".json,application/json" style="display:none" onchange="importAllDataFromFile(event)">
-    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()">⬆ Import JSON</button>
-    <button class="btn btn-secondary btn-sm" onclick="exportExcelWorkbook()">⬇ Export Excel</button>
-    <button class="btn btn-secondary btn-sm" onclick="exportAllData()">⬇ Export JSON</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportAllData()">⬇ Exporter tout</button>
     <button class="btn btn-danger btn-sm" onclick="resetAllData()">🗑 Réinitialiser</button>
   </div>
 </div>
@@ -541,141 +412,11 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
     <div class="card-header"><span class="card-title">Gestion des tâches</span>
       <div class="section-actions">
         <select class="select input-sm" id="todo-filter" onchange="renderTodos()" style="width:120px;"><option value="">Toutes</option><option value="A TRAITER">A traiter</option><option value="EN COURS">En cours</option><option value="EN ATTENTE">En attente</option><option value="TERMINER">Terminé</option></select>
-        <select class="select input-sm" id="todo-view-mode" onchange="renderTodos()" style="width:120px;"><option value="table">Tableau</option><option value="kanban">Kanban</option></select>
         <button class="btn btn-primary btn-sm" onclick="openAddTodo()">+ Nouvelle tâche</button>
       </div>
     </div>
-    <div id="todo-table-view" class="table-wrap"><table><thead><tr><th>Owner</th><th>Tâche</th><th>Priorité</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody id="todo-body"></tbody></table></div>
-    <div id="todo-kanban-view" style="display:none;">
-      <div class="kanban-board" id="todo-kanban-board"></div>
-    </div>
+    <div class="table-wrap"><table><thead><tr><th>Owner</th><th>Tâche</th><th>Priorité</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody id="todo-body"></tbody></table></div>
   </div>
-</div>
-
-
-<div class="page" id="page-calendar">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Calendrier / Planning</span>
-      <div class="section-actions">
-        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(-1)">← Mois précédent</button>
-        <div class="mono" id="calendar-label">—</div>
-        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(1)">Mois suivant →</button>
-      </div>
-    </div>
-    <div class="calendar-grid" style="margin-bottom:8px;">
-      <div class="card-sm" style="text-align:center;font-weight:700;">Lun</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Mar</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Mer</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Jeu</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Ven</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Sam</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Dim</div>
-    </div>
-    <div id="calendar-grid"></div>
-  </div>
-</div>
-
-<div class="page" id="page-drops">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Drops & Collections</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddDrop()">+ Nouveau drop</button>
-    </div>
-    <div id="drops-list"></div>
-  </div>
-</div>
-
-<div class="page" id="page-compta">
-  <div class="kpi-grid" id="compta-kpis"></div>
-  <div class="grid2">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Flux de trésorerie mensuels</span></div>
-      <div style="position:relative;height:260px;"><canvas id="compta-chart"></canvas></div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Entrées / sorties manuelles</span>
-        <button class="btn btn-primary btn-sm" onclick="openAddCashflow()">+ Ajouter</button>
-      </div>
-      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Libellé</th><th class="r">Montant</th><th></th></tr></thead><tbody id="cashflow-body"></tbody></table></div>
-    </div>
-  </div>
-</div>
-
-<div class="page" id="page-journal">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Journal de bord / Notes par marché</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddMarketSession()">+ Nouvelle session</button>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Ville</th><th>Statut</th><th class="r">CA</th><th>Météo</th><th>Top produits</th><th>Retours clients</th><th></th></tr></thead><tbody id="journal-body"></tbody></table></div>
-  </div>
-</div>
-
-<div class="page" id="page-history">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Historique des modifications</span>
-      <button class="btn btn-secondary btn-sm" onclick="clearHistory()">Vider</button>
-    </div>
-    <div class="history-list" id="history-list"></div>
-  </div>
-</div>
-
-<div class="page" id="page-sav">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Gestion des retours / SAV</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddReturn()">+ Enregistrer un retour</button>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Commande</th><th>Produit</th><th>Raison</th><th>Action</th><th>Statut</th><th class="r">Montant</th><th></th></tr></thead><tbody id="sav-body"></tbody></table></div>
-  </div>
-</div>
-
-
-<div class="page" id="page-pilotage">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Pilotage business</span>
-      <div class="quick-tags">
-        <span class="quick-tag" onclick="goTo('journal')">Marchés</span>
-        <span class="quick-tag" onclick="goTo('drops')">Drops</span>
-        <span class="quick-tag" onclick="goTo('compta')">Trésorerie</span>
-      </div>
-    </div>
-    <div id="pilotage-content"></div>
-  </div>
-</div>
-
-<div class="page" id="page-clients">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Mini CRM clients</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddClient()">+ Nouveau contact</button>
-    </div>
-    <div class="grid2" id="clients-grid"></div>
-  </div>
-</div>
-
-<div class="page" id="page-backups">
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Sauvegardes locales automatiques</span>
-      <div class="section-actions">
-        <button class="btn btn-secondary btn-sm" onclick="makeManualBackup()">Créer un point</button>
-        <button class="btn btn-secondary btn-sm" onclick="undoLastSnapshot()">Restaurer la dernière sauvegarde</button>
-      </div>
-    </div>
-    <div id="backups-list"></div>
-  </div>
-</div>
-
-<div class="mobile-quickbar no-print">
-  <button onclick="goTo('dashboard')">Dashboard</button>
-  <button onclick="goTo('saisie-vente')">Ventes</button>
-  <button onclick="goTo('journal')">Marchés</button>
-  <button onclick="goTo('todo')">Tâches</button>
 </div>
 
 </div></div></div><div class="toast" id="toast"></div>
@@ -696,15 +437,7 @@ var DB = {
   ventes: [],
   fournisseurs: [],
   bonsCommande: [],
-  todos: [],
-  drops: [],
-  cashflows: [],
-  marketSessions: [],
-  returnsSav: [],
-  clients: [],
-  backups: [],
-  history: [],
-  preferences: { theme: 'light', role: 'admin' }
+  todos: []
 };
 
 // ============================================================
@@ -721,15 +454,7 @@ function normalizeRestoredDB(data) {
     ventes: Array.isArray(data.ventes) ? data.ventes : [],
     fournisseurs: Array.isArray(data.fournisseurs) ? data.fournisseurs : [],
     bonsCommande: Array.isArray(data.bonsCommande) ? data.bonsCommande : [],
-    todos: Array.isArray(data.todos) ? data.todos : [],
-    drops: Array.isArray(data.drops) ? data.drops : [],
-    cashflows: Array.isArray(data.cashflows) ? data.cashflows : [],
-    marketSessions: Array.isArray(data.marketSessions) ? data.marketSessions : [],
-    returnsSav: Array.isArray(data.returnsSav) ? data.returnsSav : [],
-    clients: Array.isArray(data.clients) ? data.clients : [],
-    backups: Array.isArray(data.backups) ? data.backups : [],
-    history: Array.isArray(data.history) ? data.history : [],
-    preferences: data.preferences && typeof data.preferences === 'object' ? data.preferences : { theme: 'light', role:'admin' }
+    todos: Array.isArray(data.todos) ? data.todos : []
   };
   restored.fournisseurs.forEach(function(f) {
     if(!f.typesProduits) f.typesProduits = f.produits || "T-shirt";
@@ -798,35 +523,51 @@ function setStatus(connected) {
 
 async function loadDB() {
   var loaded = false;
+  var localData = null;
+  var remoteData = null;
 
   try {
     var d = JSON.parse(localStorage.getItem('meridies_db'));
     if (d && typeof d === 'object') {
-      DB = normalizeRestoredDB(d);
-      loaded = true;
+      localData = normalizeRestoredDB(d);
     }
-  } catch(e2) {}
+  } catch(eLocal) {}
 
-  if (!loaded) {
+  if (localData) {
+    DB = localData;
+    loaded = true;
+    try {
+      await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
+      setStatus(true);
+      subscribeRealtime();
+    } catch(syncErr) {
+      console.warn('Sync Supabase impossible, données locales conservées', syncErr);
+      setStatus(false);
+    }
+  } else {
     try {
       var res = await supabase.from('app_state').select('data').eq('id', 1).single();
       if (!res.error && res.data && res.data.data) {
-        DB = normalizeRestoredDB(res.data.data);
-        loaded = true;
-        setStatus(true);
-        subscribeRealtime();
-        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
+        remoteData = normalizeRestoredDB(res.data.data);
       } else if (res.error && res.error.code !== 'PGRST116') {
         throw res.error;
       }
-    } catch(e) {
-      console.warn('Supabase indisponible, fallback localStorage', e);
+    } catch(eRemote) {
+      console.warn('Supabase indisponible, fallback localStorage', eRemote);
       setStatus(false);
+    }
+
+    if (remoteData) {
+      DB = remoteData;
+      loaded = true;
+      try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(eSaveLocal) {}
+      setStatus(true);
+      subscribeRealtime();
     }
   }
 
   if (!loaded) {
-    DB = normalizeRestoredDB(EMBEDDED_BACKUP);
+    DB = normalizeRestoredDB(CLEAN_RESET_BACKUP);
     try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e3) {}
     try {
       await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
@@ -844,9 +585,7 @@ async function loadDB() {
 
   initDatalists();
   renderAll();
-  enhanceLoadPostActions();
 }
-
 
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
@@ -875,11 +614,6 @@ function renderAll() {
   if (typeof renderBC === 'function') renderBC();
   if (typeof renderFournisseurs === 'function') renderFournisseurs();
   if (typeof renderTodos === 'function') renderTodos();
-  if (typeof renderCalendarPlanning === 'function') renderCalendarPlanning();
-  if (typeof renderDropsCollections === 'function') renderDropsCollections();
-  if (typeof renderCompta === 'function') renderCompta();
-  if (typeof renderMarketJournal === 'function') renderMarketJournal();
-  if (typeof renderSav === 'function') renderSav();
 }
 
 function initDefaultData() {
@@ -933,17 +667,13 @@ function goTo(page) {
   var titles = {
     'dashboard':'Tableau de bord','catalogue':'Catalogue produits','stock-vierge':'Stock T-shirts vierges',
     'stock-dtf':'Stock DTF Designs','stock-fini':'Stock Produits finis','saisie-vente':'Saisie des ventes',
-    'fournisseurs':'Fournisseurs','commandes':'Bons de commande','todo':'Tâches',
-    'calendar':'Calendrier / Planning','drops':'Drops & Collections','compta':'Comptabilité simplifiée',
-    'journal':'Journal de bord marchés','sav':'Gestion des retours / SAV'
+    'fournisseurs':'Fournisseurs','commandes':'Bons de commande','todo':'Tâches'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   var renderers = {
     'dashboard':renderDashboard,'catalogue':renderCatalogue,'stock-vierge':renderStockVierge,
     'stock-dtf':renderStockDTF,'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
-    'fournisseurs':renderFournisseurs,'commandes':renderCommandes,'todo':renderTodos,
-    'calendar':renderCalendarPlanning,'drops':renderDropsCollections,'compta':renderCompta,
-    'journal':renderMarketJournal,'sav':renderSav
+    'fournisseurs':renderFournisseurs,'commandes':renderCommandes,'todo':renderTodos
   };
   if(renderers[page]) renderers[page]();
   document.querySelector('.sidebar').classList.remove('open');
@@ -1467,207 +1197,6 @@ function addTodo() {
   saveDB(); closeModal(); renderTodos(); toast('Tâche ajoutée');
 }
 
-
-// ============================================================
-// CALENDRIER / PLANNING
-// ============================================================
-var calendarCursor = new Date();
-calendarCursor.setDate(1);
-function calendarMonthLabel(d){ return d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'}); }
-function eventDateKey(d){ return d ? String(d).slice(0,10) : ''; }
-function getCalendarEvents(){
-  var events=[];
-  (DB.todos||[]).forEach(function(t){ if(t.due){ events.push({date:t.due,title:t.task,type:'todo',meta:t.status||'Tâche'}); } });
-  (DB.bonsCommande||[]).forEach(function(b){ if(b.livraison){ events.push({date:b.livraison,title:'Livraison ' + b.id,type:'bc',meta:b.fournisseur||'BC'}); } else if(b.date){ events.push({date:b.date,title:'BC ' + b.id,type:'bc',meta:b.fournisseur||'BC'}); } });
-  (DB.drops||[]).forEach(function(d){ if(d.startDate){ events.push({date:d.startDate,title:d.name,type:'drop',meta:'Lancement drop'}); } if(d.endDate){ events.push({date:d.endDate,title:d.name,type:'drop',meta:'Fin / revue'}); } });
-  (DB.marketSessions||[]).forEach(function(m){ if(m.date){ events.push({date:m.date,title:(m.city||'Marché'),type:'market',meta:m.status||'Prévu'}); } });
-  return events.sort(function(a,b){ return a.date.localeCompare(b.date); });
-}
-function changeCalendarMonth(delta){ calendarCursor.setMonth(calendarCursor.getMonth()+delta); renderCalendarPlanning(); }
-function renderCalendarPlanning(){
-  var label=document.getElementById('calendar-label'); if(!label) return;
-  label.textContent = calendarMonthLabel(calendarCursor);
-  var grid=document.getElementById('calendar-grid');
-  var year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
-  var first=new Date(year,month,1), last=new Date(year,month+1,0);
-  var startDay=(first.getDay()+6)%7;
-  var daysInMonth=last.getDate();
-  var prevLast=new Date(year,month,0).getDate();
-  var eventsByDate={};
-  getCalendarEvents().forEach(function(ev){ (eventsByDate[ev.date]=eventsByDate[ev.date]||[]).push(ev); });
-  var html='<div class="calendar-grid">';
-  for(var i=0;i<42;i++){
-    var dayNum, cellDate, muted=false;
-    if(i<startDay){ dayNum=prevLast-startDay+i+1; cellDate=new Date(year,month-1,dayNum); muted=true; }
-    else if(i>=startDay+daysInMonth){ dayNum=i-(startDay+daysInMonth)+1; cellDate=new Date(year,month+1,dayNum); muted=true; }
-    else { dayNum=i-startDay+1; cellDate=new Date(year,month,dayNum); }
-    var key=cellDate.toISOString().slice(0,10);
-    var evs=(eventsByDate[key]||[]).slice(0,4);
-    html += '<div class="calendar-day'+(muted?' muted':'')+'"><div class="calendar-day-head"><span>'+dayNum+'</span><span class="inline-stat">'+(eventsByDate[key]||[]).length+' év.</span></div>';
-    if(evs.length){ html += evs.map(function(ev){ return '<div class="calendar-event '+ev.type+'"><strong>'+ev.title+'</strong><br><span class="inline-stat">'+(ev.meta||'')+'</span></div>'; }).join(''); }
-    else { html += '<div class="inline-stat">—</div>'; }
-    html += '</div>';
-  }
-  html += '</div>';
-  grid.innerHTML=html;
-}
-
-// ============================================================
-// DROPS & COLLECTIONS
-// ============================================================
-function dropProgress(drop){
-  var codes = drop.productCodes || [];
-  if(!codes.length) return {sold:0, goal:drop.goal||0, pct:0};
-  var sold=(DB.ventes||[]).filter(function(v){ return codes.indexOf(v.code)>-1; }).reduce(function(s,v){ return s+(v.qte||1); },0);
-  var goal=drop.goal||0;
-  return {sold:sold, goal:goal, pct:goal>0?Math.min(100,Math.round((sold/goal)*100)):0};
-}
-function renderDropsCollections(){
-  var wrap=document.getElementById('drops-list'); if(!wrap) return;
-  if(!(DB.drops||[]).length){ wrap.innerHTML='<div class="empty-state"><div class="icon">🚀</div>Aucun drop enregistré</div>'; return; }
-  wrap.innerHTML = DB.drops.map(function(d,i){
-    var prog=dropProgress(d);
-    return '<div class="card card-sm" style="margin-bottom:12px;">'+
-      '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">'+
-        '<div><div style="font-weight:700;font-size:16px;">'+d.name+'</div><div class="inline-stat">'+formatDate(d.startDate)+' → '+formatDate(d.endDate)+' · '+(d.productCodes||[]).length+' produit(s)</div></div>'+
-        '<div style="display:flex;gap:8px;align-items:center;">'+
-          '<span class="tag">Obj. '+(d.goal||0)+'</span><span class="tag">Vendu '+prog.sold+'</span>'+
-          '<button class="btn-icon" onclick="editDrop('+i+')">✏️</button><button class="btn-icon" onclick="deleteDrop('+i+')">🗑</button>'+
-        '</div></div>'+
-      '<div style="margin-top:12px;margin-bottom:8px;" class="progress-lite"><div style="width:'+prog.pct+'%"></div></div>'+
-      '<div class="inline-stat">Avancement: '+prog.pct+'%'+(d.notes?' · '+d.notes:'')+'</div>'+
-    '</div>';
-  }).join('');
-}
-function openAddDrop(){ openDropForm(null); }
-function editDrop(i){ openDropForm(i); }
-function openDropForm(i){
-  var d = i===null ? {name:'',startDate:today(),endDate:'',goal:0,productCodes:[],notes:''} : DB.drops[i];
-  var productOptions = DB.catalogue.map(function(p){
-    var selected = (d.productCodes||[]).indexOf(p.code)>-1 ? ' selected' : '';
-    return '<option value="'+p.code+'"'+selected+'>'+p.code+' - '+p.designation+' '+p.taille+'</option>';
-  }).join('');
-  openModal('<div class="modal-title">'+(i===null?'Nouveau drop':'Modifier le drop')+'</div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Nom</label><input class="input" id="drop-name" value="'+(d.name||'')+'"></div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Début</label><input type="date" class="input" id="drop-start" value="'+(d.startDate||'')+'"></div><div class="field"><label>Fin</label><input type="date" class="input" id="drop-end" value="'+(d.endDate||'')+'"></div><div class="field"><label>Objectif ventes</label><input type="number" class="input" id="drop-goal" value="'+(d.goal||0)+'"></div></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Produits associés</label><select id="drop-products" class="select" multiple style="min-height:180px;">'+productOptions+'</select></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Notes</label><input class="input" id="drop-notes" value="'+(d.notes||'')+'"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveDrop('+(i===null?'null':i)+')">Enregistrer</button></div>');
-}
-function saveDrop(i){
-  var sel=document.getElementById('drop-products');
-  var data={
-    id: i===null ? Date.now() : DB.drops[i].id,
-    name: document.getElementById('drop-name').value,
-    startDate: document.getElementById('drop-start').value,
-    endDate: document.getElementById('drop-end').value,
-    goal: parseInt(document.getElementById('drop-goal').value)||0,
-    productCodes: Array.from(sel.selectedOptions).map(function(o){ return o.value; }),
-    notes: document.getElementById('drop-notes').value
-  };
-  if(!data.name){ toast('Nom requis'); return; }
-  if(i===null) DB.drops.unshift(data); else DB.drops[i]=data;
-  saveDB(); closeModal(); renderDropsCollections(); renderCalendarPlanning();
-}
-function deleteDrop(i){ if(confirm('Supprimer ce drop ?')){ DB.drops.splice(i,1); saveDB(); renderDropsCollections(); renderCalendarPlanning(); } }
-
-// ============================================================
-// COMPTABILITÉ SIMPLIFIÉE
-// ============================================================
-function buildAutoCashflows(){
-  var auto=[];
-  (DB.ventes||[]).forEach(function(v){ auto.push({date:v.date,type:'entrée',category:'Vente',label:(v.canal||'')+' · '+(v.designation||''),amount:(v.pv||0)*(v.qte||1)}); });
-  (DB.bonsCommande||[]).forEach(function(b){ auto.push({date:b.date||today(),type:'sortie',category:'Achat fournisseur',label:b.id+' · '+(b.fournisseur||''),amount:b.total||0}); });
-  (DB.marketSessions||[]).forEach(function(m){ if((m.ca||0)>0) auto.push({date:m.date,type:'entrée',category:'Marché',label:m.city||'Marché',amount:m.ca||0}); if((m.fees||0)>0) auto.push({date:m.date,type:'sortie',category:'Frais marché',label:m.city||'Marché',amount:m.fees||0}); });
-  return auto;
-}
-function allCashflows(){ return buildAutoCashflows().concat(DB.cashflows||[]); }
-function renderCompta(){
-  var flows=allCashflows().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  var entries=flows.filter(function(f){ return f.type==='entrée'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
-  var exits=flows.filter(function(f){ return f.type==='sortie'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
-  var balance=entries-exits;
-  var k=document.getElementById('compta-kpis'); if(!k) return;
-  k.innerHTML='<div class="kpi kpi-success"><div class="kpi-label">Entrées</div><div class="kpi-value">'+fmt(entries)+'</div></div>'+
-    '<div class="kpi kpi-warning"><div class="kpi-label">Sorties</div><div class="kpi-value">'+fmt(exits)+'</div></div>'+
-    '<div class="kpi kpi-accent"><div class="kpi-label">Solde courant</div><div class="kpi-value">'+fmt(balance)+'</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Flux manuels</div><div class="kpi-value">'+(DB.cashflows||[]).length+'</div></div>';
-  var tbody=document.getElementById('cashflow-body');
-  var manual=(DB.cashflows||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  tbody.innerHTML = manual.length ? manual.map(function(f,i){ return '<tr><td>'+formatDate(f.date)+'</td><td><span class="badge '+(f.type==='entrée'?'badge-ok':'badge-warn')+'">'+f.type+'</span></td><td>'+f.category+'</td><td>'+f.label+'</td><td class="r mono">'+fmt(f.amount)+'</td><td><button class="btn-icon" onclick="deleteCashflow('+i+')">🗑</button></td></tr>'; }).join('') : '<tr><td colspan="6" class="empty-state">Aucun flux manuel</td></tr>';
-  var months={}; flows.forEach(function(f){ var m=(f.date||'').slice(0,7); if(!m) return; months[m]=months[m]||0; months[m]+= (f.type==='entrée'?1:-1)*(f.amount||0); });
-  var labels=Object.keys(months).sort();
-  var data=labels.map(function(m){ return months[m]; });
-  var el=document.getElementById('compta-chart'); if(el){ if(el._c){ try{el._c.destroy();}catch(e){} } el._c=new Chart(el,{type:'bar',data:{labels:labels,datasets:[{data:data}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }
-}
-function openAddCashflow(){
-  openModal('<div class="modal-title">Ajouter un flux</div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie">Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><input class="input" id="cf-category" placeholder="Ex: Frais marché"></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Emplacement Cassis"></div></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCashflow()">Enregistrer</button></div>');
-}
-function saveCashflow(){
-  var f={id:Date.now(),date:document.getElementById('cf-date').value,type:document.getElementById('cf-type').value,category:document.getElementById('cf-category').value,label:document.getElementById('cf-label').value,amount:parseFloat(document.getElementById('cf-amount').value)||0};
-  if(!f.date||!f.label||!f.amount){ toast('Champs incomplets'); return; }
-  DB.cashflows.unshift(f); saveDB(); closeModal(); renderCompta();
-}
-function deleteCashflow(i){ if(confirm('Supprimer ce flux ?')){ DB.cashflows.splice(i,1); saveDB(); renderCompta(); } }
-
-// ============================================================
-// JOURNAL MARCHÉS
-// ============================================================
-function renderMarketJournal(){
-  var tbody=document.getElementById('journal-body'); if(!tbody) return;
-  var items=(DB.marketSessions||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  tbody.innerHTML = items.length ? items.map(function(m,i){ return '<tr><td>'+formatDate(m.date)+'</td><td>'+m.city+'</td><td><span class="badge '+(m.status==='Réalisé'?'badge-ok':'badge-info')+'">'+(m.status||'Prévu')+'</span></td><td class="r mono">'+fmt(m.ca||0)+'</td><td>'+ (m.weather||'—') +'</td><td>'+ (m.topProducts||'—') +'</td><td>'+ (m.feedback||'—') +'</td><td><button class="btn-icon" onclick="editMarketSession('+i+')">✏️</button> <button class="btn-icon" onclick="deleteMarketSession('+i+')">🗑</button></td></tr>'; }).join('') : '<tr><td colspan="8" class="empty-state">Aucune session marché</td></tr>';
-}
-function openAddMarketSession(){ openMarketSessionForm(null); }
-function editMarketSession(i){ openMarketSessionForm(i); }
-function openMarketSessionForm(i){
-  var m=i===null?{date:today(),city:'',status:'Prévu',ca:0,fees:0,weather:'',topProducts:'',feedback:'',notes:''}:DB.marketSessions[i];
-  openModal('<div class="modal-title">'+(i===null?'Nouvelle session marché':'Modifier la session')+'</div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="mk-date" value="'+(m.date||today())+'"></div><div class="field"><label>Ville</label><input class="input" id="mk-city" value="'+(m.city||'')+'"></div><div class="field"><label>Statut</label><select class="select" id="mk-status"><option'+((m.status||'')==='Prévu'?' selected':'')+'>Prévu</option><option'+((m.status||'')==='Réalisé'?' selected':'')+'>Réalisé</option></select></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>CA réalisé (€)</label><input type="number" class="input" id="mk-ca" value="'+(m.ca||0)+'" step="0.01"></div><div class="field"><label>Frais marché (€)</label><input type="number" class="input" id="mk-fees" value="'+(m.fees||0)+'" step="0.01"></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Météo</label><input class="input" id="mk-weather" value="'+(m.weather||'')+'"></div><div class="field"><label>Top produits</label><input class="input" id="mk-top" value="'+(m.topProducts||'')+'"></div></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Retours clients</label><input class="input" id="mk-feedback" value="'+(m.feedback||'')+'"></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Notes</label><input class="input" id="mk-notes" value="'+(m.notes||'')+'"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveMarketSession('+(i===null?'null':i)+')">Enregistrer</button></div>');
-}
-function saveMarketSession(i){
-  var m={id:i===null?Date.now():DB.marketSessions[i].id,date:document.getElementById('mk-date').value,city:document.getElementById('mk-city').value,status:document.getElementById('mk-status').value,ca:parseFloat(document.getElementById('mk-ca').value)||0,fees:parseFloat(document.getElementById('mk-fees').value)||0,weather:document.getElementById('mk-weather').value,topProducts:document.getElementById('mk-top').value,feedback:document.getElementById('mk-feedback').value,notes:document.getElementById('mk-notes').value};
-  if(!m.date||!m.city){ toast('Date et ville requises'); return; }
-  if(i===null) DB.marketSessions.unshift(m); else DB.marketSessions[i]=m;
-  saveDB(); closeModal(); renderMarketJournal(); renderCalendarPlanning(); renderCompta();
-}
-function deleteMarketSession(i){ if(confirm('Supprimer cette session ?')){ DB.marketSessions.splice(i,1); saveDB(); renderMarketJournal(); renderCalendarPlanning(); renderCompta(); } }
-
-// ============================================================
-// RETOURS / SAV
-// ============================================================
-function renderSav(){
-  var tbody=document.getElementById('sav-body'); if(!tbody) return;
-  var items=(DB.returnsSav||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  tbody.innerHTML = items.length ? items.map(function(r,i){ return '<tr><td>'+formatDate(r.date)+'</td><td>'+ (r.orderNumber||'—') +'</td><td>'+ (r.productCode||'—') +'</td><td>'+r.reason+'</td><td>'+r.action+'</td><td><span class="badge badge-info">'+r.status+'</span></td><td class="r mono">'+fmt(r.amount||0)+'</td><td><button class="btn-icon" onclick="editReturn('+i+')">✏️</button> <button class="btn-icon" onclick="deleteReturn('+i+')">🗑</button></td></tr>'; }).join('') : '<tr><td colspan="8" class="empty-state">Aucun retour SAV</td></tr>';
-}
-function openAddReturn(){ openReturnForm(null); }
-function editReturn(i){ openReturnForm(i); }
-function openReturnForm(i){
-  var r=i===null?{date:today(),customer:'',orderNumber:'',productCode:'',reason:'Taille',action:'Remboursement',status:'Ouvert',amount:0,note:''}:DB.returnsSav[i];
-  openModal('<div class="modal-title">'+(i===null?'Enregistrer un retour':'Modifier le retour')+'</div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="sav-date" value="'+(r.date||today())+'"></div><div class="field"><label>N° commande</label><input class="input" id="sav-order" value="'+(r.orderNumber||'')+'"></div><div class="field"><label>Code produit</label><input class="input" id="sav-product" value="'+(r.productCode||'')+'"></div></div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Raison</label><select class="select" id="sav-reason"><option'+(r.reason==='Taille'?' selected':'')+'>Taille</option><option'+(r.reason==='Défaut'?' selected':'')+'>Défaut</option><option'+(r.reason==='Délai'?' selected':'')+'>Délai</option><option'+(r.reason==='Autre'?' selected':'')+'>Autre</option></select></div><div class="field"><label>Action</label><select class="select" id="sav-action"><option'+(r.action==='Échange'?' selected':'')+'>Échange</option><option'+(r.action==='Remboursement'?' selected':'')+'>Remboursement</option><option'+(r.action==='Avoir'?' selected':'')+'>Avoir</option></select></div><div class="field"><label>Statut</label><select class="select" id="sav-status"><option'+(r.status==='Ouvert'?' selected':'')+'>Ouvert</option><option'+(r.status==='En cours'?' selected':'')+'>En cours</option><option'+(r.status==='Clôturé'?' selected':'')+'>Clôturé</option></select></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Montant (€)</label><input type="number" class="input" id="sav-amount" value="'+(r.amount||0)+'" step="0.01"></div><div class="field"><label>Client</label><input class="input" id="sav-customer" value="'+(r.customer||'')+'"></div></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Note</label><input class="input" id="sav-note" value="'+(r.note||'')+'"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveReturn('+(i===null?'null':i)+')">Enregistrer</button></div>');
-}
-function saveReturn(i){
-  var r={id:i===null?Date.now():DB.returnsSav[i].id,date:document.getElementById('sav-date').value,customer:document.getElementById('sav-customer').value,orderNumber:document.getElementById('sav-order').value,productCode:document.getElementById('sav-product').value,reason:document.getElementById('sav-reason').value,action:document.getElementById('sav-action').value,status:document.getElementById('sav-status').value,amount:parseFloat(document.getElementById('sav-amount').value)||0,note:document.getElementById('sav-note').value};
-  if(!r.date||!r.reason){ toast('Champs incomplets'); return; }
-  if(i===null) DB.returnsSav.unshift(r); else DB.returnsSav[i]=r;
-  saveDB(); closeModal(); renderSav();
-}
-function deleteReturn(i){ if(confirm('Supprimer ce retour ?')){ DB.returnsSav.splice(i,1); saveDB(); renderSav(); } }
-
 // ============================================================
 // GLOBAL & INIT
 // ============================================================
@@ -1692,13 +1221,7 @@ function exportAllData() {
 function resetAllData() {
   if(!confirm('⚠️ Réinitialiser uniquement les nouvelles saisies et revenir au backup de base ?')) return;
   if(!confirm('Confirmez la réinitialisation. Les ventes et bons de commande ajoutés après le backup seront supprimés.')) return;
-  var keepTheme = (DB.preferences && DB.preferences.theme) || localStorage.getItem('meridies_theme') || 'light';
   restoreCleanResetBackup(true);
-  if(!DB.preferences) DB.preferences = {};
-  DB.preferences.theme = keepTheme;
-  DB.history = [];
-  saveDB();
-  enhanceLoadPostActions();
   toast('Réinitialisation effectuée');
 }
 
@@ -2036,505 +1559,7 @@ function imprimerBC(id){
   setTimeout(function(){ prev.style.display='none'; prev.innerHTML=''; }, 500);
 }
 
-
-// ============================================================
-// UX / IMPORT-EXPORT / THEME / SEARCH / HISTORY / KANBAN
-// ============================================================
-function escapeHtml(s){
-  return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});
-}
-function applyTheme(theme){
-  var t = theme === 'dark' ? 'dark' : 'light';
-  document.body.classList.toggle('dark', t === 'dark');
-  try { localStorage.setItem('meridies_theme', t); } catch(e){}
-  if(!DB.preferences || typeof DB.preferences !== 'object') DB.preferences = {};
-  DB.preferences.theme = t;
-  var chk = document.getElementById('theme-toggle');
-  if(chk) chk.checked = t === 'dark';
-}
-function toggleTheme(){
-  var chk = document.getElementById('theme-toggle');
-  applyTheme(chk && chk.checked ? 'dark' : 'light');
-  saveDB();
-}
-function exportExcelWorkbook(){
-  function sheetTable(headers, rows){
-    return '<table border="1"><tr>' + headers.map(function(h){return '<th>'+escapeHtml(h)+'</th>';}).join('') + '</tr>' +
-      rows.map(function(r){ return '<tr>' + r.map(function(c){return '<td>'+escapeHtml(c)+'</td>';}).join('') + '</tr>'; }).join('') + '</table>';
-  }
-  var sheets = [
-    {name:'Catalogue', html: sheetTable(['Code','Ref','Design','Désignation','Couleur','Taille','PV','PA'], (DB.catalogue||[]).map(function(p){return [p.code,p.ref,p.design,p.designation,p.couleur,p.taille,p.pv,p.pa];}))},
-    {name:'Ventes', html: sheetTable(['Date','Canal','Code','Désignation','Taille','Qté','PV','Total'], (DB.ventes||[]).map(function(v){return [v.date,v.canal,v.code,v.designation,v.taille,v.qte,v.pv,(v.pv||0)*(v.qte||1)];}))},
-    {name:'Fournisseurs', html: sheetTable(['Nom','Contact','Produits'], (DB.fournisseurs||[]).map(function(f){return [f.nom,f.contact,f.typesProduits||f.produits||''];}))},
-    {name:'BC', html: sheetTable(['N°','Date','Fournisseur','Statut','Total'], (DB.bonsCommande||[]).map(function(b){return [b.id,b.date,b.fournisseur,b.statut,b.total];}))},
-    {name:'Todos', html: sheetTable(['Owner','Tâche','Prio','Échéance','Statut'], (DB.todos||[]).map(function(t){return [t.owner,t.task,t.prio,t.due,t.status];}))}
-  ];
-  var workbook = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body>';
-  sheets.forEach(function(s){ workbook += '<h2>'+escapeHtml(s.name)+'</h2>' + s.html + '<br><br>'; });
-  workbook += '</body></html>';
-  var blob = new Blob([workbook], {type:'application/vnd.ms-excel;charset=utf-8;'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'MERIDIES_export_' + today() + '.xls';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  recordAction('Export Excel multi-onglets généré');
-  toast('Export Excel généré');
-}
-function importAllDataFromFile(evt){
-  var file = evt.target.files && evt.target.files[0];
-  if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      var data = JSON.parse(e.target.result);
-      DB = normalizeRestoredDB(data);
-      if(!DB.preferences) DB.preferences = {theme:'light'};
-      saveDB();
-      initDatalists();
-      renderAll();
-      applyTheme(DB.preferences.theme || localStorage.getItem('meridies_theme') || 'light');
-      recordAction('Sauvegarde JSON importée');
-      toast('Sauvegarde importée');
-      goTo('dashboard');
-    }catch(err){
-      console.error(err);
-      toast('Import JSON invalide');
-    } finally {
-      evt.target.value = '';
-    }
-  };
-  reader.readAsText(file, 'utf-8');
-}
-function buildGlobalSearchIndex(q){
-  var term = (q||'').toLowerCase().trim();
-  if(!term) return [];
-  var out = [];
-  (DB.catalogue||[]).forEach(function(p){ var txt = [p.code,p.design,p.designation,p.couleur,p.taille].join(' ').toLowerCase(); if(txt.indexOf(term)>-1) out.push({type:'Article', title:p.code+' — '+p.designation, sub:p.couleur+' · '+p.taille, page:'catalogue'}); });
-  (DB.bonsCommande||[]).forEach(function(b){ var txt = [b.id,b.fournisseur,b.commentaire].join(' ').toLowerCase(); if(txt.indexOf(term)>-1) out.push({type:'Bon de commande', title:b.id+' — '+(b.fournisseur||''), sub:b.statut+' · '+formatDate(b.date), page:'commandes'}); });
-  (DB.fournisseurs||[]).forEach(function(f){ var txt = [f.nom,f.contact,f.typesProduits,f.produits].join(' ').toLowerCase(); if(txt.indexOf(term)>-1) out.push({type:'Fournisseur', title:f.nom, sub:f.typesProduits||f.produits||'', page:'fournisseurs'}); });
-  (DB.todos||[]).forEach(function(t){ var txt = [t.owner,t.task,t.status,t.prio].join(' ').toLowerCase(); if(txt.indexOf(term)>-1) out.push({type:'Tâche', title:t.task, sub:(t.owner||'')+' · '+(t.status||''), page:'todo'}); });
-  return out.slice(0,10);
-}
-function runGlobalSearch(q){
-  var box = document.getElementById('global-search-results');
-  if(!box) return;
-  var results = buildGlobalSearchIndex(q);
-  if(!q || !results.length){ box.classList.remove('open'); box.innerHTML=''; return; }
-  box.innerHTML = results.map(function(r){
-    return '<div class="search-result-item" onclick="goTo(\''+r.page+'\');document.getElementById(\'global-search-results\').classList.remove(\'open\');">' +
-      '<div class="search-result-type">'+escapeHtml(r.type)+'</div>' +
-      '<div style="font-weight:600">'+escapeHtml(r.title)+'</div>' +
-      '<div style="font-size:12px;color:var(--muted)">'+escapeHtml(r.sub)+'</div>' +
-    '</div>';
-  }).join('');
-  box.classList.add('open');
-}
-document.addEventListener('click', function(e){
-  var wrap = document.querySelector('.topbar-search');
-  if(wrap && !wrap.contains(e.target)){
-    var box = document.getElementById('global-search-results');
-    if(box) box.classList.remove('open');
-  }
-});
-var __gShortcut = false, __gTimer = null;
-function handleShortcuts(e){
-  if(e.target && ['INPUT','TEXTAREA','SELECT'].includes((e.target.tagName||''))) return;
-  var key = (e.key||'').toLowerCase();
-  if(key === 'g'){
-    __gShortcut = true;
-    clearTimeout(__gTimer);
-    __gTimer = setTimeout(function(){ __gShortcut = false; }, 1000);
-    return;
-  }
-  if(!__gShortcut) return;
-  var map = {d:'dashboard', v:'saisie-vente', c:'catalogue', b:'commandes', f:'fournisseurs', t:'todo', p:'calendar', r:'drops', j:'journal', s:'sav', h:'history'};
-  if(map[key]){
-    e.preventDefault();
-    goTo(map[key]);
-  }
-  __gShortcut = false;
-}
-document.addEventListener('keydown', handleShortcuts, true);
-
-function recordAction(msg){
-  if(!DB.history) DB.history = [];
-  DB.history.unshift({at:new Date().toISOString(), msg:msg});
-  DB.history = DB.history.slice(0,80);
-  try{ localStorage.setItem('meridies_db', JSON.stringify(DB)); }catch(e){}
-}
-function renderHistory(){
-  var el = document.getElementById('history-list');
-  if(!el) return;
-  var items = DB.history || [];
-  el.innerHTML = items.length ? items.map(function(h){
-    return '<div class="history-item"><span class="history-time">'+new Date(h.at).toLocaleString('fr-FR')+'</span>'+escapeHtml(h.msg)+'</div>';
-  }).join('') : '<div class="empty-state"><div class="icon">🕘</div>Aucune action enregistrée</div>';
-}
-function clearHistory(){
-  if(!confirm('Vider l’historique des actions ?')) return;
-  DB.history = [];
-  saveDB();
-  renderHistory();
-  toast('Historique vidé');
-}
-function getAlertCounts(){
-  var dtf = (DB.stockDTF||[]).filter(function(d){ return (d.stock||0) <= (d.seuil||3); }).length;
-  var vierge = (DB.stockVierge||[]).filter(function(v){ return ((v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0)) <= (v.seuil||3); }).length;
-  var fini = (DB.stockFini||[]).filter(function(f){ return (f.stock||0) <= (f.seuil||2); }).length;
-  return {dtf:dtf, vierge:vierge, fini:fini, total:dtf+vierge+fini};
-}
-function renderAlertSummary(){
-  var host = document.getElementById('dash-alert-summary');
-  if(!host) return;
-  var a = getAlertCounts();
-  host.innerHTML =
-    '<div class="alert-pill '+(a.total?'warn':'ok')+'">Résumé alertes: '+a.total+'</div>' +
-    '<div class="alert-pill '+(a.vierge?'warn':'ok')+'">Vierges: '+a.vierge+'</div>' +
-    '<div class="alert-pill '+(a.dtf?'warn':'ok')+'">DTF: '+a.dtf+'</div>' +
-    '<div class="alert-pill '+(a.fini?'warn':'ok')+'">Produits finis: '+a.fini+'</div>';
-}
-function maybeShowAlertToast(){
-  var a = getAlertCounts();
-  if(a.total>0) toast('⚠️ ' + a.total + ' alertes stock à vérifier');
-}
-function renderTodosKanban(items){
-  var board = document.getElementById('todo-kanban-board');
-  if(!board) return;
-  var statuses = ['A TRAITER','EN COURS','EN ATTENTE','TERMINER'];
-  board.innerHTML = statuses.map(function(status){
-    var cards = items.filter(function(t){ return (t.status||'')===status; }).map(function(t){
-      var idx = DB.todos.indexOf(t);
-      return '<div class="kanban-card" draggable="true" data-idx="'+idx+'"><div style="font-weight:600">'+escapeHtml(t.task)+'</div><div class="kanban-meta">'+escapeHtml(t.owner||'')+' · '+escapeHtml(t.prio||'')+' · '+(t.due?formatDate(t.due):'Sans date')+'</div></div>';
-    }).join('') || '<div style="font-size:12px;color:var(--muted);padding:6px;">Aucune tâche</div>';
-    return '<div class="kanban-col" data-status="'+status+'"><h4>'+status+'</h4>'+cards+'</div>';
-  }).join('');
-  board.querySelectorAll('.kanban-card').forEach(function(card){
-    card.addEventListener('dragstart', function(){ card.classList.add('dragging'); });
-    card.addEventListener('dragend', function(){ card.classList.remove('dragging'); });
-  });
-  board.querySelectorAll('.kanban-col').forEach(function(col){
-    col.addEventListener('dragover', function(e){ e.preventDefault(); });
-    col.addEventListener('drop', function(e){
-      e.preventDefault();
-      var drag = board.querySelector('.kanban-card.dragging');
-      if(!drag) return;
-      var idx = parseInt(drag.getAttribute('data-idx'),10);
-      DB.todos[idx].status = col.getAttribute('data-status');
-      saveDB();
-      recordAction('Tâche "' + DB.todos[idx].task + '" déplacée vers ' + DB.todos[idx].status);
-      renderTodos();
-    });
-  });
-}
-var _origRenderTodos = renderTodos;
-renderTodos = function(){
-  var filter = document.getElementById('todo-filter') ? document.getElementById('todo-filter').value : '';
-  var items = (DB.todos||[]).filter(function(t){ return !filter || t.status === filter; });
-  var mode = document.getElementById('todo-view-mode') ? document.getElementById('todo-view-mode').value : 'table';
-  var table = document.getElementById('todo-table-view');
-  var kanban = document.getElementById('todo-kanban-view');
-  if(mode === 'kanban'){
-    if(table) table.style.display = 'none';
-    if(kanban) kanban.style.display = 'block';
-    renderTodosKanban(items);
-  } else {
-    if(table) table.style.display = 'block';
-    if(kanban) kanban.style.display = 'none';
-    _origRenderTodos();
-  }
-};
-
-function patchActionWrappers(){
-  function wrap(name, handler){
-    if(typeof window[name] !== 'function' || window[name].__wrapped) return;
-    var orig = window[name];
-    window[name] = function(){ return handler(orig, arguments); };
-    window[name].__wrapped = true;
-  }
-  wrap('saveProduct', function(orig,args){ var idx=args[0], code=(DB.catalogue[idx]||{}).code||''; var r=orig.apply(this,args); recordAction('Produit '+code+' mis à jour'); return r; });
-  wrap('addProduct', function(orig,args){ var r=orig.apply(this,args); recordAction('Produit ajouté au catalogue'); return r; });
-  wrap('addSV', function(orig,args){ var ref=document.getElementById('nsv-ref')&&document.getElementById('nsv-ref').value; var r=orig.apply(this,args); recordAction('Stock vierge '+(ref||'')+' ajouté'); return r; });
-  wrap('updateSV', function(orig,args){ var i=args[0], field=args[1], val=args[2], ref=(DB.stockVierge[i]||{}).ref||''; var r=orig.apply(this,args); recordAction('Stock vierge '+ref+' modifié ('+field+' = '+val+')'); return r; });
-  wrap('addSD', function(orig,args){ var ref=document.getElementById('nsd-ref')&&document.getElementById('nsd-ref').value; var r=orig.apply(this,args); recordAction('Design DTF '+(ref||'')+' ajouté'); return r; });
-  wrap('addSF', function(orig,args){ var code=document.getElementById('nsf-code')&&document.getElementById('nsf-code').value; var r=orig.apply(this,args); recordAction('Produit fini '+(code||'')+' assemblé'); return r; });
-  wrap('enregistrerVente', function(orig,args){ var code=document.getElementById('vente-code')&&document.getElementById('vente-code').value; var qte=document.getElementById('vente-qte')&&document.getElementById('vente-qte').value; var r=orig.apply(this,args); recordAction('Vente enregistrée '+(code||'')+' x'+(qte||1)); return r; });
-  wrap('deleteVente', function(orig,args){ var id=args[0]; var r=orig.apply(this,args); recordAction('Vente '+id+' supprimée'); return r; });
-  wrap('saveFournisseur', function(orig,args){ var nom=document.getElementById('nf-nom')&&document.getElementById('nf-nom').value; var r=orig.apply(this,args); recordAction('Fournisseur '+(nom||'')+' enregistré'); return r; });
-  wrap('validerBC', function(orig,args){ var r=orig.apply(this,args); recordAction('Bon de commande créé'); return r; });
-  wrap('deleteBC', function(orig,args){ var i=args[0], id=(DB.bonsCommande[i]||{}).id||''; var r=orig.apply(this,args); recordAction('Bon de commande '+id+' supprimé'); return r; });
-  wrap('confirmerReception', function(orig,args){ var id=currentRecepBCId; var r=orig.apply(this,args); recordAction('Réception enregistrée pour '+(id||'')); return r; });
-  wrap('addTodo', function(orig,args){ var task=document.getElementById('nt-task')&&document.getElementById('nt-task').value; var r=orig.apply(this,args); recordAction('Tâche créée : '+(task||'')); return r; });
-  wrap('deleteTodo', function(orig,args){ var i=args[0], task=(DB.todos[i]||{}).task||''; var r=orig.apply(this,args); recordAction('Tâche supprimée : '+task); return r; });
-  wrap('addDrop', function(orig,args){ var r=orig.apply(this,args); recordAction('Drop enregistré'); return r; });
-  wrap('addCashflow', function(orig,args){ var r=orig.apply(this,args); recordAction('Flux de trésorerie ajouté'); return r; });
-  wrap('addMarketSession', function(orig,args){ var r=orig.apply(this,args); recordAction('Session marché ajoutée'); return r; });
-  wrap('addReturn', function(orig,args){ var r=orig.apply(this,args); recordAction('Retour SAV enregistré'); return r; });
-}
-var _origRenderDashboard = renderDashboard;
-renderDashboard = function(){
-  _origRenderDashboard();
-  var grid = document.getElementById('dash-kpis');
-  if(grid && !document.getElementById('dash-alert-summary')){
-    var host = document.createElement('div');
-    host.id = 'dash-alert-summary';
-    host.className = 'alert-summary';
-    grid.parentNode.insertBefore(host, grid.nextSibling);
-  }
-  renderAlertSummary();
-}
-var _origGoTo = goTo;
-goTo = function(page){
-  _origGoTo(page);
-  if(page === 'history') renderHistory();
-};
-
-function enhanceLoadPostActions(){
-  applyTheme((DB.preferences && DB.preferences.theme) || localStorage.getItem('meridies_theme') || 'light');
-  patchActionWrappers();
-  renderHistory();
-  maybeShowAlertToast();
-  document.querySelectorAll('#page-stock-vierge table, #page-stock-dtf table, #page-stock-fini table').forEach(function(t){ t.classList.add('stock-align'); });
-}
-
-
-
-// ============================================================
-// ENHANCEMENTS: RÔLES / PILOTAGE / CRM / BACKUPS / MARCHÉS+
-// ============================================================
-function ensureEnhancementDefaults(){
-  if(!Array.isArray(DB.clients)) DB.clients = [];
-  if(!Array.isArray(DB.backups)) DB.backups = [];
-  if(!DB.preferences || typeof DB.preferences !== 'object') DB.preferences = {theme:'light', role:'admin'};
-  if(!DB.preferences.role) DB.preferences.role = 'admin';
-  (DB.marketSessions||[]).forEach(function(m){
-    if(m.openingCash == null) m.openingCash = 0;
-    if(m.closingCash == null) m.closingCash = 0;
-    if(m.visitors == null) m.visitors = 0;
-    if(!m.team) m.team = '';
-    if(!m.nextActions) m.nextActions = '';
-  });
-}
-var __origSaveDB = saveDB;
-saveDB = function(reason){
-  ensureEnhancementDefaults();
-  __origSaveDB();
-  storeBackupSnapshot(reason || 'Sauvegarde automatique');
-};
-var __origLoadDB = loadDB;
-loadDB = async function(){
-  await __origLoadDB();
-  ensureEnhancementDefaults();
-  applyRolePreferences();
-  renderPilotage();
-  renderClients();
-  renderBackups();
-};
-var __origBuildGlobalSearchIndex = buildGlobalSearchIndex;
-buildGlobalSearchIndex = function(q){
-  var out = __origBuildGlobalSearchIndex(q) || [];
-  var term = (q||'').toLowerCase().trim();
-  (DB.clients||[]).forEach(function(c){
-    var txt = [c.name,c.email,c.phone,c.notes].join(' ').toLowerCase();
-    if(term && txt.indexOf(term)>-1) out.push({type:'Client', title:(c.name||c.email||'Client'), sub:(c.email||'')+' '+(c.phone||''), page:'clients'});
-  });
-  (DB.marketSessions||[]).forEach(function(m){
-    var txt = [m.city,m.weather,m.feedback,m.notes,m.topProducts].join(' ').toLowerCase();
-    if(term && txt.indexOf(term)>-1) out.push({type:'Marché', title:(m.city||'Marché')+' · '+formatDate(m.date), sub:(m.status||'')+' · '+fmt(m.ca||0), page:'journal'});
-  });
-  return out.slice(0,12);
-};
-function changeRole(role){
-  if(!DB.preferences) DB.preferences = {theme:'light', role:'admin'};
-  DB.preferences.role = role || 'admin';
-  try{ localStorage.setItem('meridies_role', DB.preferences.role); }catch(e){}
-  applyRolePreferences();
-  saveDB('Rôle changé en ' + DB.preferences.role);
-  recordAction('Rôle actif : ' + DB.preferences.role);
-  toast('Mode ' + DB.preferences.role + ' activé');
-}
-function applyRolePreferences(){
-  var role = (DB.preferences && DB.preferences.role) || localStorage.getItem('meridies_role') || 'admin';
-  if(!DB.preferences) DB.preferences = {};
-  DB.preferences.role = role;
-  var sel = document.getElementById('role-select');
-  if(sel) sel.value = role;
-  var hiddenByRole = {
-    terrain: ['fournisseurs','commandes','backups'],
-    logistique: ['compta','clients'],
-    compta: ['stock-vierge','stock-dtf','stock-fini','journal']
-  };
-  document.querySelectorAll('.nav-item').forEach(function(item){ item.style.display='flex'; });
-  (hiddenByRole[role]||[]).forEach(function(page){
-    document.querySelectorAll('.nav-item').forEach(function(item){
-      var oc = item.getAttribute('onclick')||'';
-      if(oc.indexOf("'"+page+"'")>-1) item.style.display='none';
-    });
-  });
-}
-function storeBackupSnapshot(reason){
-  ensureEnhancementDefaults();
-  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Autosave', data: JSON.parse(JSON.stringify(DB)) };
-  DB.backups = DB.backups || [];
-  DB.backups.unshift(snap);
-  DB.backups = DB.backups.slice(0,8);
-  try{ localStorage.setItem('meridies_db', JSON.stringify(DB)); }catch(e){}
-  renderBackups();
-}
-function makeManualBackup(){
-  storeBackupSnapshot('Point manuel');
-  recordAction('Point de sauvegarde manuel créé');
-  toast('Point de sauvegarde créé');
-}
-function restoreBackupSnapshot(id){
-  var snap = (DB.backups||[]).find(function(b){ return b.id===id; });
-  if(!snap) return toast('Sauvegarde introuvable');
-  if(!confirm('Restaurer la sauvegarde du ' + new Date(snap.at).toLocaleString('fr-FR') + ' ?')) return;
-  DB = normalizeRestoredDB(snap.data);
-  ensureEnhancementDefaults();
-  __origSaveDB();
-  initDatalists();
-  renderAll();
-  renderPilotage(); renderClients(); renderBackups();
-  applyRolePreferences();
-  recordAction('Sauvegarde restaurée : ' + new Date(snap.at).toLocaleString('fr-FR'));
-  toast('Sauvegarde restaurée');
-}
-function undoLastSnapshot(){
-  var snaps = DB.backups||[];
-  if(snaps.length<2) return toast('Pas assez de sauvegardes');
-  restoreBackupSnapshot(snaps[1].id);
-}
-function renderBackups(){
-  var el = document.getElementById('backups-list'); if(!el) return;
-  var items = DB.backups||[];
-  el.innerHTML = items.length ? items.map(function(b,idx){
-    return '<div class="backup-item"><div><div style="font-weight:600">'+new Date(b.at).toLocaleString('fr-FR')+'</div><div style="font-size:12px;color:var(--muted)">'+escapeHtml(b.reason||'Autosave')+(idx===0?' · la plus récente':'')+'</div></div><div><button class="btn btn-secondary btn-sm" onclick="restoreBackupSnapshot('+b.id+')">Restaurer</button></div></div>';
-  }).join('') : '<div class="empty-state"><div class="icon">💾</div>Aucune sauvegarde locale</div>';
-}
-function getPilotageData(){
-  var salesByCode = {};
-  (DB.ventes||[]).forEach(function(v){ salesByCode[v.code]=(salesByCode[v.code]||0)+(v.qte||1); });
-  var rows = (DB.catalogue||[]).map(function(p){
-    var sold = salesByCode[p.code]||0;
-    var revenue = sold*(p.pv||0);
-    var cost = sold*(p.pa||0);
-    var margin = revenue-cost;
-    var sf = (DB.stockFini||[]).find(function(f){return f.code===p.code;});
-    var stock = sf ? (sf.stock||0) : 0;
-    return {code:p.code, designation:p.designation, sold:sold, revenue:revenue, margin:margin, stock:stock, pa:p.pa||0, pv:p.pv||0};
-  });
-  var totalRevenue = rows.reduce(function(s,r){return s+r.revenue;},0);
-  var totalMargin = rows.reduce(function(s,r){return s+r.margin;},0);
-  var dormant = rows.filter(function(r){return r.sold===0 && r.stock>0;});
-  var reorder = (DB.stockDTF||[]).filter(function(d){ return (d.stock||0) <= (d.seuil||3); }).map(function(d){ return 'DTF '+d.ref+' à recommander'; })
-    .concat((DB.stockVierge||[]).filter(function(v){ return ((v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0)) <= (v.seuil||3); }).map(function(v){ return 'Vierge '+v.ref+' '+v.couleur+' sous seuil'; }));
-  return {rows:rows,totalRevenue:totalRevenue,totalMargin:totalMargin,dormant:dormant,reorder:reorder};
-}
-function renderPilotage(){
-  var el = document.getElementById('pilotage-content'); if(!el) return;
-  var data = getPilotageData();
-  var top = data.rows.slice().sort(function(a,b){ return b.margin-a.margin; }).slice(0,8);
-  var marketCount = (DB.marketSessions||[]).length;
-  var totalCash = computeAutoCashflows().reduce(function(s,f){return s + (f.type==='Entrée'?f.amount:-f.amount);},0) + (DB.cashflows||[]).reduce(function(s,f){return s + (f.type==='Entrée'?f.amount:-f.amount);},0);
-  el.innerHTML =
-    '<div class="metric-row">'+
-      '<div class="metric-box"><div class="label">CA cumulé</div><div class="value">'+fmt(data.totalRevenue)+'</div></div>'+
-      '<div class="metric-box"><div class="label">Marge estimée</div><div class="value">'+fmt(data.totalMargin)+'</div></div>'+
-      '<div class="metric-box"><div class="label">Marchés suivis</div><div class="value">'+marketCount+'</div></div>'+
-      '<div class="metric-box"><div class="label">Solde courant</div><div class="value">'+fmt(totalCash)+'</div></div>'+
-    '</div>'+
-    '<div class="pilot-grid">'+
-      '<div><div class="card"><div class="card-header"><span class="card-title">Top produits par marge</span></div><div class="table-wrap"><table><thead><tr><th>Produit</th><th class="r">Vendus</th><th class="r">CA</th><th class="r">Marge</th><th class="r">Stock</th></tr></thead><tbody>'+
-      (top.length?top.map(function(r){return '<tr><td>'+escapeHtml(r.designation)+'</td><td class="r">'+r.sold+'</td><td class="r mono">'+fmt(r.revenue)+'</td><td class="r mono">'+fmt(r.margin)+'</td><td class="r">'+r.stock+'</td></tr>';}).join(''):'<tr><td colspan="5" class="empty-state">Pas assez de ventes</td></tr>')+
-      '</tbody></table></div></div>'+
-      '<div class="card"><div class="card-header"><span class="card-title">Produits dormants</span></div>'+
-      (data.dormant.length?'<div class="reco-list">'+data.dormant.slice(0,10).map(function(r){return '<div class="reco-item">'+escapeHtml(r.designation)+' · stock '+r.stock+'</div>';}).join('')+'</div>':'<div class="empty-state"><div class="icon">✨</div>Aucun produit dormant</div>')+
-      '</div></div>'+
-      '<div><div class="card"><div class="card-header"><span class="card-title">Automatisations / suggestions</span></div>'+
-      '<div class="reco-list">'+
-      (data.reorder.length?data.reorder.map(function(r){return '<div class="reco-item">'+escapeHtml(r)+'</div>';}).join(''):'<div class="reco-item">Aucune recommandation de réassort.</div>')+
-      ((DB.drops||[]).filter(function(d){return d.startDate && d.startDate >= today();}).slice(0,3).map(function(d){return '<div class="reco-item">Préparer le drop <strong>'+escapeHtml(d.name)+'</strong> · objectif '+fmt(d.goal||0)+'</div>';}).join(''))+
-      '</div></div>'+
-      '<div class="card"><div class="card-header"><span class="card-title">Rôle actif</span></div><div class="role-chip">'+escapeHtml((DB.preferences&&DB.preferences.role)||'admin')+'</div><p style="font-size:12px;color:var(--muted);margin-top:10px;">Adapte les vues pour le terrain, la logistique ou la compta.</p></div></div>'+
-    '</div>';
-}
-function renderClients(){
-  var el=document.getElementById('clients-grid'); if(!el) return;
-  var map={};
-  (DB.ventes||[]).forEach(function(v){ if(!v.email) return; if(!map[v.email]) map[v.email]={email:v.email,name:v.email.split('@')[0],orders:0,spent:0,lastDate:v.date||'',notes:'',phone:''}; map[v.email].orders += 1; map[v.email].spent += (v.pv||0)*(v.qte||1); if((v.date||'') > map[v.email].lastDate) map[v.email].lastDate=v.date||''; });
-  (DB.clients||[]).forEach(function(c){ var k=c.email||('manual_'+c.id); map[k]=Object.assign(map[k]||{orders:0,spent:0,lastDate:''}, c); });
-  var items=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){ return (b.spent||0)-(a.spent||0); });
-  el.innerHTML = items.length ? items.map(function(c,idx){
-    return '<div class="client-card"><div style="display:flex;justify-content:space-between;gap:8px;"><div><div style="font-weight:700">'+escapeHtml(c.name||c.email||'Client')+'</div><div style="font-size:12px;color:var(--muted)">'+escapeHtml(c.email||'')+(c.phone?' · '+escapeHtml(c.phone):'')+'</div></div><button class="btn btn-secondary btn-xs" onclick="openAddClient('+(c.id||0)+')">Éditer</button></div><div class="metric-row" style="grid-template-columns:repeat(3,1fr);margin-top:10px;"><div class="metric-box"><div class="label">Commandes</div><div class="value" style="font-size:18px">'+(c.orders||0)+'</div></div><div class="metric-box"><div class="label">Dépensé</div><div class="value" style="font-size:18px">'+fmt(c.spent||0)+'</div></div><div class="metric-box"><div class="label">Dernière</div><div class="value" style="font-size:14px">'+(c.lastDate?formatDate(c.lastDate):'—')+'</div></div></div><div style="font-size:12px;color:var(--muted);margin-top:8px;">'+escapeHtml(c.notes||'Aucune note')+'</div></div>';
-  }).join('') : '<div class="empty-state"><div class="icon">👥</div>Aucun client identifié</div>';
-}
-function openAddClient(id){
-  var c = (DB.clients||[]).find(function(x){return x.id===id;}) || {id:null,name:'',email:'',phone:'',notes:''};
-  openModal('<div class="modal-title">'+(c.id?'Modifier un client':'Nouveau client')+'</div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Nom</label><input class="input" id="cl-name" value="'+escapeHtml(c.name)+'"></div><div class="field"><label>Email</label><input class="input" id="cl-email" value="'+escapeHtml(c.email)+'"></div></div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Téléphone</label><input class="input" id="cl-phone" value="'+escapeHtml(c.phone)+'"></div><div class="field"><label>Tags</label><input class="input" id="cl-tags" value="'+escapeHtml((c.tags||[]).join(', '))+'"></div></div><div class="field" style="margin-bottom:14px;"><label>Notes</label><input class="input" id="cl-notes" value="'+escapeHtml(c.notes)+'"></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveClient('+(c.id||'null')+')">Enregistrer</button></div>');
-}
-function saveClient(id){
-  var c={id:id||Date.now(),name:document.getElementById('cl-name').value,email:document.getElementById('cl-email').value,phone:document.getElementById('cl-phone').value,notes:document.getElementById('cl-notes').value,tags:(document.getElementById('cl-tags').value||'').split(',').map(function(t){return t.trim();}).filter(Boolean)};
-  if(!c.name && !c.email) return toast('Nom ou email requis');
-  var idx=(DB.clients||[]).findIndex(function(x){return x.id===c.id;});
-  if(idx>-1) DB.clients[idx]=c; else DB.clients.unshift(c);
-  saveDB('Client enregistré'); closeModal(); renderClients(); recordAction('Client ' + (c.name||c.email) + ' enregistré'); toast('Client enregistré');
-}
-var __origEditProduct = editProduct;
-editProduct = function(idx){
-  var p = DB.catalogue[idx];
-  var sold = (DB.ventes||[]).filter(function(v){return v.code===p.code;}).reduce(function(s,v){return s+(v.qte||1);},0);
-  var ca = (DB.ventes||[]).filter(function(v){return v.code===p.code;}).reduce(function(s,v){return s+((v.pv||0)*(v.qte||1));},0);
-  var fini = (DB.stockFini||[]).find(function(f){return f.code===p.code;});
-  openModal('<div class="modal-title">Fiche produit</div><div class="modal-sub">'+escapeHtml(p.code)+'</div><div class="metric-row" style="grid-template-columns:repeat(3,1fr);"><div class="metric-box"><div class="label">Vendus</div><div class="value" style="font-size:18px">'+sold+'</div></div><div class="metric-box"><div class="label">CA généré</div><div class="value" style="font-size:18px">'+fmt(ca)+'</div></div><div class="metric-box"><div class="label">Stock fini</div><div class="value" style="font-size:18px">'+((fini&&fini.stock)||0)+'</div></div></div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>PV (€)</label><input type="number" class="input" id="edit-pv" value="'+p.pv+'" step="0.01"></div><div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="edit-pa" value="'+(p.pa||'')+'" step="0.01"></div></div><div class="field" style="margin-bottom:14px;"><label>Storytelling / notes produit</label><input class="input" id="edit-story" value="'+escapeHtml(p.story||'')+'" placeholder="Angle com, bénéfices, remarques"></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveProductEnhanced('+idx+')">Enregistrer</button></div>');
-};
-function saveProductEnhanced(idx){
-  DB.catalogue[idx].pv = parseFloat(document.getElementById('edit-pv').value)||0;
-  DB.catalogue[idx].pa = parseFloat(document.getElementById('edit-pa').value)||0;
-  DB.catalogue[idx].story = document.getElementById('edit-story').value||'';
-  saveDB('Fiche produit mise à jour'); closeModal(); renderCatalogue(); renderPilotage(); recordAction('Produit '+DB.catalogue[idx].code+' mis à jour'); toast('Produit mis à jour');
-}
-var __origOpenMarketSessionForm = openMarketSessionForm;
-openMarketSessionForm = function(i){
-  var m=i===null?{date:today(),city:'',status:'Prévu',ca:0,fees:0,weather:'',topProducts:'',feedback:'',notes:'',openingCash:0,closingCash:0,visitors:0,team:'',nextActions:''}:DB.marketSessions[i];
-  openModal('<div class="modal-title">'+(i===null?'Nouvelle session marché':'Modifier la session')+'</div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="mk-date" value="'+(m.date||today())+'"></div><div class="field"><label>Ville</label><input class="input" id="mk-city" value="'+escapeHtml(m.city||'')+'"></div><div class="field"><label>Statut</label><select class="select" id="mk-status"><option'+((m.status||'')==='Prévu'?' selected':'')+'>Prévu</option><option'+((m.status||'')==='Réalisé'?' selected':'')+'>Réalisé</option></select></div></div>'+
-    '<div class="grid4" style="margin-bottom:12px;"><div class="field"><label>CA (€)</label><input type="number" class="input" id="mk-ca" value="'+(m.ca||0)+'" step="0.01"></div><div class="field"><label>Frais (€)</label><input type="number" class="input" id="mk-fees" value="'+(m.fees||0)+'" step="0.01"></div><div class="field"><label>Fond caisse départ</label><input type="number" class="input" id="mk-open" value="'+(m.openingCash||0)+'" step="0.01"></div><div class="field"><label>Caisse fin</label><input type="number" class="input" id="mk-close" value="'+(m.closingCash||0)+'" step="0.01"></div></div>'+
-    '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Météo</label><input class="input" id="mk-weather" value="'+escapeHtml(m.weather||'')+'"></div><div class="field"><label>Affluence / visiteurs</label><input type="number" class="input" id="mk-visitors" value="'+(m.visitors||0)+'"></div><div class="field"><label>Équipe</label><input class="input" id="mk-team" value="'+escapeHtml(m.team||'')+'"></div></div>'+
-    '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Top produits</label><input class="input" id="mk-top" value="'+escapeHtml(m.topProducts||'')+'"></div><div class="field"><label>Retours clients</label><input class="input" id="mk-feedback" value="'+escapeHtml(m.feedback||'')+'"></div></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Notes terrain</label><input class="input" id="mk-notes" value="'+escapeHtml(m.notes||'')+'"></div>'+
-    '<div class="field" style="margin-bottom:12px;"><label>Actions à faire après marché</label><input class="input" id="mk-next" value="'+escapeHtml(m.nextActions||'')+'"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveMarketSession('+(i===null?'null':i)+')">Enregistrer</button></div>');
-};
-saveMarketSession = function(i){
-  var prev = i===null ? null : DB.marketSessions[i];
-  var m={id:i===null?Date.now():DB.marketSessions[i].id,date:document.getElementById('mk-date').value,city:document.getElementById('mk-city').value,status:document.getElementById('mk-status').value,ca:parseFloat(document.getElementById('mk-ca').value)||0,fees:parseFloat(document.getElementById('mk-fees').value)||0,weather:document.getElementById('mk-weather').value,topProducts:document.getElementById('mk-top').value,feedback:document.getElementById('mk-feedback').value,notes:document.getElementById('mk-notes').value,openingCash:parseFloat(document.getElementById('mk-open').value)||0,closingCash:parseFloat(document.getElementById('mk-close').value)||0,visitors:parseInt(document.getElementById('mk-visitors').value)||0,team:document.getElementById('mk-team').value,nextActions:document.getElementById('mk-next').value};
-  if(!m.date||!m.city){ toast('Date et ville requises'); return; }
-  if(i===null) DB.marketSessions.unshift(m); else DB.marketSessions[i]=m;
-  saveDB('Session marché enregistrée'); closeModal(); renderMarketJournal(); renderCalendarPlanning(); renderCompta(); renderPilotage();
-  recordAction('Session marché '+m.city+' du '+formatDate(m.date)+' enregistrée');
-  toast('Session marché enregistrée');
-};
-renderMarketJournal = function(){
-  var tbody=document.getElementById('journal-body'); if(!tbody) return;
-  var items=(DB.marketSessions||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  tbody.innerHTML = items.length ? items.map(function(m,i){ var delta=((m.closingCash||0)-(m.openingCash||0)); return '<tr><td>'+formatDate(m.date)+'</td><td>'+escapeHtml(m.city)+'</td><td><span class="badge '+(m.status==='Réalisé'?'badge-ok':'badge-info')+'">'+escapeHtml(m.status||'Prévu')+'</span></td><td class="r mono">'+fmt(m.ca||0)+'</td><td>'+escapeHtml(m.weather||'—')+'</td><td>'+escapeHtml(m.topProducts||'—')+'</td><td>'+escapeHtml(m.feedback||'—')+'</td><td><button class="btn-icon" onclick="editMarketSession('+i+')">✏️</button> <button class="btn-icon" onclick="deleteMarketSession('+i+')">🗑</button></td></tr><tr><td colspan="8" style="background:var(--surface2);font-size:12px;color:var(--muted);">Équipe: '+escapeHtml(m.team||'—')+' · Visiteurs: '+(m.visitors||0)+' · Δ caisse: '+fmt(delta)+' · Actions: '+escapeHtml(m.nextActions||'—')+'</td></tr>'; }).join('') : '<tr><td colspan="8" class="empty-state">Aucune session marché</td></tr>';
-};
-function renderRoleAwareAlert(){
-  var role = (DB.preferences&&DB.preferences.role)||'admin';
-  if(role==='terrain' && (DB.marketSessions||[]).length){
-    var upcoming=(DB.marketSessions||[]).filter(function(m){return (m.date||'')>=today();}).sort(function(a,b){return (a.date||'').localeCompare(b.date||'');})[0];
-    if(upcoming) toast('Prochain marché : '+upcoming.city+' le '+formatDate(upcoming.date));
-  }
-}
-var __origRenderDashboard = renderDashboard;
-renderDashboard = function(){ __origRenderDashboard(); renderAlertSummary(); };
-var __origGoTo = goTo;
-goTo = function(page){ __origGoTo(page); if(page==='pilotage') renderPilotage(); if(page==='clients') renderClients(); if(page==='backups') renderBackups(); };
-var __origRenderAll = renderAll;
-renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); renderBackups(); };
-
 document.addEventListener('DOMContentLoaded', function() {
-  applyTheme(localStorage.getItem('meridies_theme') || 'light');
   if (sessionStorage.getItem('meridies_authed') !== '1') {
     document.getElementById('lock-screen').style.display = 'flex';
     setTimeout(function(){ var el=document.getElementById('lock-input'); if(el)el.focus(); }, 100);
