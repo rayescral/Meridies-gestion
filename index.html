@@ -1791,7 +1791,7 @@ function restoreEmbeddedBackup(forceSupabaseSync) {
   if (typeof renderSaleCart === 'function') { currentSaleItems=[]; renderSaleCart(); }
   if (typeof goTo === 'function') goTo('dashboard');
   if (forceSupabaseSync) {
-    supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
+    supabase.from('app_state').update({ data: DB, updated_at: new Date().toISOString() }).eq('id', 1)
       .then(function(r) {
         setStatus(!r.error);
         if (!r.error) subscribeRealtime();
@@ -1817,7 +1817,7 @@ function restoreCleanResetBackup(forceSupabaseSync) {
   if (typeof renderSaleCart === 'function') { currentSaleItems=[]; renderSaleCart(); }
   if (typeof goTo === 'function') goTo('dashboard');
   if (forceSupabaseSync) {
-    supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
+    supabase.from('app_state').update({ data: DB, updated_at: new Date().toISOString() }).eq('id', 1)
       .then(function(r) {
         setStatus(!r.error);
         if (!r.error) subscribeRealtime();
@@ -1883,7 +1883,7 @@ async function loadDB() {
     DB = normalizeRestoredDB(EMBEDDED_BACKUP);
     try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e3) {}
     try {
-      await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
+      await supabase.from('app_state').insert({ id: 1, data: DB, updated_at: new Date().toISOString() });
       setStatus(true);
       subscribeRealtime();
     } catch(e4) {
@@ -1954,25 +1954,37 @@ function saveDB() {
 saveDB._pending = false; // rétrocompatibilité
 
 async function pushToSupabase() {
+  var ts = new Date().toISOString();
   try {
-    var payload = { id: 1, data: DB, updated_at: new Date().toISOString() };
-    var r = await supabase.from('app_state').upsert(payload);
-    if (r.error) throw r.error;
+    // UPDATE direct par id — beaucoup plus rapide que upsert (pas de conflict scan)
+    var r = await supabase
+      .from('app_state')
+      .update({ data: DB, updated_at: ts })
+      .eq('id', 1);
+
+    // Si la ligne n'existe pas encore (0 lignes modifiées), on insère
+    if (r.error && r.error.code === 'PGRST116') {
+      var ins = await supabase.from('app_state').insert({ id: 1, data: DB, updated_at: ts });
+      if (ins.error) throw ins.error;
+    } else if (r.error) {
+      throw r.error;
+    }
+
     _syncState.saving = false;
-    _syncState.lastKnownTs = payload.updated_at;
+    _syncState.lastKnownTs = ts;
     setStatus(true);
     setSyncIndicator('ok', 'Sauvegardé');
     setTimeout(function() { setSyncIndicator('idle'); }, 2500);
   } catch(err) {
     _syncState.saving = false;
     setStatus(false);
-    var msg = err.message || JSON.stringify(err) || 'Erreur inconnue';
+    var msg = (err && err.message) ? err.message : JSON.stringify(err);
     setSyncIndicator('error', 'Erreur sync');
-    toast('❌ Sync Supabase : ' + msg.substring(0, 80));
+    toast('❌ Sync : ' + (msg || 'Erreur inconnue').substring(0, 80));
     console.error('[saveDB] Erreur Supabase :', err);
-    // Retry automatique après 8s
+    // Retry automatique après 10s
     clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(function() { pushToSupabase(); }, 8000);
+    _saveTimer = setTimeout(function() { pushToSupabase(); }, 10000);
   }
 }
 
