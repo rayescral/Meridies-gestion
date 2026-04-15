@@ -303,17 +303,50 @@ export default async function handler(req, res) {
       });
     }
 
+    if (orderIds.length > 0) {
+      for (const orderId of orderIds) {
+        const resolveResponse = await fetch(
+          `${supabaseUrl}/rest/v1/material_alerts?order_id=eq.${orderId}&status=eq.open`,
+          {
+            method: "PATCH",
+            headers: {
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+              Prefer: "return=representation"
+            },
+            body: JSON.stringify({
+              status: "resolved",
+              resolved_at: new Date().toISOString()
+            })
+          }
+        );
+
+        if (!resolveResponse.ok) {
+          const err = await resolveResponse.json();
+          return res.status(500).json({
+            ok: false,
+            message: "Impossible de clôturer les anciennes alertes ouvertes",
+            error: err
+          });
+        }
+      }
+    }
+
     if (alerts.length > 0) {
-      const alertResponse = await fetch(`${supabaseUrl}/rest/v1/material_alerts`, {
-        method: "POST",
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation"
-        },
-        body: JSON.stringify(alerts)
-      });
+      const alertResponse = await fetch(
+        `${supabaseUrl}/rest/v1/material_alerts?on_conflict=order_id,order_line_id,variant_id,material_id,alert_type,status`,
+        {
+          method: "POST",
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates,return=representation"
+          },
+          body: JSON.stringify(alerts)
+        }
+      );
 
       const alertData = await alertResponse.json();
 
