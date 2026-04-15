@@ -2,8 +2,18 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MERIDIES — Gestion Centralisée</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#C7A57A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MERIDIES">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -6797,5 +6807,60 @@ function shopifyAlertTypeBadge(t) {
 }
 </script>
 
+<script>
+// ── PWA — Enregistrement du Service Worker ─────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) {
+        console.log('[PWA] Service Worker enregistré :', reg.scope);
+        // Détecter une mise à jour disponible
+        reg.addEventListener('updatefound', function() {
+          var newWorker = reg.installing;
+          newWorker.addEventListener('statechange', function() {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (typeof toast === 'function') toast('🔄 Mise à jour disponible — rechargez la page');
+            }
+          });
+        });
+      })
+      .catch(function(err) {
+        console.warn('[PWA] Échec enregistrement SW :', err);
+      });
+  });
+}
+
+// ── PWA — Bouton "Installer l'app" ────────────────────────
+var _pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _pwaInstallPrompt = e;
+  // Afficher un bouton dans la sidebar footer
+  var footer = document.querySelector('.sidebar-footer');
+  if (footer && !document.getElementById('pwa-install-btn')) {
+    var btn = document.createElement('button');
+    btn.id = 'pwa-install-btn';
+    btn.textContent = '📲 Installer l\'app';
+    btn.style.cssText = 'margin-top:8px;width:100%;padding:6px 10px;border-radius:10px;background:rgba(199,165,122,0.15);color:rgba(199,165,122,0.9);font-size:11px;font-weight:600;border:1px solid rgba(199,165,122,0.25);cursor:pointer;font-family:DM Sans,sans-serif;';
+    btn.onclick = function() {
+      if (!_pwaInstallPrompt) return;
+      _pwaInstallPrompt.prompt();
+      _pwaInstallPrompt.userChoice.then(function(r) {
+        if (r.outcome === 'accepted') {
+          btn.remove();
+          if (typeof toast === 'function') toast('✅ Application installée !');
+        }
+        _pwaInstallPrompt = null;
+      });
+    };
+    footer.appendChild(btn);
+  }
+});
+window.addEventListener('appinstalled', function() {
+  var btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.remove();
+  if (typeof toast === 'function') toast('✅ MERIDIES installé sur cet appareil');
+});
+</script>
 </body>
 </html>
