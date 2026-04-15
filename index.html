@@ -1090,6 +1090,9 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="nav-item" onclick="goTo('pilotage')"><span class="icon">🎯</span>Pilotage</div>
     <div class="nav-item" onclick="goTo('clients')"><span class="icon">👥</span>Clients / CRM</div>
     <div class="nav-item" onclick="goTo('backups')"><span class="icon">💾</span>Sauvegardes</div>
+
+    <div class="nav-section">E-commerce</div>
+    <div class="nav-item" onclick="goTo('shopify')"><span class="icon">🛍️</span>Shopify<span class="badge-nav" id="nav-shopify-alerts">0</span></div>
   </nav>
   <div class="sidebar-toggle-wrap">
     <div class="toggle-row">
@@ -1466,6 +1469,102 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
 </div>
 
+<!-- ===== PAGE SHOPIFY ===== -->
+<div class="page" id="page-shopify">
+
+  <!-- Status + Config -->
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Connexion Shopify</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="shopify-conn-dot" style="width:10px;height:10px;border-radius:50%;background:#9CA3AF;flex-shrink:0;"></div>
+          <span id="shopify-conn-label" style="font-size:13px;font-weight:600;">Vérification...</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);">Boutique : <span id="shopify-shop-display" style="font-weight:600;font-family:'JetBrains Mono',monospace;">Non configuré</span></div>
+        <div style="font-size:12px;color:var(--muted);">Dernier sync : <span id="shopify-last-sync">—</span></div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+          <input type="text" class="input input-sm" id="shopify-shop-input" placeholder="maboutique.myshopify.com" style="flex:1;min-width:180px;">
+          <button class="btn btn-secondary btn-sm" onclick="saveShopifyShop()">Sauvegarder</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions de synchronisation</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn btn-primary btn-sm" onclick="shopifyApiCall('/api/shopify/sync-products','Sync produits')">🔄 Synchroniser les produits</button>
+        <button class="btn btn-primary btn-sm" onclick="shopifyApiCall('/api/shopify/sync-orders','Sync commandes')">🔄 Synchroniser les commandes</button>
+        <button class="btn btn-secondary btn-sm" onclick="shopifyApiCall('/api/shopify/check-materials','Contrôle matière')">🧪 Lancer le contrôle matière</button>
+        <button class="btn btn-secondary btn-sm" onclick="shopifyRegisterWebhook()">🔗 Enregistrer le webhook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
+    <div class="kpi kpi-accent">
+      <div class="kpi-label">Commandes sync.</div>
+      <div class="kpi-value" id="shopify-kpi-orders">—</div>
+      <div class="kpi-sub">depuis Shopify</div>
+    </div>
+    <div class="kpi kpi-warning">
+      <div class="kpi-label">Alertes matière</div>
+      <div class="kpi-value" id="shopify-kpi-alerts">—</div>
+      <div class="kpi-sub">ouvertes</div>
+    </div>
+    <div class="kpi kpi-success">
+      <div class="kpi-label">Produits sync.</div>
+      <div class="kpi-value" id="shopify-kpi-products">—</div>
+      <div class="kpi-sub">variantes incluses</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">À produire</div>
+      <div class="kpi-value" id="shopify-kpi-toproduce">—</div>
+      <div class="kpi-sub">commandes prêtes</div>
+    </div>
+  </div>
+
+  <!-- Alertes matière -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <span class="card-title">Alertes matière ouvertes</span>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="loadShopifyAlerts()">↺ Rafraîchir</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Sévérité</th><th>Message</th><th>Date</th><th></th></tr></thead>
+        <tbody id="shopify-alerts-body"><tr><td colspan="5" class="empty-state">Chargement...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Commandes Shopify -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Commandes Shopify (<span id="shopify-orders-count">0</span>)</span>
+      <div class="section-actions">
+        <select class="select input-sm" id="shopify-orders-filter" onchange="applyShopifyOrdersFilter()" style="width:160px;">
+          <option value="">Tous les statuts</option>
+          <option value="nouvelle">Nouvelle</option>
+          <option value="a_produire">À produire</option>
+          <option value="manquant_matiere">Matière manquante</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadShopifyOrders()">↺ Rafraîchir</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>N° Cde</th><th>Client</th><th>Paiement</th><th>Expédition</th><th>Statut Méridies</th><th class="r">Total</th><th>Date</th><th></th></tr></thead>
+        <tbody id="shopify-orders-body"><tr><td colspan="8" class="empty-state">Chargement...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<!-- ===== FIN PAGE SHOPIFY ===== -->
+
 <div class="mobile-quickbar no-print">
   <button onclick="goTo('dashboard')">Dashboard</button>
   <button onclick="goTo('saisie-vente')">Ventes</button>
@@ -1802,7 +1901,7 @@ function goTo(page) {
     'stock-dtf':'Stock DTF Designs','stock-fini':'Stock Produits finis','saisie-vente':'Saisie des ventes',
     'fournisseurs':'Fournisseurs','commandes':'Bons de commande','todo':'Tâches',
     'calendar':'Calendrier / Planning','drops':'Drops & Collections','compta':'Comptabilité simplifiée',
-    'journal':'Journal de bord marchés','sav':'Gestion des retours / SAV'
+    'journal':'Journal de bord marchés','sav':'Gestion des retours / SAV','shopify':'Shopify — E-commerce'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   var renderers = {
@@ -1810,7 +1909,7 @@ function goTo(page) {
     'stock-dtf':renderStockDTF,'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
     'fournisseurs':renderFournisseurs,'commandes':renderCommandes,'todo':renderTodos,
     'calendar':renderCalendarPlanning,'drops':renderDropsCollections,'compta':renderCompta,
-    'journal':renderMarketJournal,'sav':renderSav
+    'journal':renderMarketJournal,'sav':renderSav,'shopify':loadShopifyPage
   };
   if(renderers[page]) renderers[page]();
   document.querySelector('.sidebar').classList.remove('open');
@@ -6069,6 +6168,366 @@ body.dark .calendar-event.charge{background:rgba(37,99,235,0.16);}
   }, 2500);
 
 })();
+</script>
+
+<script>
+// ============================================================
+// SHOPIFY INTEGRATION
+// ============================================================
+
+var _shopifyAllOrders = [];
+
+async function loadShopifyPage() {
+  var shop = (DB.settings && DB.settings.shopifyShop) || '';
+  var inputEl = document.getElementById('shopify-shop-input');
+  if (inputEl && shop) inputEl.value = shop;
+  document.getElementById('shopify-shop-display').textContent = shop || 'Non configuré';
+  await Promise.all([loadShopifyOrders(), loadShopifyAlerts(), loadShopifyProducts()]);
+}
+
+// ── Commandes + Fusion ventes ─────────────────────────────
+async function loadShopifyOrders() {
+  var el = document.getElementById('shopify-orders-body');
+  el.innerHTML = '<tr><td colspan="8" class="empty-state">⏳ Chargement...</td></tr>';
+
+  // 1. Charger les commandes
+  var { data: orders, error } = await supabase
+    .from('shopify_orders')
+    .select('*')
+    .order('created_at_shopify', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    el.innerHTML = '<tr><td colspan="8" class="empty-state">❌ ' + escapeHtml(error.message) + '</td></tr>';
+    setShopifyConnStatus(false);
+    return;
+  }
+
+  _shopifyAllOrders = orders || [];
+  setShopifyConnStatus(true, orders);
+  renderShopifyOrdersTable(_shopifyAllOrders);
+
+  // KPIs
+  var kpiOrders = document.getElementById('shopify-kpi-orders');
+  var kpiProduce = document.getElementById('shopify-kpi-toproduce');
+  var countEl = document.getElementById('shopify-orders-count');
+  if (kpiOrders) kpiOrders.textContent = _shopifyAllOrders.length;
+  if (countEl) countEl.textContent = _shopifyAllOrders.length;
+  if (kpiProduce) kpiProduce.textContent = _shopifyAllOrders.filter(function(o){ return o.meridies_status === 'a_produire'; }).length;
+
+  // Badge sidebar
+  var alertsEl = document.getElementById('nav-shopify-alerts');
+  var missing = _shopifyAllOrders.filter(function(o){ return o.meridies_status === 'manquant_matiere'; }).length;
+  if (alertsEl) alertsEl.textContent = missing || '';
+
+  // 2. Fusion automatique dans DB.ventes
+  if (_shopifyAllOrders.length > 0) {
+    await fusionShopifyVentes(_shopifyAllOrders);
+  }
+}
+
+// ── Fusion Shopify → DB.ventes ────────────────────────────
+async function fusionShopifyVentes(orders) {
+  var orderIds = orders.map(function(o){ return o.id; });
+
+  // Charger toutes les lignes articles de ces commandes
+  var { data: lines, error: linesError } = await supabase
+    .from('shopify_order_lines')
+    .select('*')
+    .in('order_id', orderIds);
+
+  if (linesError || !lines || !lines.length) return;
+
+  // Index des IDs de lignes déjà dans DB.ventes (pour éviter les doublons)
+  var existingShopifyIds = {};
+  (DB.ventes || []).forEach(function(v) {
+    if (v.shopifyLineId) existingShopifyIds[v.shopifyLineId] = true;
+  });
+
+  // Index commandes par ID
+  var orderMap = {};
+  orders.forEach(function(o){ orderMap[o.id] = o; });
+
+  var nouvelles = [];
+  var stockTouched = false;
+
+  lines.forEach(function(line) {
+    // Déjà importé ?
+    if (existingShopifyIds[line.id]) return;
+
+    var order = orderMap[line.order_id];
+    if (!order) return;
+
+    // Chercher le produit dans le catalogue par SKU
+    var sku = (line.sku || '').trim();
+    var prodCat = null;
+    if (sku) {
+      prodCat = (DB.catalogue || []).find(function(p){
+        return (p.code || '').trim() === sku || (p.ref || '').trim() === sku;
+      });
+    }
+
+    // Construire la vente
+    var dateStr = order.created_at_shopify
+      ? order.created_at_shopify.substring(0, 10)
+      : today();
+
+    var vente = {
+      id: 'shopify_' + line.id,
+      shopifyLineId: line.id,
+      shopifyOrderId: order.shopify_order_id,
+      date: dateStr,
+      canal: 'Shopify',
+      numCde: order.order_name || '',
+      email: order.customer_email || '',
+      qte: line.quantity || 1,
+      pv: prodCat ? (prodCat.pv || line.unit_price || 0) : (line.unit_price || 0),
+      code: prodCat ? prodCat.code : (sku || 'SHOPIFY'),
+      ref: prodCat ? (prodCat.ref || '') : '',
+      design: prodCat ? (prodCat.design || '') : '',
+      designation: prodCat ? prodCat.designation : (line.title || sku || 'Article Shopify'),
+      taille: prodCat ? (prodCat.taille || '') : ''
+    };
+
+    nouvelles.push(vente);
+
+    // Décrémenter le stock fini si produit trouvé dans catalogue
+    if (prodCat) {
+      var sf = (DB.stockFini || []).find(function(f){ return f.code === prodCat.code; });
+      if (sf) {
+        sf.stock = Math.max(0, (sf.stock || 0) - vente.qte);
+        stockTouched = true;
+      }
+    }
+  });
+
+  if (nouvelles.length > 0) {
+    if (!DB.ventes) DB.ventes = [];
+    DB.ventes = DB.ventes.concat(nouvelles);
+    saveDB();
+    showToast('✅ ' + nouvelles.length + ' vente(s) Shopify importée(s) dans l\'historique');
+    // Rafraîchir le dashboard si visible
+    if (document.getElementById('page-dashboard').classList.contains('active')) {
+      renderDashboard();
+    }
+  }
+}
+
+function renderShopifyOrdersTable(orders) {
+  var el = document.getElementById('shopify-orders-body');
+  var countEl = document.getElementById('shopify-orders-count');
+  if (countEl) countEl.textContent = orders.length;
+
+  if (!orders.length) {
+    el.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune commande. Cliquez sur "Sync commandes".</td></tr>';
+    return;
+  }
+
+  el.innerHTML = orders.map(function(o) {
+    return '<tr>' +
+      '<td class="mono" style="font-weight:700;">' + escapeHtml(o.order_name || '—') + '</td>' +
+      '<td style="font-size:12px;">' + escapeHtml(o.customer_email || '—') + '</td>' +
+      '<td>' + shopifyFinancialBadge(o.financial_status) + '</td>' +
+      '<td>' + shopifyFulfillmentBadge(o.fulfillment_status) + '</td>' +
+      '<td>' + shopifyMeridieBadge(o.meridies_status) + '</td>' +
+      '<td class="r mono">' + (o.total_price != null ? Number(o.total_price).toFixed(2) + ' ' + (o.currency || '€') : '—') + '</td>' +
+      '<td class="mono" style="font-size:11px;color:var(--muted);">' + (o.created_at_shopify ? new Date(o.created_at_shopify).toLocaleDateString('fr-FR') : '—') + '</td>' +
+      '<td><button class="btn btn-xs btn-secondary" onclick="viewShopifyOrderLines(\'' + o.id + '\',\'' + escapeHtml(o.order_name || '') + '\')">Détail</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function applyShopifyOrdersFilter() {
+  var filter = document.getElementById('shopify-orders-filter').value;
+  var filtered = filter ? _shopifyAllOrders.filter(function(o){ return o.meridies_status === filter; }) : _shopifyAllOrders;
+  renderShopifyOrdersTable(filtered);
+}
+
+// ── Alertes matière ────────────────────────────────────────
+async function loadShopifyAlerts() {
+  var el = document.getElementById('shopify-alerts-body');
+  el.innerHTML = '<tr><td colspan="5" class="empty-state">⏳ Chargement...</td></tr>';
+
+  var { data, error } = await supabase
+    .from('material_alerts')
+    .select('*')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  var kpiEl = document.getElementById('shopify-kpi-alerts');
+  var navEl = document.getElementById('nav-shopify-alerts');
+
+  if (error) {
+    el.innerHTML = '<tr><td colspan="5" class="empty-state">❌ ' + escapeHtml(error.message) + '</td></tr>';
+    return;
+  }
+
+  var count = data ? data.length : 0;
+  if (kpiEl) kpiEl.textContent = count;
+  if (navEl) navEl.textContent = count || '';
+
+  if (!count) {
+    el.innerHTML = '<tr><td colspan="5" class="empty-state">✅ Aucune alerte matière ouverte.</td></tr>';
+    return;
+  }
+
+  el.innerHTML = data.map(function(a) {
+    return '<tr>' +
+      '<td>' + shopifyAlertTypeBadge(a.alert_type) + '</td>' +
+      '<td><span class="badge ' + (a.severity === 'high' ? 'badge-danger' : 'badge-warn') + '">' + escapeHtml(a.severity || '') + '</span></td>' +
+      '<td style="font-size:12px;">' + escapeHtml(a.message || '') + '</td>' +
+      '<td class="mono" style="font-size:11px;color:var(--muted);">' + (a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
+      '<td><button class="btn btn-xs btn-success" onclick="shopifyResolveAlert(\'' + a.id + '\')">✓ Résoudre</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+async function shopifyResolveAlert(id) {
+  var { error } = await supabase
+    .from('material_alerts')
+    .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) { showToast('❌ ' + error.message); return; }
+  showToast('✅ Alerte résolue');
+  await loadShopifyAlerts();
+}
+
+// ── Produits ───────────────────────────────────────────────
+async function loadShopifyProducts() {
+  var { data, error } = await supabase
+    .from('shopify_products')
+    .select('id')
+    .limit(1000);
+  var kpiEl = document.getElementById('shopify-kpi-products');
+  if (!error && kpiEl) kpiEl.textContent = data ? data.length : 0;
+
+  // last sync from most recent order
+  var { data: storeData } = await supabase
+    .from('shopify_stores')
+    .select('shop_domain,last_sync_at')
+    .limit(1);
+  if (storeData && storeData[0]) {
+    var el = document.getElementById('shopify-last-sync');
+    var sd = document.getElementById('shopify-shop-display');
+    if (el && storeData[0].last_sync_at) el.textContent = new Date(storeData[0].last_sync_at).toLocaleString('fr-FR');
+    if (sd && !((DB.settings && DB.settings.shopifyShop))) {
+      sd.textContent = storeData[0].shop_domain || 'Connecté';
+    }
+  }
+}
+
+// ── Détail lignes d'une commande ───────────────────────────
+async function viewShopifyOrderLines(orderId, orderName) {
+  var { data, error } = await supabase
+    .from('shopify_order_lines')
+    .select('*')
+    .eq('order_id', orderId);
+
+  if (error) { showToast('❌ ' + error.message); return; }
+
+  var statusMap = { ok: 'badge-ok', missing: 'badge-danger', pending: 'badge-warn', bom_missing: 'badge-danger', mapping_missing: 'badge-warn' };
+  var rows = (data && data.length) ? data.map(function(l) {
+    var s = l.material_check_status || 'pending';
+    return '<tr>' +
+      '<td>' + escapeHtml(l.title || '') + '</td>' +
+      '<td class="mono" style="font-size:11px;">' + escapeHtml(l.sku || '—') + '</td>' +
+      '<td class="c">' + (l.quantity || 0) + '</td>' +
+      '<td class="r mono">' + (l.unit_price != null ? Number(l.unit_price).toFixed(2) + ' €' : '—') + '</td>' +
+      '<td><span class="badge ' + (statusMap[s] || 'badge-neutral') + '">' + escapeHtml(s) + '</span></td>' +
+      '</tr>';
+  }).join('') : '<tr><td colspan="5" class="empty-state">Aucune ligne trouvée.</td></tr>';
+
+  openModal(
+    '<div class="modal-title">Commande ' + escapeHtml(orderName) + '</div>' +
+    '<div class="modal-sub">Lignes articles + statut matière</div>' +
+    '<div class="table-wrap"><table><thead><tr><th>Article</th><th>SKU</th><th class="c">Qté</th><th class="r">Prix U</th><th>Matière</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div style="margin-top:16px;text-align:right;"><button class="btn btn-secondary" onclick="closeModal()">Fermer</button></div>'
+  );
+}
+
+// ── Appels API Vercel ──────────────────────────────────────
+async function shopifyApiCall(endpoint, label) {
+  showToast('⏳ ' + label + '...');
+  var shop = (DB.settings && DB.settings.shopifyShop) || '';
+  var url = endpoint + (shop ? '?shop=' + encodeURIComponent(shop) : '');
+
+  try {
+    var res = await fetch(url);
+    var data = await res.json();
+    if (data.ok) {
+      showToast('✅ ' + (data.message || label + ' OK'));
+      await loadShopifyPage();
+    } else {
+      showToast('❌ ' + (data.message || 'Erreur'));
+      console.error('[Shopify]', label, data);
+    }
+  } catch(e) {
+    showToast('❌ Erreur réseau : ' + e.message);
+  }
+}
+
+async function shopifyRegisterWebhook() {
+  var shop = (DB.settings && DB.settings.shopifyShop) || '';
+  if (!shop) { showToast('❌ Configure d\'abord le domaine Shopify'); return; }
+  await shopifyApiCall('/api/shopify/register-orders-create-webhook', 'Enregistrement webhook');
+}
+
+// ── Config boutique ────────────────────────────────────────
+function saveShopifyShop() {
+  var val = (document.getElementById('shopify-shop-input').value || '').trim().toLowerCase();
+  if (val && !val.endsWith('.myshopify.com')) {
+    showToast('❌ Le domaine doit se terminer par .myshopify.com');
+    return;
+  }
+  if (!DB.settings) DB.settings = {};
+  DB.settings.shopifyShop = val;
+  saveDB();
+  document.getElementById('shopify-shop-display').textContent = val || 'Non configuré';
+  showToast('✅ Boutique configurée');
+}
+
+// ── Statut connexion ───────────────────────────────────────
+function setShopifyConnStatus(connected, orders) {
+  var dot = document.getElementById('shopify-conn-dot');
+  var lbl = document.getElementById('shopify-conn-label');
+  if (!dot || !lbl) return;
+  if (connected) {
+    dot.style.background = '#059669';
+    lbl.textContent = (orders && orders.length) ? 'Boutique connectée — ' + orders.length + ' commandes' : 'Boutique connectée';
+    lbl.style.color = '#059669';
+  } else {
+    dot.style.background = '#DC2626';
+    lbl.textContent = 'Non connectée ou table inaccessible';
+    lbl.style.color = '#DC2626';
+  }
+}
+
+// ── Badges ─────────────────────────────────────────────────
+function shopifyFinancialBadge(s) {
+  if (!s) return '<span class="badge badge-neutral">—</span>';
+  var map = { PAID: 'badge-ok', PENDING: 'badge-warn', REFUNDED: 'badge-neutral', PARTIALLY_REFUNDED: 'badge-warn', VOIDED: 'badge-neutral' };
+  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + escapeHtml(s) + '</span>';
+}
+
+function shopifyFulfillmentBadge(s) {
+  if (!s) return '<span class="badge badge-neutral">Non expédié</span>';
+  var map = { FULFILLED: 'badge-ok', UNFULFILLED: 'badge-warn', PARTIALLY_FULFILLED: 'badge-warn', IN_PROGRESS: 'badge-info' };
+  var labels = { FULFILLED: 'Expédié', UNFULFILLED: 'Non expédié', PARTIALLY_FULFILLED: 'Partiel', IN_PROGRESS: 'En cours' };
+  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
+}
+
+function shopifyMeridieBadge(s) {
+  var map = { nouvelle: 'badge-info', a_produire: 'badge-ok', manquant_matiere: 'badge-danger' };
+  var labels = { nouvelle: '🆕 Nouvelle', a_produire: '✅ À produire', manquant_matiere: '⚠️ Mat. manquante' };
+  if (!s) return '<span class="badge badge-neutral">—</span>';
+  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
+}
+
+function shopifyAlertTypeBadge(t) {
+  var labels = { material_missing: 'Matière manquante', bom_missing: 'BOM manquante', mapping_missing: 'Mapping manquant' };
+  return '<span class="badge badge-neutral">' + escapeHtml(labels[t] || t || '—') + '</span>';
+}
 </script>
 
 </body>
