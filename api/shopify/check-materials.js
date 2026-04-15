@@ -335,14 +335,14 @@ export default async function handler(req, res) {
 
     if (alerts.length > 0) {
       const alertResponse = await fetch(
-        `${supabaseUrl}/rest/v1/material_alerts?on_conflict=order_id,order_line_id,variant_id,material_id,alert_type,status`,
+        `${supabaseUrl}/rest/v1/material_alerts`,
         {
           method: "POST",
           headers: {
             apikey: serviceRoleKey,
             Authorization: `Bearer ${serviceRoleKey}`,
             "Content-Type": "application/json",
-            Prefer: "resolution=merge-duplicates,return=representation"
+            Prefer: "return=representation"
           },
           body: JSON.stringify(alerts)
         }
