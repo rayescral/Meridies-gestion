@@ -4,12 +4,15 @@ async function getStore({ supabaseUrl, serviceRoleKey, shop }) {
   params.set("limit", "1");
   params.set("shop_domain", `eq.${shop}`);
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_stores?${params.toString()}`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_stores?${params.toString()}`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
     }
-  });
+  );
 
   const data = await response.json();
 
@@ -27,12 +30,15 @@ async function getOrders({ supabaseUrl, serviceRoleKey, storeId }) {
   params.set("order", "created_at_shopify.desc");
   params.set("limit", "50");
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_orders?${params.toString()}`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_orders?${params.toString()}`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
     }
-  });
+  );
 
   const data = await response.json();
 
@@ -51,12 +57,15 @@ async function getOrderLines({ supabaseUrl, serviceRoleKey, orderIds }) {
   params.set("order_id", `in.(${orderIds.join(",")})`);
   params.set("limit", "1000");
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_order_lines?${params.toString()}`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_order_lines?${params.toString()}`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
     }
-  });
+  );
 
   const data = await response.json();
 
@@ -76,12 +85,15 @@ async function getBoms({ supabaseUrl, serviceRoleKey, variantIds }) {
   params.set("variant_id", `in.(${quoted})`);
   params.set("limit", "1000");
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/boms?${params.toString()}`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/boms?${params.toString()}`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
     }
-  });
+  );
 
   const data = await response.json();
 
@@ -104,12 +116,15 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   params.set("bom_id", `in.(${quoted})`);
   params.set("limit", "1000");
 
-  const response = await fetch(`${supabaseUrl}/rest/v1/bom_items?${params.toString()}`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/bom_items?${params.toString()}`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
     }
-  });
+  );
 
   const data = await response.json();
 
@@ -156,6 +171,7 @@ export default async function handler(req, res) {
     });
 
     const orderIds = orders.map(o => o.id);
+
     const lines = await getOrderLines({
       supabaseUrl,
       serviceRoleKey,
@@ -163,6 +179,7 @@ export default async function handler(req, res) {
     });
 
     const variantIds = [...new Set(lines.map(l => l.variant_id).filter(Boolean))];
+
     const boms = await getBoms({
       supabaseUrl,
       serviceRoleKey,
@@ -195,6 +212,7 @@ export default async function handler(req, res) {
       for (const line of orderLines) {
         if (!line.variant_id) {
           orderHasMissing = true;
+
           alerts.push({
             order_id: order.id,
             order_line_id: line.id,
@@ -213,6 +231,7 @@ export default async function handler(req, res) {
             id: line.id,
             material_check_status: "mapping_missing"
           });
+
           continue;
         }
 
@@ -220,6 +239,7 @@ export default async function handler(req, res) {
 
         if (!bom) {
           orderHasMissing = true;
+
           alerts.push({
             order_id: order.id,
             order_line_id: line.id,
@@ -238,6 +258,7 @@ export default async function handler(req, res) {
             id: line.id,
             material_check_status: "bom_missing"
           });
+
           continue;
         }
 
@@ -306,42 +327,60 @@ export default async function handler(req, res) {
     }
 
     if (orderStatusUpdates.length > 0) {
-      const orderPatchResponse = await fetch(`${supabaseUrl}/rest/v1/shopify_orders`, {
-        method: "PATCH",
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(orderStatusUpdates)
-      });
-      if (!orderPatchResponse.ok) {
-        const err = await orderPatchResponse.json();
-        return res.status(500).json({
-          ok: false,
-          message: "Impossible de mettre à jour les statuts de commandes",
-          error: err
-        });
+      for (const update of orderStatusUpdates) {
+        const orderPatchResponse = await fetch(
+          `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${update.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+              Prefer: "return=representation"
+            },
+            body: JSON.stringify({
+              meridies_status: update.meridies_status
+            })
+          }
+        );
+
+        if (!orderPatchResponse.ok) {
+          const err = await orderPatchResponse.json();
+          return res.status(500).json({
+            ok: false,
+            message: "Impossible de mettre à jour les statuts de commandes",
+            error: err
+          });
+        }
       }
     }
 
     if (lineStatusUpdates.length > 0) {
-      const linePatchResponse = await fetch(`${supabaseUrl}/rest/v1/shopify_order_lines`, {
-        method: "PATCH",
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(lineStatusUpdates)
-      });
-      if (!linePatchResponse.ok) {
-        const err = await linePatchResponse.json();
-        return res.status(500).json({
-          ok: false,
-          message: "Impossible de mettre à jour les statuts de lignes",
-          error: err
-        });
+      for (const update of lineStatusUpdates) {
+        const linePatchResponse = await fetch(
+          `${supabaseUrl}/rest/v1/shopify_order_lines?id=eq.${update.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+              Prefer: "return=representation"
+            },
+            body: JSON.stringify({
+              material_check_status: update.material_check_status
+            })
+          }
+        );
+
+        if (!linePatchResponse.ok) {
+          const err = await linePatchResponse.json();
+          return res.status(500).json({
+            ok: false,
+            message: "Impossible de mettre à jour les statuts de lignes",
+            error: err
+          });
+        }
       }
     }
 
@@ -352,7 +391,9 @@ export default async function handler(req, res) {
       scannedOrders: orders.length,
       scannedLines: lines.length,
       createdAlerts: alerts.length,
-      ordersWithMissing: orderStatusUpdates.filter(o => o.meridies_status === "manquant_matiere").length
+      ordersWithMissing: orderStatusUpdates.filter(
+        o => o.meridies_status === "manquant_matiere"
+      ).length
     });
   } catch (error) {
     return res.status(500).json({
