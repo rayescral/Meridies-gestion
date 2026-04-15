@@ -1062,8 +1062,9 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <nav class="sidebar-nav">
     <div class="nav-section">Principal</div>
     <div class="nav-item active" onclick="goTo('dashboard')"><span class="icon">📊</span>Tableau de bord</div>
+    <div class="nav-item" onclick="goTo('shopify')"><span class="icon">🛍️</span>Shopify<span class="badge-nav" id="nav-shopify-alerts">0</span></div>
     <div class="nav-item" onclick="goTo('catalogue')"><span class="icon">📦</span>Catalogue<span class="badge-nav" id="nav-cat-count">0</span></div>
-    
+
     <div class="nav-section">Stocks</div>
     <div class="nav-item" onclick="goTo('stock-vierge')"><span class="icon">👕</span>T-shirts vierges</div>
     <div class="nav-item" onclick="goTo('stock-dtf')"><span class="icon">🎨</span>DTF Designs</div>
@@ -1091,8 +1092,6 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="nav-item" onclick="goTo('clients')"><span class="icon">👥</span>Clients / CRM</div>
     <div class="nav-item" onclick="goTo('backups')"><span class="icon">💾</span>Sauvegardes</div>
 
-    <div class="nav-section">E-commerce</div>
-    <div class="nav-item" onclick="goTo('shopify')"><span class="icon">🛍️</span>Shopify<span class="badge-nav" id="nav-shopify-alerts">0</span></div>
   </nav>
   <div class="sidebar-toggle-wrap">
     <div class="toggle-row">
@@ -5098,7 +5097,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
       if(sidebarNav && !document.getElementById('nav-social-media')){
         var wrapper = document.createElement('div');
         wrapper.setAttribute('data-admin-only','1');
-        wrapper.innerHTML = '<div class="nav-section" data-admin-only="1">Admin</div><div class="nav-item" id="nav-social-media" data-admin-only="1" onclick="goTo(\'social-media\')"><span class="icon">📱</span>Réseaux sociaux</div>';
+        wrapper.innerHTML = '<div class="nav-section" data-admin-only="1">Communication digitale</div><div class="nav-item" id="nav-social-media" data-admin-only="1" onclick="goTo(\'social-media\')"><span class="icon">📱</span>Réseaux sociaux</div>';
         sidebarNav.appendChild(wrapper);
       }
     }
