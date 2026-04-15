@@ -6542,4 +6542,30 @@ function setShopifyConnStatus(connected, orders) {
 
 // ── Badges ─────────────────────────────────────────────────
 function shopifyFinancialBadge(s) {
-  if (!s) return '<span class="ba
+  if (!s) return '<span class="badge badge-neutral">—</span>';
+  var map = { PAID: 'badge-ok', PENDING: 'badge-warn', REFUNDED: 'badge-neutral', PARTIALLY_REFUNDED: 'badge-warn', VOIDED: 'badge-neutral' };
+  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + escapeHtml(s) + '</span>';
+}
+
+function shopifyFulfillmentBadge(s) {
+  if (!s) return '<span class="badge badge-neutral">Non expédié</span>';
+  var map = { FULFILLED: 'badge-ok', UNFULFILLED: 'badge-warn', PARTIALLY_FULFILLED: 'badge-warn', IN_PROGRESS: 'badge-info' };
+  var labels = { FULFILLED: 'Expédié', UNFULFILLED: 'Non expédié', PARTIALLY_FULFILLED: 'Partiel', IN_PROGRESS: 'En cours' };
+  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
+}
+
+function shopifyMeridieBadge(s) {
+  var map = { nouvelle: 'badge-info', a_produire: 'badge-ok', manquant_matiere: 'badge-danger' };
+  var labels = { nouvelle: '🆕 Nouvelle', a_produire: '✅ À produire', manquant_matiere: '⚠️ Mat. manquante' };
+  if (!s) return '<span class="badge badge-neutral">—</span>';
+  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
+}
+
+function shopifyAlertTypeBadge(t) {
+  var labels = { material_missing: 'Matière manquante', bom_missing: 'BOM manquante', mapping_missing: 'Mapping manquant' };
+  return '<span class="badge badge-neutral">' + escapeHtml(labels[t] || t || '—') + '</span>';
+}
+</script>
+
+</body>
+</html>
