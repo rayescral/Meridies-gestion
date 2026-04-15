@@ -1127,7 +1127,8 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <h1>MERIDIES</h1>
     <p>Gestion centralisée</p>
     <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.03em;">⏳ Connexion...</p>
-    <div id="save-status-indicator" style="margin-top:10px;font-size:10px;color:rgba(199,165,122,0.5);text-align:center;height:14px;"></div>
+    <button id="btn-save" onclick="manualSave()" style="margin-top:10px;width:100%;padding:8px 10px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#a8832e);color:#1D1A17;font-size:11px;font-weight:700;border:none;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:5px;transition:opacity .2s;">💾 Sauvegarder</button>
+    <div id="save-status-indicator" style="margin-top:5px;font-size:10px;color:rgba(199,165,122,0.5);text-align:center;min-height:13px;"></div>
     <select id="role-select" class="role-select" onchange="changeRole(this.value)">
       <option value="admin">Rôle: Admin</option>
       <option value="terrain">Rôle: Terrain / Marchés</option>
@@ -1939,52 +1940,52 @@ function setSyncIndicator(state, msg) {
   ind.style.color = state === 'error' ? '#DC2626' : state === 'ok' ? '#059669' : 'rgba(199,165,122,0.6)';
 }
 
-// saveDB : localStorage immédiat + push Supabase debounced (1.5s)
-var _saveTimer = null;
+// saveDB : localStorage uniquement (instantané, pas de Supabase)
 function saveDB() {
-  // 1. localStorage immédiat
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  // 2. Indicateur
-  setSyncIndicator('saving', 'Sauvegarde...');
-  _syncState.saving = true;
-  // 3. Debounce Supabase
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(function() { pushToSupabase(); }, 1500);
 }
 saveDB._pending = false; // rétrocompatibilité
 
-async function pushToSupabase() {
+// manualSave : pousse vers Supabase via fetch direct (plus rapide que le client JS)
+async function manualSave() {
+  var btn = document.getElementById('btn-save');
+  var ind = document.getElementById('save-status-indicator');
+  if (btn) { btn.textContent = '⏳ Sauvegarde...'; btn.disabled = true; btn.style.opacity = '.6'; }
+  if (ind) { ind.textContent = ''; }
+  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+
   var ts = new Date().toISOString();
   try {
-    // UPDATE direct par id — beaucoup plus rapide que upsert (pas de conflict scan)
-    var r = await supabase
-      .from('app_state')
-      .update({ data: DB, updated_at: ts })
-      .eq('id', 1);
+    // fetch direct REST — return=minimal évite que Supabase renvoie le blob entier
+    var res = await fetch(SUPA_URL + '/rest/v1/app_state?id=eq.1', {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ data: DB, updated_at: ts })
+    });
 
-    // Si la ligne n'existe pas encore (0 lignes modifiées), on insère
-    if (r.error && r.error.code === 'PGRST116') {
-      var ins = await supabase.from('app_state').insert({ id: 1, data: DB, updated_at: ts });
-      if (ins.error) throw ins.error;
-    } else if (r.error) {
-      throw r.error;
+    if (!res.ok) {
+      var errText = await res.text();
+      throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 120));
     }
 
     _syncState.saving = false;
     _syncState.lastKnownTs = ts;
     setStatus(true);
-    setSyncIndicator('ok', 'Sauvegardé');
-    setTimeout(function() { setSyncIndicator('idle'); }, 2500);
+    if (ind) { ind.textContent = '✓ Sauvegardé'; setTimeout(function(){ if(ind) ind.textContent=''; }, 3000); }
+    toast('✅ Sauvegardé');
   } catch(err) {
-    _syncState.saving = false;
     setStatus(false);
-    var msg = (err && err.message) ? err.message : JSON.stringify(err);
-    setSyncIndicator('error', 'Erreur sync');
-    toast('❌ Sync : ' + (msg || 'Erreur inconnue').substring(0, 80));
-    console.error('[saveDB] Erreur Supabase :', err);
-    // Retry automatique après 10s
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(function() { pushToSupabase(); }, 10000);
+    var msg = (err && err.message) ? err.message : String(err);
+    if (ind) { ind.textContent = '⚠️ Erreur'; }
+    toast('❌ ' + msg.substring(0, 100));
+    console.error('[manualSave]', err);
+  } finally {
+    if (btn) { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; btn.style.opacity = '1'; }
   }
 }
 
