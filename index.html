@@ -1751,32 +1751,40 @@ function setStatus(connected) {
 async function loadDB() {
   var loaded = false;
 
+  // ── Étape 1 : affichage instantané depuis le cache local ──
+  // (évite l'écran blanc, sera écrasé par Supabase juste après)
   try {
-    var d = JSON.parse(localStorage.getItem('meridies_db'));
-    if (d && typeof d === 'object') {
-      DB = normalizeRestoredDB(d);
+    var cached = JSON.parse(localStorage.getItem('meridies_db'));
+    if (cached && typeof cached === 'object') {
+      DB = normalizeRestoredDB(cached);
       loaded = true;
     }
   } catch(e2) {}
 
-  if (!loaded) {
-    try {
-      var res = await supabase.from('app_state').select('data').eq('id', 1).single();
-      if (!res.error && res.data && res.data.data) {
-        DB = normalizeRestoredDB(res.data.data);
-        loaded = true;
-        setStatus(true);
-        subscribeRealtime();
-        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
-      } else if (res.error && res.error.code !== 'PGRST116') {
-        throw res.error;
-      }
-    } catch(e) {
-      console.warn('Supabase indisponible, fallback localStorage', e);
-      setStatus(false);
+  // ── Étape 2 : Supabase est TOUJOURS la source de vérité ──
+  // On charge systématiquement depuis Supabase, qu'il y ait
+  // un cache local ou non, pour éviter toute désynchronisation.
+  try {
+    var res = await supabase.from('app_state').select('data,updated_at').eq('id', 1).single();
+    if (!res.error && res.data && res.data.data) {
+      DB = normalizeRestoredDB(res.data.data);
+      loaded = true;
+      setStatus(true);
+      subscribeRealtime();
+      try {
+        localStorage.setItem('meridies_db', JSON.stringify(DB));
+        localStorage.setItem('meridies_db_ts', res.data.updated_at || '');
+      } catch(_) {}
+    } else if (!loaded && res.error && res.error.code !== 'PGRST116') {
+      throw res.error;
     }
+  } catch(e) {
+    console.warn('Supabase indisponible, données locales utilisées', e);
+    setStatus(false);
+    // Le cache localStorage reste actif si loaded=true, sinon fallback ci-dessous
   }
 
+  // ── Étape 3 : fallback ultime si rien n'a fonctionné ──
   if (!loaded) {
     DB = normalizeRestoredDB(EMBEDDED_BACKUP);
     try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e3) {}
