@@ -5367,5 +5367,243 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
 })();
 
 </script>
+
+
+<style id="recurring-charge-blue-patch">
+.calendar-event.charge{border-left-color:#2563EB;background:#EFF6FF;}
+body.dark .calendar-event.charge{background:rgba(37,99,235,0.16);}
+</style>
+<script id="recurring-charge-blue-patch-script">
+(function(){
+  function clampRecurringDay(day, year, monthIndex){
+    var max = new Date(year, monthIndex + 1, 0).getDate();
+    var n = parseInt(day, 10);
+    if(!n || n < 1) n = 1;
+    if(n > max) n = max;
+    return n;
+  }
+  function inferRecurringChargeDay(charge){
+    if(charge && parseInt(charge.dayOfMonth, 10) >= 1) return Math.min(31, Math.max(1, parseInt(charge.dayOfMonth, 10)));
+    if(charge && charge.startDate){
+      var parts = String(charge.startDate).split('-');
+      if(parts.length === 3){
+        var parsed = parseInt(parts[2], 10);
+        if(parsed >= 1) return Math.min(31, parsed);
+      }
+    }
+    return 1;
+  }
+  function recurringChargeDueDate(charge, year, monthIndex){
+    var day = clampRecurringDay(inferRecurringChargeDay(charge), year, monthIndex);
+    var d = new Date(year, monthIndex, day);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  function chargeStartBoundary(charge){
+    var s = charge && charge.startDate ? new Date(charge.startDate + 'T00:00:00') : new Date();
+    if(isNaN(s.getTime())) s = new Date();
+    s.setHours(0,0,0,0);
+    return s;
+  }
+  function nextRecurringChargeDate(charge, fromDate){
+    if(!charge || charge.active === false) return null;
+    var start = chargeStartBoundary(charge);
+    var ref = fromDate ? new Date(fromDate) : new Date();
+    ref.setHours(0,0,0,0);
+    var cursor = new Date(Math.max(start.getTime(), ref.getTime()));
+    var candidate = recurringChargeDueDate(charge, cursor.getFullYear(), cursor.getMonth());
+    if(candidate < start || candidate < ref){
+      candidate = recurringChargeDueDate(charge, cursor.getFullYear(), cursor.getMonth() + 1);
+    }
+    return candidate;
+  }
+  function recurringChargeScheduleBetween(charge, startDate, endDate, includeFuture){
+    var out = [];
+    if(!charge || charge.active === false) return out;
+    var amount = parseFloat(charge.amount) || 0;
+    if(amount <= 0) return out;
+    var start = chargeStartBoundary(charge);
+    var from = new Date(startDate);
+    var to = new Date(endDate);
+    from.setHours(0,0,0,0);
+    to.setHours(23,59,59,999);
+    var monthCursor = new Date(Math.max(start.getTime(), from.getTime()));
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+    var todayDate = new Date();
+    todayDate.setHours(23,59,59,999);
+    while(monthCursor <= to){
+      var due = recurringChargeDueDate(charge, monthCursor.getFullYear(), monthCursor.getMonth());
+      if(due >= start && due >= from && due <= to){
+        if(includeFuture || due <= todayDate){
+          out.push({
+            id: 'rec_' + (charge.id || '') + '_' + due.toISOString().slice(0,10),
+            date: due.toISOString().slice(0,10),
+            type: 'sortie',
+            category: charge.category || 'Charge récurrente',
+            label: charge.label || 'Charge récurrente',
+            amount: amount,
+            auto: true,
+            recurringId: charge.id
+          });
+        }
+      }
+      monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
+    }
+    return out;
+  }
+
+  var __patch_prev_normalize = normalizeRestoredDB;
+  normalizeRestoredDB = function(data){
+    var restored = __patch_prev_normalize(data || {});
+    restored.recurringCharges = (restored.recurringCharges || []).map(function(c){
+      var clone = Object.assign({}, c || {});
+      clone.dayOfMonth = inferRecurringChargeDay(clone);
+      if(typeof clone.showInCalendar === 'undefined') clone.showInCalendar = true;
+      return clone;
+    });
+    return restored;
+  };
+
+  var __patch_prev_ensureDefaults = ensureEnhancementDefaults;
+  ensureEnhancementDefaults = function(){
+    __patch_prev_ensureDefaults();
+    DB.recurringCharges = (DB.recurringCharges || []).map(function(c){
+      c.dayOfMonth = inferRecurringChargeDay(c);
+      if(typeof c.showInCalendar === 'undefined') c.showInCalendar = true;
+      return c;
+    });
+  };
+
+  buildRecurringCashflows = function(){
+    var flows = [];
+    var startWindow = new Date(2024, 0, 1);
+    var endWindow = new Date();
+    (DB.recurringCharges || []).forEach(function(charge){
+      flows = flows.concat(recurringChargeScheduleBetween(charge, startWindow, endWindow, false));
+    });
+    return flows;
+  };
+
+  function buildRecurringChargeCalendarEvents(){
+    var cursor = (typeof calendarCursor !== 'undefined' && calendarCursor) ? new Date(calendarCursor) : new Date();
+    var start = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
+    var end = new Date(cursor.getFullYear(), cursor.getMonth() + 2, 0);
+    var events = [];
+    (DB.recurringCharges || []).forEach(function(charge){
+      if(!charge || charge.active === false || charge.showInCalendar === false) return;
+      recurringChargeScheduleBetween(charge, start, end, true).forEach(function(flow){
+        events.push({
+          date: flow.date,
+          title: flow.label,
+          type: 'charge',
+          meta: (charge.category || 'Charge récurrente') + ' · ' + fmt(flow.amount) + ' · le ' + inferRecurringChargeDay(charge)
+        });
+      });
+    });
+    return events;
+  }
+
+  var __patch_prev_getCalendarEvents = getCalendarEvents;
+  getCalendarEvents = function(){
+    var base = __patch_prev_getCalendarEvents();
+    var extra = buildRecurringChargeCalendarEvents();
+    return base.concat(extra).sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
+  };
+
+  openRecurringChargeForm = function(i){
+    var categories = getAvailableChargeCategories();
+    var charge = i == null
+      ? {label:'', amount:'', frequency:'monthly', startDate:today(), active:true, category:(categories[0] || 'Charge récurrente'), dayOfMonth:(new Date().getDate()), showInCalendar:true}
+      : Object.assign({}, (DB.recurringCharges || [])[i]);
+    charge.dayOfMonth = inferRecurringChargeDay(charge);
+    if(typeof charge.showInCalendar === 'undefined') charge.showInCalendar = true;
+
+    openModal(
+      '<div class="modal-title">' + (i == null ? 'Nouvelle charge récurrente' : 'Modifier la charge récurrente') + '</div>' +
+      '<div class="modal-sub">Définis un abonnement mensuel comme Shopify, Boxtal ou tout autre prélèvement automatique.</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Libellé</label><input class="input" id="rc-label" value="' + escapeHtml(charge.label || '') + '" placeholder="Ex: Shopify"></div>' +
+        '<div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" min="0" value="' + escapeHtml(charge.amount || '') + '"></div>' +
+      '</div>' +
+      '<div class="grid3" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Catégorie</label><select class="select" id="rc-category">' + categories.map(function(cat){ return '<option value="' + escapeHtml(cat) + '"' + ((charge.category || '') === cat ? ' selected' : '') + '>' + escapeHtml(cat) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label>Jour de prélèvement</label><input type="number" class="input input-yellow" id="rc-day" min="1" max="31" value="' + charge.dayOfMonth + '"></div>' +
+        '<div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="' + escapeHtml(charge.startDate || today()) + '"></div>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Active</label><select class="select" id="rc-active"><option value="true"' + (charge.active !== false ? ' selected' : '') + '>Oui</option><option value="false"' + (charge.active === false ? ' selected' : '') + '>Non</option></select></div>' +
+        '<div class="field"><label>Afficher dans le calendrier</label><select class="select" id="rc-calendar"><option value="true"' + (charge.showInCalendar !== false ? ' selected' : '') + '>Oui</option><option value="false"' + (charge.showInCalendar === false ? ' selected' : '') + '>Non</option></select></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveRecurringCharge(' + (i == null ? 'null' : i) + ')">' + (i == null ? 'Créer' : 'Enregistrer') + '</button></div>'
+    );
+  };
+
+  saveRecurringCharge = function(i){
+    var label = (document.getElementById('rc-label').value || '').trim();
+    var amount = parseFloat(document.getElementById('rc-amount').value) || 0;
+    var startDate = document.getElementById('rc-start').value;
+    var dayOfMonth = Math.min(31, Math.max(1, parseInt(document.getElementById('rc-day').value, 10) || 1));
+    var charge = {
+      id: i == null ? Date.now() : (((DB.recurringCharges || [])[i] || {}).id || Date.now()),
+      label: label,
+      amount: amount,
+      frequency: 'monthly',
+      startDate: startDate,
+      active: document.getElementById('rc-active').value === 'true',
+      category: document.getElementById('rc-category').value,
+      dayOfMonth: dayOfMonth,
+      showInCalendar: document.getElementById('rc-calendar').value === 'true'
+    };
+    if(!charge.label || !charge.amount || !charge.startDate){ toast('Libellé, montant et date de début requis'); return; }
+    if(i == null) (DB.recurringCharges = DB.recurringCharges || []).unshift(charge); else DB.recurringCharges[i] = charge;
+    saveDB('Charge récurrente enregistrée : ' + charge.label);
+    closeModal();
+    renderCompta();
+    renderCalendarPlanning();
+    recordAction('Charge récurrente enregistrée : ' + charge.label);
+    toast('Charge récurrente enregistrée');
+  };
+
+  var __patch_prev_deleteRecurringCharge = deleteRecurringCharge;
+  deleteRecurringCharge = function(i){
+    __patch_prev_deleteRecurringCharge(i);
+    renderCalendarPlanning();
+  };
+
+  var __patch_prev_renderCompta = renderCompta;
+  renderCompta = function(){
+    __patch_prev_renderCompta();
+    var host = document.getElementById('recurring-charges-list');
+    if(!host) return;
+    var items = DB.recurringCharges || [];
+    host.innerHTML = items.length ? items.map(function(charge, i){
+      var nextDate = nextRecurringChargeDate(charge, new Date());
+      var nextLabel = nextDate ? formatDate(nextDate.toISOString().slice(0,10)) : '—';
+      var dayLabel = inferRecurringChargeDay(charge);
+      return '<div class="backup-item">' +
+        '<div>' +
+          '<div style="font-weight:700">' + escapeHtml(charge.label || 'Charge') + '</div>' +
+          '<div style="font-size:12px;color:var(--muted);">' +
+            escapeHtml(charge.category || 'Charge récurrente') + ' · chaque ' + dayLabel + ' du mois · prochain prélèvement ' + nextLabel + ' · ' + (charge.active === false ? 'inactive' : 'active') +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+          '<span class="mono">' + fmt(charge.amount || 0) + '/mois</span>' +
+          '<button class="btn-icon" onclick="openRecurringChargeForm(' + i + ')">✏️</button>' +
+          '<button class="btn-icon" onclick="deleteRecurringCharge(' + i + ')">🗑</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') : '<div class="empty-state">Aucune charge récurrente. Ajoute Shopify, Boxtal ou tout autre abonnement mensuel.</div>';
+  };
+
+  var __patch_prev_renderAll = renderAll;
+  renderAll = function(){
+    __patch_prev_renderAll();
+    renderCalendarPlanning();
+    renderCompta();
+  };
+})();
+</script>
+
 </body>
 </html>
