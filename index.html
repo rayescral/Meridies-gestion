@@ -1019,6 +1019,70 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   .lock-visual,.lock-panel{padding:30px 24px;}
   .lock-brand{font-size:32px;}
 }
+
+/* ===== NOUVELLES FONCTIONNALITÉS v2 ===== */
+
+/* KPI trend (flèche mois vs mois précédent) */
+.kpi-trend{font-size:11px;font-weight:700;margin-top:4px;display:flex;align-items:center;gap:3px;}
+.kpi-trend.up{color:var(--success);}
+.kpi-trend.down{color:var(--danger);}
+.kpi-trend.flat{color:var(--muted);}
+
+/* KPI 6 colonnes dashboard */
+.kpi-grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
+@media(max-width:1100px){.kpi-grid-6{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:768px){.kpi-grid-6{grid-template-columns:repeat(2,1fr);}}
+
+/* Badge notification pulsant */
+.badge-pulse{position:relative;}
+.badge-pulse::after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--surface);animation:pulse-dot 2s infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.6;transform:scale(1.3);}}
+
+/* Notification dot sur nav */
+.nav-item .notif-dot{width:7px;height:7px;border-radius:50%;background:var(--danger);margin-left:auto;flex-shrink:0;animation:pulse-dot 2s infinite;}
+
+/* Mobile overlay */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;backdrop-filter:blur(2px);}
+.sidebar-overlay.open{display:block;}
+
+/* Dashboard alertes matière */
+.alert-material-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:var(--danger-bg);border:1px solid rgba(178,79,67,0.12);margin-bottom:6px;}
+.alert-material-item .icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.alert-material-item .msg{font-size:12px;font-weight:600;color:var(--danger);}
+.alert-material-item .sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.alert-material-item.warn{background:var(--warning-bg);border-color:rgba(180,122,56,0.12);}
+.alert-material-item.warn .msg{color:var(--warning);}
+
+/* Topbar mobile — cacher certains boutons */
+@media(max-width:768px){
+  .topbar-actions .btn-hide-mobile{display:none;}
+  .mobile-quickbar{display:flex;}
+  .kpi-grid{grid-template-columns:1fr 1fr;}
+}
+
+/* Mobile quickbar améliorée */
+.mobile-quickbar{
+  display:none;
+  position:fixed;bottom:12px;left:12px;right:12px;
+  background:rgba(29,26,23,0.97);
+  border:1px solid rgba(199,165,122,0.22);
+  border-radius:18px;
+  box-shadow:0 16px 40px rgba(0,0,0,0.3);
+  padding:10px 8px 10px;
+  z-index:80;
+  justify-content:space-around;
+  backdrop-filter:blur(12px);
+}
+.mobile-quickbar button{
+  border:none;background:none;
+  font-size:11px;color:rgba(255,255,255,0.75);
+  font-weight:600;font-family:'DM Sans',sans-serif;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 8px;border-radius:10px;cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.mobile-quickbar button .qb-icon{font-size:20px;}
+.mobile-quickbar button:hover,.mobile-quickbar button.active{background:rgba(199,165,122,0.18);color:var(--gold);}
 </style>
 
 </head>
@@ -1044,7 +1108,8 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
 </div>
 
-<button class="mobile-toggle no-print" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<button class="mobile-toggle no-print" onclick="toggleSidebar()">☰</button>
 
 <div class="layout">
 <div class="sidebar" id="sidebar">
@@ -1115,18 +1180,28 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
   <div class="topbar-actions">
     <input type="file" id="import-json-input" accept=".json,application/json" style="display:none" onchange="importAllDataFromFile(event)">
-    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-json-input').click()">⬆ Import JSON</button>
-    <button class="btn btn-secondary btn-sm" onclick="restoreFoundationData()">↺ Restaurer base</button>
-    <button class="btn btn-secondary btn-sm" onclick="exportExcelWorkbook()">⬇ Export Excel</button>
-    <button class="btn btn-secondary btn-sm" onclick="exportAllData()">⬇ Export JSON</button>
-    <button class="btn btn-danger btn-sm" onclick="resetAllData()">🗑 Réinitialiser</button>
+    <button class="btn btn-secondary btn-sm btn-hide-mobile" onclick="document.getElementById('import-json-input').click()">⬆ Import</button>
+    <button class="btn btn-secondary btn-sm btn-hide-mobile" onclick="exportExcelWorkbook()">⬇ Excel</button>
+    <button class="btn btn-secondary btn-sm btn-hide-mobile" onclick="exportAllData()">⬇ JSON</button>
+    <button class="btn btn-danger btn-sm" onclick="resetAllData()" title="Annuler les modifications non sauvegardées">↺ Annuler</button>
   </div>
 </div>
 
 <div class="content">
 
 <div class="page active" id="page-dashboard">
-  <div class="kpi-grid" id="dash-kpis"></div>
+  <!-- KPIs x6 -->
+  <div class="kpi-grid-6" id="dash-kpis"></div>
+
+  <!-- Alertes critiques (matière + stock) -->
+  <div class="card" id="dash-alerts-card" style="margin-bottom:16px;display:none;">
+    <div class="card-header" style="margin-bottom:10px;">
+      <span class="card-title">🔴 Alertes critiques</span>
+      <button class="btn btn-xs btn-secondary" onclick="renderDashboardAlerts()">↺</button>
+    </div>
+    <div id="dash-alerts-content"></div>
+  </div>
+
   <div class="grid2" style="margin-bottom:16px;">
     <div class="card"><div class="card-header"><span class="card-title">CA par canal</span></div><div style="position:relative;height:200px;"><canvas id="ch1"></canvas></div></div>
     <div class="card"><div class="card-header"><span class="card-title">Top designs</span></div><div style="position:relative;height:200px;"><canvas id="ch2"></canvas></div></div>
@@ -1137,11 +1212,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
   <div class="grid2">
     <div class="card">
-      <div class="card-header"><span class="card-title">Dernieres ventes</span></div>
-      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Article</th><th>Canal</th><th class="r">PV</th></tr></thead><tbody id="dash-last-sales"></tbody></table></div>
+      <div class="card-header"><span class="card-title">Dernières ventes</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Date</th><th>Article</th><th>Canal</th><th class="r">PV</th><th class="r">Marge</th></tr></thead><tbody id="dash-last-sales"></tbody></table></div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">Alertes stock</span></div>
+      <div class="card-header"><span class="card-title">Alertes stock local</span></div>
       <div id="dash-alerts"></div>
     </div>
   </div>
@@ -1548,11 +1623,13 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="card-header">
       <span class="card-title">Commandes Shopify (<span id="shopify-orders-count">0</span>)</span>
       <div class="section-actions">
-        <select class="select input-sm" id="shopify-orders-filter" onchange="applyShopifyOrdersFilter()" style="width:160px;">
+        <select class="select input-sm" id="shopify-orders-filter" onchange="applyShopifyOrdersFilter()" style="width:170px;">
           <option value="">Tous les statuts</option>
-          <option value="nouvelle">Nouvelle</option>
-          <option value="a_produire">À produire</option>
-          <option value="manquant_matiere">Matière manquante</option>
+          <option value="nouvelle">🆕 Nouvelle</option>
+          <option value="a_produire">✅ À produire</option>
+          <option value="manquant_matiere">⚠️ Mat. manquante</option>
+          <option value="prepare">📦 Préparé</option>
+          <option value="expedie">🚚 Expédié</option>
         </select>
         <button class="btn btn-secondary btn-sm" onclick="loadShopifyOrders()">↺ Rafraîchir</button>
       </div>
@@ -1568,11 +1645,12 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 </div>
 <!-- ===== FIN PAGE SHOPIFY ===== -->
 
-<div class="mobile-quickbar no-print">
-  <button onclick="goTo('dashboard')">Dashboard</button>
-  <button onclick="goTo('saisie-vente')">Ventes</button>
-  <button onclick="goTo('journal')">Marchés</button>
-  <button onclick="goTo('todo')">Tâches</button>
+<div class="mobile-quickbar no-print" id="mobile-quickbar">
+  <button onclick="goTo('dashboard')" id="qb-dashboard"><span class="qb-icon">📊</span>Dashboard</button>
+  <button onclick="goTo('shopify')" id="qb-shopify"><span class="qb-icon">🛍️</span>Shopify</button>
+  <button onclick="goTo('saisie-vente')" id="qb-saisie-vente"><span class="qb-icon">🛒</span>Ventes</button>
+  <button onclick="goTo('journal')" id="qb-journal"><span class="qb-icon">🧭</span>Marchés</button>
+  <button onclick="goTo('todo')" id="qb-todo"><span class="qb-icon">✏️</span>Tâches</button>
 </div>
 
 </div></div></div><div class="toast" id="toast"></div>
@@ -2005,7 +2083,12 @@ function goTo(page) {
     'journal':renderMarketJournal,'sav':renderSav,'shopify':loadShopifyPage
   };
   if(renderers[page]) renderers[page]();
-  document.querySelector('.sidebar').classList.remove('open');
+  // Fermer sidebar + overlay sur mobile
+  closeSidebar();
+  // Mettre à jour la quickbar mobile
+  document.querySelectorAll('.mobile-quickbar button').forEach(function(b){
+    b.classList.toggle('active', b.id==='qb-'+page);
+  });
 }
 
 // ============================================================
@@ -2041,19 +2124,53 @@ function getSalesTransactions(){
 }
 
 function renderDashboard() {
+  // ── Calculs de base ──────────────────────────────────────
+  var now = new Date();
+  var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  var prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var ymPrev = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0');
+
+  var caMois=0, caPrev=0, margeMois=0, nbArticles=0;
+  (DB.ventes||[]).forEach(function(v){
+    var m = (v.date||'').substring(0,7);
+    var ca = (v.pv||0)*(v.qte||1);
+    var pa = (v.pa||0)*(v.qte||1);
+    nbArticles += (v.qte||1);
+    if(m===ym){ caMois+=ca; margeMois+=(ca-pa); }
+    if(m===ymPrev){ caPrev+=ca; }
+  });
   var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var nbArticles=DB.ventes.reduce(function(s,v){return s+(v.qte||1);},0);
+  var margeTotal=DB.ventes.reduce(function(s,v){var ca=(v.pv||0)*(v.qte||1);var pa=(v.pa||0)*(v.qte||1);return s+(ca-pa);},0);
+  var margePct = caTotal>0 ? Math.round(margeTotal/caTotal*100) : 0;
   var transactions=getSalesTransactions();
   var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
   var dtfTot=DB.stockDTF.reduce(function(s,i){return s+(i.stock||0);},0);
-  var viergeTot=DB.stockVierge.reduce(function(s,i){return s+i.xs+i.s+i.m+i.l+i.xl+i.xxl;},0);
-  var panier=transactions.length>0?caTotal/transactions.length:0;
-  document.getElementById('dash-kpis').innerHTML=
-    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbArticles+' pièces vendues</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Panier moyen</div><div class="kpi-value">'+fmt(panier)+'</div><div class="kpi-sub">'+transactions.length+' transaction(s)</div></div>'+
-    '<div class="kpi kpi-success"><div class="kpi-label">Stock prêt à vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
-    '<div class="kpi"><div class="kpi-label">Composants</div><div class="kpi-value">'+viergeTot+' / '+dtfTot+'</div><div class="kpi-sub">vierges / DTF</div></div>';
+  var viergeTot=DB.stockVierge.reduce(function(s,i){return s+(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);},0);
 
+  // Stock critique
+  var stockCrit=0;
+  (DB.stockFini||[]).forEach(function(i){if((i.stock||0)<=(i.seuil||0))stockCrit++;});
+  (DB.stockDTF||[]).forEach(function(i){if((i.stock||0)<=(i.seuil||0))stockCrit++;});
+  (DB.stockVierge||[]).forEach(function(i){var t=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(t<=(i.seuil||0))stockCrit++;});
+
+  // Commandes Shopify en attente (non expédiées)
+  var shopifyPending = (typeof _shopifyAllOrders!=='undefined') ? _shopifyAllOrders.filter(function(o){return o.fulfillment_status!=='FULFILLED';}).length : '—';
+
+  // Delta mois
+  var delta = caPrev>0 ? Math.round((caMois-caPrev)/caPrev*100) : null;
+  var deltaHtml = delta===null ? '' :
+    '<div class="kpi-trend '+(delta>=0?'up':'down')+'">'+(delta>=0?'▲':'▼')+' '+Math.abs(delta)+'% vs mois préc.</div>';
+
+  // ── Rendu KPIs x6 ───────────────────────────────────────
+  document.getElementById('dash-kpis').innerHTML=
+    '<div class="kpi kpi-accent"><div class="kpi-label">CA Ce mois</div><div class="kpi-value">'+fmt(caMois)+'</div>'+deltaHtml+'</div>'+
+    '<div class="kpi kpi-accent"><div class="kpi-label">CA Total</div><div class="kpi-value">'+fmt(caTotal)+'</div><div class="kpi-sub">'+nbArticles+' pièces vendues</div></div>'+
+    '<div class="kpi '+(margePct>=40?'kpi-success':margePct>=20?'':'kpi-warning')+'"><div class="kpi-label">Marge brute</div><div class="kpi-value">'+fmt(margeTotal)+'</div><div class="kpi-sub">'+margePct+'% du CA</div></div>'+
+    '<div class="kpi kpi-success"><div class="kpi-label">Stock prêt à vendre</div><div class="kpi-value">'+stockFini+'</div><div class="kpi-sub">produits finis</div></div>'+
+    '<div class="kpi '+(shopifyPending>0?'kpi-warning':'')+'"><div class="kpi-label">Shopify en attente</div><div class="kpi-value">'+(typeof shopifyPending==='number'?shopifyPending:'—')+'</div><div class="kpi-sub">commandes non expédiées</div></div>'+
+    '<div class="kpi '+(stockCrit>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes stock</div><div class="kpi-value">'+stockCrit+'</div><div class="kpi-sub">'+(stockCrit>0?'références sous seuil':'Tout est ok')+'</div></div>';
+
+  // ── Graphiques ───────────────────────────────────────────
   var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
   function mkC(id,type,labels,data,colors,extra){
     var el=document.getElementById(id);if(!el)return;
@@ -2063,21 +2180,57 @@ function renderDashboard() {
     }
     el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
   }
-  var cs={};DB.ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
+  var cs={};(DB.ventes||[]).forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
   mkC('ch1','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
-  var ds={};DB.ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
+  var ds={};(DB.ventes||[]).forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
   var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
   mkC('ch2','bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
   mkC('ch3','bar',['Produits finis','Vierges','DTF'],[stockFini,viergeTot,dtfTot],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
-  var ts={};DB.ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
+  var ts={};(DB.ventes||[]).forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
   var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
   mkC('ch4','pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
+
+  // ── Dernières ventes + marge ─────────────────────────────
   var last=(DB.ventes||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,8);
-  document.getElementById('dash-last-sales').innerHTML = last.length? last.map(function(v){return '<tr><td>'+formatDate(v.date)+'</td><td>'+v.designation+'</td><td>'+v.canal+'</td><td class="r mono">'+fmt((v.pv||0)*(v.qte||1))+'</td></tr>';}).join('') : '<tr><td colspan="4" class="empty-state">Aucune vente</td></tr>';
-  var alerts=[]; (DB.stockFini||[]).forEach(function(i){ if((i.stock||0) <= (i.seuil||0)) alerts.push(i.code+' sous seuil'); });
-  (DB.stockDTF||[]).forEach(function(i){ if((i.stock||0) <= (i.seuil||0)) alerts.push('DTF '+i.ref+' sous seuil'); });
-  (DB.stockVierge||[]).forEach(function(i){ var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0); if(tot <= (i.seuil||0)) alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil'); });
-  document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){ return '<div class="reco-item">'+a+'</div>'; }).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte critique</div>';
+  document.getElementById('dash-last-sales').innerHTML = last.length? last.map(function(v){
+    var ca=(v.pv||0)*(v.qte||1);
+    var pa=(v.pa||0)*(v.qte||1);
+    var marge=ca-pa;
+    var margeStr = (v.pa>0) ? '<span style="color:'+(marge>=0?'var(--success)':'var(--danger)')+'">'+fmt(marge)+'</span>' : '<span style="color:var(--hint)">—</span>';
+    return '<tr><td>'+formatDate(v.date)+'</td><td>'+escapeHtml(v.designation||'')+'</td><td>'+escapeHtml(v.canal||'')+'</td><td class="r mono">'+fmt(ca)+'</td><td class="r mono">'+margeStr+'</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty-state">Aucune vente</td></tr>';
+
+  // ── Alertes stock local ──────────────────────────────────
+  var alerts=[];
+  (DB.stockFini||[]).forEach(function(i){if((i.stock||0)<=(i.seuil||0))alerts.push(i.code+' — produit fini sous seuil');});
+  (DB.stockDTF||[]).forEach(function(i){if((i.stock||0)<=(i.seuil||0))alerts.push('DTF '+i.ref+' sous seuil');});
+  (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
+  document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">⚠️ '+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
+
+  // ── Alertes matières Supabase (async) ────────────────────
+  renderDashboardAlerts();
+}
+
+async function renderDashboardAlerts() {
+  var card = document.getElementById('dash-alerts-card');
+  var content = document.getElementById('dash-alerts-content');
+  if (!card || !content) return;
+  try {
+    var { data, error } = await supabase.from('material_alerts').select('severity,message,alert_type').eq('status','open').order('created_at',{ascending:false}).limit(10);
+    if (error || !data || !data.length) { card.style.display='none'; return; }
+    card.style.display='block';
+    content.innerHTML = data.map(function(a){
+      var isHigh = a.severity==='high';
+      return '<div class="alert-material-item'+(isHigh?'':' warn')+'">' +
+        '<span class="icon">'+(isHigh?'🔴':'⚠️')+'</span>' +
+        '<div><div class="msg">'+escapeHtml(a.message||a.alert_type||'Alerte matière')+'</div>' +
+        '<div class="sub">'+(isHigh?'Sévérité haute':'Sévérité normale')+'</div></div>' +
+        '</div>';
+    }).join('');
+    // Mettre à jour le badge nav Shopify avec le total
+    var navBadge = document.getElementById('nav-shopify-alerts');
+    if (navBadge) navBadge.textContent = data.length || '';
+  } catch(e) { card.style.display='none'; }
 }
 
 // ============================================================
@@ -6511,11 +6664,21 @@ async function viewShopifyOrderLines(orderId, orderName) {
       '</tr>';
   }).join('') : '<tr><td colspan="5" class="empty-state">Aucune ligne trouvée.</td></tr>';
 
+  var order = (_shopifyAllOrders||[]).find(function(o){return o.id===orderId;});
+  var curStatus = order ? (order.meridies_status||'nouvelle') : '';
+  var statusActions =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+    '<button class="btn btn-secondary btn-sm" onclick="markOrderMeridiesStatus(\''+orderId+'\',\'a_produire\')">✅ Marquer à produire</button>' +
+    '<button class="btn btn-primary btn-sm" onclick="markOrderMeridiesStatus(\''+orderId+'\',\'prepare\')">📦 Marquer préparé</button>' +
+    '<button class="btn btn-success btn-sm" onclick="markOrderMeridiesStatus(\''+orderId+'\',\'expedie\')">🚚 Marquer expédié</button>' +
+    '</div>';
+
   openModal(
     '<div class="modal-title">Commande ' + escapeHtml(orderName) + '</div>' +
-    '<div class="modal-sub">Lignes articles + statut matière</div>' +
-    '<div class="table-wrap"><table><thead><tr><th>Article</th><th>SKU</th><th class="c">Qté</th><th class="r">Prix U</th><th>Matière</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    '<div style="margin-top:16px;text-align:right;"><button class="btn btn-secondary" onclick="closeModal()">Fermer</button></div>'
+    '<div class="modal-sub">Statut actuel : ' + shopifyMeridieBadge(curStatus) + '</div>' +
+    '<div class="table-wrap" style="margin-bottom:16px;"><table><thead><tr><th>Article</th><th>SKU</th><th class="c">Qté</th><th class="r">Prix U</th><th>Matière</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    statusActions +
+    '<div style="margin-top:12px;text-align:right;"><button class="btn btn-secondary btn-sm" onclick="closeModal()">Fermer</button></div>'
   );
 }
 
@@ -6591,10 +6754,41 @@ function shopifyFulfillmentBadge(s) {
 }
 
 function shopifyMeridieBadge(s) {
-  var map = { nouvelle: 'badge-info', a_produire: 'badge-ok', manquant_matiere: 'badge-danger' };
-  var labels = { nouvelle: '🆕 Nouvelle', a_produire: '✅ À produire', manquant_matiere: '⚠️ Mat. manquante' };
+  var map = { nouvelle: 'badge-info', a_produire: 'badge-ok', manquant_matiere: 'badge-danger', prepare: 'badge-warn', expedie: 'badge-ok' };
+  var labels = { nouvelle: '🆕 Nouvelle', a_produire: '✅ À produire', manquant_matiere: '⚠️ Mat. manquante', prepare: '📦 Préparé', expedie: '🚚 Expédié' };
   if (!s) return '<span class="badge badge-neutral">—</span>';
   return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
+}
+
+async function markOrderMeridiesStatus(orderId, newStatus) {
+  var { error } = await supabase
+    .from('shopify_orders')
+    .update({ meridies_status: newStatus })
+    .eq('id', orderId);
+  if (error) { showToast('❌ ' + error.message); return; }
+  // Mettre à jour le cache local
+  var o = (_shopifyAllOrders||[]).find(function(x){return x.id===orderId;});
+  if (o) o.meridies_status = newStatus;
+  var labels = { a_produire: 'À produire', prepare: 'Préparé', expedie: 'Expédié' };
+  showToast('✅ Commande marquée : ' + (labels[newStatus]||newStatus));
+  closeModal();
+  renderShopifyOrdersTable(_shopifyAllOrders);
+}
+
+// ── Mobile sidebar ─────────────────────────────────────────
+function toggleSidebar() {
+  var s = document.querySelector('.sidebar');
+  var o = document.getElementById('sidebar-overlay');
+  if (!s) return;
+  var isOpen = s.classList.contains('open');
+  s.classList.toggle('open', !isOpen);
+  if (o) o.classList.toggle('open', !isOpen);
+}
+function closeSidebar() {
+  var s = document.querySelector('.sidebar');
+  var o = document.getElementById('sidebar-overlay');
+  if (s) s.classList.remove('open');
+  if (o) o.classList.remove('open');
 }
 
 function shopifyAlertTypeBadge(t) {
