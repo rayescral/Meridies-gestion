@@ -56,11 +56,12 @@ async function getVariantMap({ supabaseUrl, serviceRoleKey, storeId }) {
 export default async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const appUrl = process.env.SHOPIFY_APP_URL;
 
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
+  if (!supabaseUrl || !supabaseServiceRoleKey || !appUrl) {
     return res.status(500).json({
       ok: false,
-      message: "Variables Supabase serveur manquantes"
+      message: "Variables serveur manquantes"
     });
   }
 
@@ -257,12 +258,30 @@ export default async function handler(req, res) {
       }
     }
 
+    const materialCheckResponse = await fetch(
+      `${appUrl}/api/shopify/check-materials?shop=${encodeURIComponent(store.shop_domain)}`
+    );
+
+    const materialCheckData = await materialCheckResponse.json();
+
+    if (!materialCheckResponse.ok) {
+      return res.status(500).json({
+        ok: false,
+        message: "Commandes synchronisées mais le contrôle matière a échoué",
+        shop: store.shop_domain,
+        savedOrders: upsertOrdersData.length,
+        savedLines: upsertLinesData.length,
+        materialCheck: materialCheckData
+      });
+    }
+
     return res.status(200).json({
       ok: true,
-      message: "Commandes Shopify synchronisées",
+      message: "Commandes Shopify synchronisées + contrôle matière lancé",
       shop: store.shop_domain,
       savedOrders: upsertOrdersData.length,
-      savedLines: upsertLinesData.length
+      savedLines: upsertLinesData.length,
+      materialCheck: materialCheckData
     });
   } catch (error) {
     return res.status(500).json({
