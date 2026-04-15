@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1D1A17"/>
+  <rect x="0" y="0" width="512" height="6" rx="0" fill="#C7A57A" opacity="0.9"/>
+  <!-- Fond dégradé subtil -->
+  <defs>
+    <radialGradient id="bg" cx="20%" cy="20%" r="70%">
+      <stop offset="0%" stop-color="#2A2420"/>
+      <stop offset="100%" stop-color="#1D1A17"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4B48C"/>
+      <stop offset="100%" stop-color="#C2996D"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Lettre M stylisée -->
+  <text
+    x="256"
+    y="310"
+    text-anchor="middle"
+    font-family="Georgia, serif"
+    font-size="240"
+    font-weight="700"
+    letter-spacing="8"
+    fill="url(#gold)"
+  >M</text>
+  <!-- Trait doré sous le M -->
+  <rect x="140" y="340" width="232" height="4" rx="2" fill="#C7A57A" opacity="0.6"/>
+  <!-- Texte MERIDIES en bas -->
+  <text
+    x="256"
+    y="408"
+    text-anchor="middle"
+    font-family="Georgia, serif"
+    font-size="42"
+    font-weight="400"
+    letter-spacing="16"
+    fill="#C7A57A"
+    opacity="0.75"
+  >MERIDIES</text>
+</svg>
