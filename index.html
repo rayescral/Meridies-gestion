@@ -1800,6 +1800,33 @@ async function loadDB() {
   renderSaleCart();
   clearVenteForm();
   enhanceLoadPostActions();
+
+  // Restaurer la dernière page visitée
+  var lastPage = sessionStorage.getItem('meridies_page');
+  if (lastPage && document.getElementById('page-' + lastPage)) {
+    goTo(lastPage);
+  }
+
+  // Polling temps réel de secours (toutes les 30s)
+  startRealtimePolling();
+}
+
+function startRealtimePolling() {
+  setInterval(async function() {
+    try {
+      var res = await supabase.from('app_state').select('data,updated_at').eq('id', 1).single();
+      if (res.error || !res.data) return;
+      var remoteTs = res.data.updated_at || '';
+      if (!startRealtimePolling._lastTs) { startRealtimePolling._lastTs = remoteTs; return; }
+      if (remoteTs !== startRealtimePolling._lastTs) {
+        startRealtimePolling._lastTs = remoteTs;
+        DB = normalizeRestoredDB(res.data.data);
+        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
+        renderAll();
+        toast('🔄 Données mises à jour');
+      }
+    } catch(_) {}
+  }, 30000);
 }
 
 
@@ -1890,6 +1917,7 @@ function initDatalists() {
 // NAVIGATION
 // ============================================================
 function goTo(page) {
+  sessionStorage.setItem('meridies_page', page);
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
   var el = document.getElementById('page-' + page);
@@ -3604,7 +3632,16 @@ function renderClients(){
 }
 function openAddClient(id){
   var c = (DB.clients||[]).find(function(x){return x.id===id;}) || {id:null,name:'',email:'',phone:'',notes:''};
-  openModal('<div class="modal-title">'+(c.id?'Modifier un client':'Nouveau client')+'</div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Nom</label><input class="input" id="cl-name" value="'+escapeHtml(c.name)+'"></div><div class="field"><label>Email</label><input class="input" id="cl-email" value="'+escapeHtml(c.email)+'"></div></div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Téléphone</label><input class="input" id="cl-phone" value="'+escapeHtml(c.phone)+'"></div><div class="field"><label>Tags</label><input class="input" id="cl-tags" value="'+escapeHtml((c.tags||[]).join(', '))+'"></div></div><div class="field" style="margin-bottom:14px;"><label>Notes</label><input class="input" id="cl-notes" value="'+escapeHtml(c.notes)+'"></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveClient('+(c.id||'null')+')">Enregistrer</button></div>');
+  var deleteBtn = c.id ? '<button class="btn btn-danger btn-sm" onclick="deleteClient('+c.id+')" style="margin-right:auto;">🗑 Supprimer</button>' : '';
+  openModal('<div class="modal-title">'+(c.id?'Modifier un client':'Nouveau client')+'</div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Nom</label><input class="input" id="cl-name" value="'+escapeHtml(c.name)+'"></div><div class="field"><label>Email</label><input class="input" id="cl-email" value="'+escapeHtml(c.email)+'"></div></div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Téléphone</label><input class="input" id="cl-phone" value="'+escapeHtml(c.phone)+'"></div><div class="field"><label>Tags</label><input class="input" id="cl-tags" value="'+escapeHtml((c.tags||[]).join(', '))+'"></div></div><div class="field" style="margin-bottom:14px;"><label>Notes</label><input class="input" id="cl-notes" value="'+escapeHtml(c.notes)+'"></div><div style="display:flex;gap:8px;align-items:center;">'+deleteBtn+'<button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveClient('+(c.id||'null')+')">Enregistrer</button></div>');
+}
+function deleteClient(id){
+  if(!confirm('Supprimer ce client ?')) return;
+  DB.clients = (DB.clients||[]).filter(function(c){ return c.id !== id; });
+  saveDB();
+  closeModal();
+  if(typeof refreshBusinessViews === 'function') refreshBusinessViews();
+  toast('Client supprimé');
 }
 function saveClient(id){
   var c={id:id||Date.now(),name:document.getElementById('cl-name').value,email:document.getElementById('cl-email').value,phone:document.getElementById('cl-phone').value,notes:document.getElementById('cl-notes').value,tags:(document.getElementById('cl-tags').value||'').split(',').map(function(t){return t.trim();}).filter(Boolean)};
@@ -6505,30 +6542,4 @@ function setShopifyConnStatus(connected, orders) {
 
 // ── Badges ─────────────────────────────────────────────────
 function shopifyFinancialBadge(s) {
-  if (!s) return '<span class="badge badge-neutral">—</span>';
-  var map = { PAID: 'badge-ok', PENDING: 'badge-warn', REFUNDED: 'badge-neutral', PARTIALLY_REFUNDED: 'badge-warn', VOIDED: 'badge-neutral' };
-  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + escapeHtml(s) + '</span>';
-}
-
-function shopifyFulfillmentBadge(s) {
-  if (!s) return '<span class="badge badge-neutral">Non expédié</span>';
-  var map = { FULFILLED: 'badge-ok', UNFULFILLED: 'badge-warn', PARTIALLY_FULFILLED: 'badge-warn', IN_PROGRESS: 'badge-info' };
-  var labels = { FULFILLED: 'Expédié', UNFULFILLED: 'Non expédié', PARTIALLY_FULFILLED: 'Partiel', IN_PROGRESS: 'En cours' };
-  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
-}
-
-function shopifyMeridieBadge(s) {
-  var map = { nouvelle: 'badge-info', a_produire: 'badge-ok', manquant_matiere: 'badge-danger' };
-  var labels = { nouvelle: '🆕 Nouvelle', a_produire: '✅ À produire', manquant_matiere: '⚠️ Mat. manquante' };
-  if (!s) return '<span class="badge badge-neutral">—</span>';
-  return '<span class="badge ' + (map[s] || 'badge-neutral') + '">' + (labels[s] || escapeHtml(s)) + '</span>';
-}
-
-function shopifyAlertTypeBadge(t) {
-  var labels = { material_missing: 'Matière manquante', bom_missing: 'BOM manquante', mapping_missing: 'Mapping manquant' };
-  return '<span class="badge badge-neutral">' + escapeHtml(labels[t] || t || '—') + '</span>';
-}
-</script>
-
-</body>
-</html>
+  if (!s) return '<span class="ba
