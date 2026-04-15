@@ -6185,12 +6185,13 @@ async function loadShopifyPage() {
   await Promise.all([loadShopifyOrders(), loadShopifyAlerts(), loadShopifyProducts()]);
 }
 
-// ── Commandes ──────────────────────────────────────────────
+// ── Commandes + Fusion ventes ─────────────────────────────
 async function loadShopifyOrders() {
   var el = document.getElementById('shopify-orders-body');
   el.innerHTML = '<tr><td colspan="8" class="empty-state">⏳ Chargement...</td></tr>';
 
-  var { data, error } = await supabase
+  // 1. Charger les commandes
+  var { data: orders, error } = await supabase
     .from('shopify_orders')
     .select('*')
     .order('created_at_shopify', { ascending: false })
@@ -6202,8 +6203,8 @@ async function loadShopifyOrders() {
     return;
   }
 
-  _shopifyAllOrders = data || [];
-  setShopifyConnStatus(true, data);
+  _shopifyAllOrders = orders || [];
+  setShopifyConnStatus(true, orders);
   renderShopifyOrdersTable(_shopifyAllOrders);
 
   // KPIs
@@ -6218,6 +6219,98 @@ async function loadShopifyOrders() {
   var alertsEl = document.getElementById('nav-shopify-alerts');
   var missing = _shopifyAllOrders.filter(function(o){ return o.meridies_status === 'manquant_matiere'; }).length;
   if (alertsEl) alertsEl.textContent = missing || '';
+
+  // 2. Fusion automatique dans DB.ventes
+  if (_shopifyAllOrders.length > 0) {
+    await fusionShopifyVentes(_shopifyAllOrders);
+  }
+}
+
+// ── Fusion Shopify → DB.ventes ────────────────────────────
+async function fusionShopifyVentes(orders) {
+  var orderIds = orders.map(function(o){ return o.id; });
+
+  // Charger toutes les lignes articles de ces commandes
+  var { data: lines, error: linesError } = await supabase
+    .from('shopify_order_lines')
+    .select('*')
+    .in('order_id', orderIds);
+
+  if (linesError || !lines || !lines.length) return;
+
+  // Index des IDs de lignes déjà dans DB.ventes (pour éviter les doublons)
+  var existingShopifyIds = {};
+  (DB.ventes || []).forEach(function(v) {
+    if (v.shopifyLineId) existingShopifyIds[v.shopifyLineId] = true;
+  });
+
+  // Index commandes par ID
+  var orderMap = {};
+  orders.forEach(function(o){ orderMap[o.id] = o; });
+
+  var nouvelles = [];
+  var stockTouched = false;
+
+  lines.forEach(function(line) {
+    // Déjà importé ?
+    if (existingShopifyIds[line.id]) return;
+
+    var order = orderMap[line.order_id];
+    if (!order) return;
+
+    // Chercher le produit dans le catalogue par SKU
+    var sku = (line.sku || '').trim();
+    var prodCat = null;
+    if (sku) {
+      prodCat = (DB.catalogue || []).find(function(p){
+        return (p.code || '').trim() === sku || (p.ref || '').trim() === sku;
+      });
+    }
+
+    // Construire la vente
+    var dateStr = order.created_at_shopify
+      ? order.created_at_shopify.substring(0, 10)
+      : today();
+
+    var vente = {
+      id: 'shopify_' + line.id,
+      shopifyLineId: line.id,
+      shopifyOrderId: order.shopify_order_id,
+      date: dateStr,
+      canal: 'Shopify',
+      numCde: order.order_name || '',
+      email: order.customer_email || '',
+      qte: line.quantity || 1,
+      pv: prodCat ? (prodCat.pv || line.unit_price || 0) : (line.unit_price || 0),
+      code: prodCat ? prodCat.code : (sku || 'SHOPIFY'),
+      ref: prodCat ? (prodCat.ref || '') : '',
+      design: prodCat ? (prodCat.design || '') : '',
+      designation: prodCat ? prodCat.designation : (line.title || sku || 'Article Shopify'),
+      taille: prodCat ? (prodCat.taille || '') : ''
+    };
+
+    nouvelles.push(vente);
+
+    // Décrémenter le stock fini si produit trouvé dans catalogue
+    if (prodCat) {
+      var sf = (DB.stockFini || []).find(function(f){ return f.code === prodCat.code; });
+      if (sf) {
+        sf.stock = Math.max(0, (sf.stock || 0) - vente.qte);
+        stockTouched = true;
+      }
+    }
+  });
+
+  if (nouvelles.length > 0) {
+    if (!DB.ventes) DB.ventes = [];
+    DB.ventes = DB.ventes.concat(nouvelles);
+    saveDB();
+    showToast('✅ ' + nouvelles.length + ' vente(s) Shopify importée(s) dans l\'historique');
+    // Rafraîchir le dashboard si visible
+    if (document.getElementById('page-dashboard').classList.contains('active')) {
+      renderDashboard();
+    }
+  }
 }
 
 function renderShopifyOrdersTable(orders) {
