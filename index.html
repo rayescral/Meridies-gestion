@@ -1677,7 +1677,9 @@ function normalizeRestoredDB(data) {
     history: Array.isArray(data.history) ? data.history : [],
     comptaSettings: data.comptaSettings && typeof data.comptaSettings === 'object' ? data.comptaSettings : { openingTreasury: 0 },
     recurringCharges: Array.isArray(data.recurringCharges) ? data.recurringCharges : [],
-    preferences: data.preferences && typeof data.preferences === 'object' ? data.preferences : { theme: 'light', role:'admin' }
+    preferences: data.preferences && typeof data.preferences === 'object' ? data.preferences : { theme: 'light', role:'admin' },
+    settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
+    socialMedia: data.socialMedia && typeof data.socialMedia === 'object' ? data.socialMedia : {}
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -1817,6 +1819,17 @@ async function loadDB() {
 
   // Polling temps réel de secours (toutes les 30s)
   startRealtimePolling();
+
+  // Auto-sync social au démarrage (délai pour laisser le module s'initialiser)
+  setTimeout(function() {
+    if (typeof window.syncSocialLiveNow === 'function') {
+      var last = Number(sessionStorage.getItem('meridies_social_live_last_session_sync') || '0');
+      var tenMin = 10 * 60 * 1000;
+      if (!last || (Date.now() - last) > tenMin) {
+        window.syncSocialLiveNow(true);
+      }
+    }
+  }, 2000);
 }
 
 function startRealtimePolling() {
