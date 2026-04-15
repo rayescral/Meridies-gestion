@@ -1862,6 +1862,7 @@ async function loadDB() {
     if (!res.error && res.data && res.data.data) {
       DB = normalizeRestoredDB(res.data.data);
       loaded = true;
+      _syncState.lastKnownTs = res.data.updated_at || '';
       setStatus(true);
       subscribeRealtime();
       try {
@@ -1923,68 +1924,99 @@ async function loadDB() {
   }, 2000);
 }
 
-function startRealtimePolling() {
-  setInterval(async function() {
-    try {
-      var res = await supabase.from('app_state').select('data,updated_at').eq('id', 1).single();
-      if (res.error || !res.data) return;
-      var remoteTs = res.data.updated_at || '';
-      if (!startRealtimePolling._lastTs) { startRealtimePolling._lastTs = remoteTs; return; }
-      if (remoteTs !== startRealtimePolling._lastTs) {
-        startRealtimePolling._lastTs = remoteTs;
-        // Ne pas écraser si une sauvegarde auto est en cours
-        if (!saveDB._pending) {
-          DB = normalizeRestoredDB(res.data.data);
-          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
-          renderAll();
-          toast('🔄 Données mises à jour');
-        }
-      }
-    } catch(_) {}
-  }, 30000);
+// ── Système de sync centralisé ────────────────────────────────
+var _syncState = {
+  lastKnownTs: null,   // timestamp Supabase connu
+  saving: false,       // sauvegarde en cours
+  saveTimer: null      // timer debounce
+};
+
+function setSyncIndicator(state, msg) {
+  var ind = document.getElementById('save-status-indicator');
+  if (!ind) return;
+  var icons = { saving: '⏳', ok: '✓', error: '⚠️', idle: '' };
+  ind.textContent = (icons[state] || '') + (msg ? ' ' + msg : '');
+  ind.style.color = state === 'error' ? '#DC2626' : state === 'ok' ? '#059669' : 'rgba(199,165,122,0.6)';
 }
 
-// ── saveDB : sauvegarde locale immédiate + Supabase debounced ──
+// saveDB : localStorage immédiat + push Supabase debounced (1.5s)
 var _saveTimer = null;
 function saveDB() {
-  // 1. Toujours écrire dans localStorage immédiatement
+  // 1. localStorage immédiat
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  // 2. Indicateur visuel
-  var ind = document.getElementById('save-status-indicator');
-  if (ind) ind.textContent = '⏳ Sauvegarde...';
-  saveDB._pending = true;
-  // 3. Debounce : attendre 2s d'inactivité avant de pousser vers Supabase
+  // 2. Indicateur
+  setSyncIndicator('saving', 'Sauvegarde...');
+  _syncState.saving = true;
+  // 3. Debounce Supabase
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(async function() {
-    try {
-      var r = await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
-      if (r.error) throw r.error;
-      setStatus(true);
-      startRealtimePolling._lastTs = null;
-      if (ind) { ind.textContent = '✓ Sauvegardé'; setTimeout(function(){ if(ind) ind.textContent=''; }, 2000); }
-    } catch(err) {
-      setStatus(false);
-      if (ind) { ind.textContent = '❌ Erreur sync'; }
-      console.warn('[saveDB] Erreur Supabase :', err.message || err);
-    } finally {
-      saveDB._pending = false;
-    }
-  }, 2000);
+  _saveTimer = setTimeout(function() { pushToSupabase(); }, 1500);
 }
-saveDB._pending = false;
+saveDB._pending = false; // rétrocompatibilité
 
-// ── resetAllData : restaure depuis Supabase ────────────────────
-function markSaved() {} // conservé pour compatibilité (no-op)
+async function pushToSupabase() {
+  try {
+    var payload = { id: 1, data: DB, updated_at: new Date().toISOString() };
+    var r = await supabase.from('app_state').upsert(payload);
+    if (r.error) throw r.error;
+    _syncState.saving = false;
+    _syncState.lastKnownTs = payload.updated_at;
+    setStatus(true);
+    setSyncIndicator('ok', 'Sauvegardé');
+    setTimeout(function() { setSyncIndicator('idle'); }, 2500);
+  } catch(err) {
+    _syncState.saving = false;
+    setStatus(false);
+    var msg = err.message || JSON.stringify(err) || 'Erreur inconnue';
+    setSyncIndicator('error', 'Erreur sync');
+    toast('❌ Sync Supabase : ' + msg.substring(0, 80));
+    console.error('[saveDB] Erreur Supabase :', err);
+    // Retry automatique après 8s
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(function() { pushToSupabase(); }, 8000);
+  }
+}
 
-function subscribeRealtime() {
-  supabase.channel('meridies_sync')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
-      if (payload.new && payload.new.data) {
-        DB = Object.assign(DB, payload.new.data);
+function markSaved() {} // rétrocompatibilité (no-op)
+
+// Polling 10s — détecte les changements faits par un autre appareil
+function startRealtimePolling() {
+  setInterval(async function() {
+    if (_syncState.saving) return; // ne pas écraser pendant une sauvegarde en cours
+    try {
+      var res = await supabase.from('app_state').select('updated_at,data').eq('id', 1).single();
+      if (res.error || !res.data) return;
+      var remoteTs = res.data.updated_at || '';
+      // Initialisation
+      if (!_syncState.lastKnownTs) { _syncState.lastKnownTs = remoteTs; return; }
+      // Changement détecté depuis un autre appareil
+      if (remoteTs !== _syncState.lastKnownTs) {
+        _syncState.lastKnownTs = remoteTs;
+        DB = normalizeRestoredDB(res.data.data);
+        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
         renderAll();
-        toast('🔄 Données mises à jour en temps réel');
+        toast('🔄 Données mises à jour');
       }
-    }).subscribe();
+    } catch(_) {}
+  }, 10000); // toutes les 10 secondes
+}
+
+// Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
+function subscribeRealtime() {
+  try {
+    supabase.channel('meridies_realtime_sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
+        if (_syncState.saving) return; // ignorer si c'est notre propre sauvegarde
+        if (payload.new && payload.new.data) {
+          var remoteTs = payload.new.updated_at || '';
+          if (remoteTs === _syncState.lastKnownTs) return; // déjà connu
+          _syncState.lastKnownTs = remoteTs;
+          DB = normalizeRestoredDB(payload.new.data);
+          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
+          renderAll();
+          toast('🔄 Données mises à jour en temps réel');
+        }
+      }).subscribe();
+  } catch(e) { console.warn('[Realtime] Non disponible, polling actif'); }
 }
 
 function renderAll() {
