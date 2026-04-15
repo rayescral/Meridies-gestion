@@ -5892,5 +5892,184 @@ body.dark .calendar-event.charge{background:rgba(37,99,235,0.16);}
 })();
 </script>
 
+<!-- ============================================================
+     MODULE MÉTÉO — Open-Meteo (gratuit, aucune clé API requise)
+     Affiche les prévisions météo sur le calendrier (marchés à venir)
+     et permet d'auto-remplir la météo dans le formulaire marché.
+     ============================================================ -->
+<script>
+(function(){
+  'use strict';
+
+  // ── Cache & état ──────────────────────────────────────────────
+  var WX_CACHE   = {}; // "ville::date" → objet météo | null
+  var WX_PENDING = {}; // clés en cours de fetch
+
+  // ── Mapping codes WMO → emoji + libellé ──────────────────────
+  var WMO = {
+    0:['☀️','Ensoleillé'],    1:['🌤','Peu nuageux'],
+    2:['⛅','Mitigé'],        3:['☁️','Couvert'],
+    45:['🌫','Brouillard'],   48:['🌫','Brouillard givrant'],
+    51:['🌦','Bruine légère'],53:['🌦','Bruine'],      55:['🌧','Bruine dense'],
+    61:['🌧','Pluie légère'], 63:['🌧','Pluie'],       65:['🌧','Pluie forte'],
+    71:['🌨','Neige légère'], 73:['🌨','Neige'],        75:['❄️','Neige forte'],
+    80:['🌦','Averses'],      81:['🌦','Averses mod.'], 82:['⛈','Averses fortes'],
+    95:['⛈','Orage'],        96:['⛈','Orage + grêle'],99:['⛈','Orage violent']
+  };
+  function wmo(code){ return WMO[code] || ['🌡','Variable']; }
+
+  // ── Géocodage ville → {lat, lon} ─────────────────────────────
+  async function geocodeCity(city){
+    var k = 'geo::' + city.toLowerCase().trim();
+    if(WX_CACHE[k] !== undefined) return WX_CACHE[k];
+    try{
+      var r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(city)+'&count=1&language=fr&format=json');
+      var d = await r.json();
+      var res = (d.results && d.results[0]) ? {lat:d.results[0].latitude, lon:d.results[0].longitude} : null;
+      WX_CACHE[k] = res;
+      return res;
+    } catch(e){ WX_CACHE[k]=null; return null; }
+  }
+
+  // ── Prévision météo pour un jour précis ───────────────────────
+  async function fetchWeatherDay(lat, lon, date){
+    try{
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+        '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum'+
+        '&timezone=Europe%2FParis&start_date='+date+'&end_date='+date;
+      var r = await fetch(url);
+      var d = await r.json();
+      if(!d.daily || !d.daily.time || !d.daily.time.length) return null;
+      var w = wmo(d.daily.weathercode[0]);
+      return {
+        emoji : w[0],
+        label : w[1],
+        tmax  : Math.round(d.daily.temperature_2m_max[0]),
+        tmin  : Math.round(d.daily.temperature_2m_min[0]),
+        precip: Math.round((d.daily.precipitation_sum[0]||0)*10)/10,
+        code  : d.daily.weathercode[0]
+      };
+    } catch(e){ return null; }
+  }
+
+  // ── API publique : getWeatherForMarket(ville, "YYYY-MM-DD") ──
+  window.getWeatherForMarket = async function(city, date){
+    var k = city+'::'+date;
+    if(WX_CACHE[k] !== undefined) return WX_CACHE[k];
+    var geo = await geocodeCity(city);
+    if(!geo){ WX_CACHE[k]=null; return null; }
+    var wx = await fetchWeatherDay(geo.lat, geo.lon, date);
+    WX_CACHE[k] = wx;
+    return wx;
+  };
+
+  // ── Auto-remplissage dans le modal marché ─────────────────────
+  window.autoFetchWeatherModal = async function(){
+    var city = (document.getElementById('mk-city')||{}).value||'';
+    var date = (document.getElementById('mk-date')||{}).value||'';
+    if(!city||!date){ toast('Renseigne la ville et la date d\'abord'); return; }
+    var btn = document.getElementById('btn-wx-auto');
+    if(btn){ btn.disabled=true; btn.innerHTML='<span style="opacity:.6">⏳</span> Chargement...'; }
+    var wx = await window.getWeatherForMarket(city.trim(), date);
+    if(btn){ btn.disabled=false; btn.innerHTML='🌤 Récupérer la météo'; }
+    if(!wx){ toast('Ville introuvable — vérifie l\'orthographe'); return; }
+    var field = document.getElementById('mk-weather');
+    if(field){
+      field.value = wx.emoji+' '+wx.label+' '+wx.tmax+'°/'+wx.tmin+'°'+(wx.precip>0?' · '+wx.precip+'mm':'');
+    }
+    toast(wx.emoji+' Météo récupérée : '+wx.tmax+'° max · '+wx.label);
+  };
+
+  // ── Patch du formulaire marché : ajout du bouton météo ────────
+  var __prevOMSF = openMarketSessionForm;
+  openMarketSessionForm = function(i){
+    __prevOMSF(i);
+    setTimeout(function(){
+      var wField = document.getElementById('mk-weather');
+      if(!wField || document.getElementById('btn-wx-auto')) return;
+      var parent = wField.parentElement;
+      wField.style.marginBottom = '5px';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id   = 'btn-wx-auto';
+      btn.className = 'btn btn-secondary btn-sm';
+      btn.style.cssText = 'width:100%;justify-content:center;gap:6px;';
+      btn.innerHTML = '🌤 Récupérer la météo';
+      btn.onclick = window.autoFetchWeatherModal;
+      parent.appendChild(btn);
+    }, 40);
+  };
+
+  // ── Injection des pastilles météo dans le calendrier ──────────
+  function renderWeatherPill(city, wx){
+    if(!wx) return;
+    document.querySelectorAll('.calendar-event.market').forEach(function(el){
+      var strong = el.querySelector('strong');
+      if(!strong || strong.textContent.trim() !== city.trim()) return;
+      if(el.querySelector('.wx-pill')) return;
+      var pill = document.createElement('div');
+      pill.className = 'wx-pill';
+      pill.style.cssText = [
+        'margin-top:5px','display:inline-flex','align-items:center','gap:4px',
+        'padding:2px 7px','border-radius:8px','font-size:11px','font-weight:700',
+        'background:rgba(106,128,149,0.13)','color:var(--info)'
+      ].join(';');
+      var precipHTML = wx.precip>0 ? '<span style="opacity:.65">· '+wx.precip+'mm</span>' : '';
+      pill.innerHTML = '<span>'+wx.emoji+'</span>'
+        +'<span>'+wx.tmax+'°<span style="opacity:.65">/'+wx.tmin+'°</span></span>'
+        +precipHTML;
+      el.appendChild(pill);
+    });
+  }
+
+  function injectWeatherIntoCalendar(){
+    var now     = new Date();
+    var today0  = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var maxDate = new Date(today0.getTime() + 16*86400000); // horizon prévision gratuit
+
+    (DB.marketSessions||[]).forEach(function(m){
+      if(!m.city || !m.date) return;
+      var mDate = new Date(m.date+'T12:00:00');
+      if(mDate < today0 || mDate > maxDate) return; // hors fenêtre prévision
+
+      var k = m.city+'::'+m.date;
+      if(WX_PENDING[k]) return;
+
+      if(WX_CACHE[k] !== undefined){
+        renderWeatherPill(m.city, WX_CACHE[k]);
+      } else {
+        WX_PENDING[k] = true;
+        window.getWeatherForMarket(m.city, m.date).then(function(wx){
+          delete WX_PENDING[k];
+          renderWeatherPill(m.city, wx);
+        });
+      }
+    });
+  }
+
+  // ── Patch renderCalendarPlanning ─────────────────────────────
+  var __prevRCP = renderCalendarPlanning;
+  renderCalendarPlanning = function(){
+    __prevRCP();
+    setTimeout(injectWeatherIntoCalendar, 0);
+  };
+
+  // ── Pré-fetch au chargement de l'app (discret, en arrière-plan)
+  setTimeout(function(){
+    var now     = new Date();
+    var today0  = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var maxDate = new Date(today0.getTime() + 16*86400000);
+    (DB.marketSessions||[]).forEach(function(m){
+      if(!m.city || !m.date) return;
+      var mDate = new Date(m.date+'T12:00:00');
+      if(mDate >= today0 && mDate <= maxDate){
+        window.getWeatherForMarket(m.city, m.date); // pré-cache silencieux
+      }
+    });
+  }, 2500);
+
+})();
+</script>
+
 </body>
 </html>
