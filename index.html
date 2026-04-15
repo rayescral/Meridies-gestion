@@ -1052,6 +1052,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <h1>MERIDIES</h1>
     <p>Gestion centralisée</p>
     <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.03em;">⏳ Connexion...</p>
+    <button id="btn-manual-save" onclick="manualSaveDB()" style="margin-top:10px;width:100%;padding:7px 10px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#a8832e);color:#1D1A17;font-size:11px;font-weight:700;border:none;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:5px;">💾 Sauvegarder</button>
     <select id="role-select" class="role-select" onchange="changeRole(this.value)">
       <option value="admin">Rôle: Admin</option>
       <option value="terrain">Rôle: Terrain / Marchés</option>
@@ -1072,7 +1073,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     
     <div class="nav-section">Ventes</div>
     <div class="nav-item" onclick="goTo('saisie-vente')"><span class="icon">🛒</span>Saisie vente</div>
-    
+
+    <div class="nav-section">Communication digitale</div>
+    <div class="nav-item" id="nav-social-media" onclick="goTo('social-media')"><span class="icon">📱</span>Réseaux sociaux</div>
+
     <div class="nav-section">Achats</div>
     <div class="nav-item" onclick="goTo('fournisseurs')"><span class="icon">🏭</span>Fournisseurs</div>
     <div class="nav-item" onclick="goTo('commandes')"><span class="icon">📋</span>Bons de commande</div>
@@ -1840,20 +1844,61 @@ function startRealtimePolling() {
       if (!startRealtimePolling._lastTs) { startRealtimePolling._lastTs = remoteTs; return; }
       if (remoteTs !== startRealtimePolling._lastTs) {
         startRealtimePolling._lastTs = remoteTs;
-        DB = normalizeRestoredDB(res.data.data);
-        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
-        renderAll();
-        toast('🔄 Données mises à jour');
+        if (_unsavedChanges) {
+          toast('⚠️ Modifications distantes détectées — sauvegardez d\'abord vos changements');
+        } else {
+          DB = normalizeRestoredDB(res.data.data);
+          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
+          renderAll();
+          toast('🔄 Données mises à jour');
+        }
       }
     } catch(_) {}
   }, 30000);
 }
 
 
+// ── saveDB : enregistrement LOCAL uniquement (pas de Supabase) ──
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
-    .then(function(r){ setStatus(!r.error); }).catch(function(){ setStatus(false); });
+  markUnsaved();
+}
+
+// ── manualSaveDB : sauvegarde RÉELLE vers Supabase ─────────────
+async function manualSaveDB() {
+  var btn = document.getElementById('btn-manual-save');
+  if (btn) { btn.textContent = '⏳ Sauvegarde...'; btn.disabled = true; }
+  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+  try {
+    var r = await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
+    if (r.error) throw r.error;
+    setStatus(true);
+    markSaved();
+    startRealtimePolling._lastTs = null; // reset polling ts pour éviter faux positif
+    toast('✅ Données sauvegardées');
+  } catch(err) {
+    setStatus(false);
+    toast('❌ Erreur sauvegarde : ' + (err.message || err));
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+// ── Indicateur modifications non sauvegardées ──────────────────
+var _unsavedChanges = false;
+function markUnsaved() {
+  _unsavedChanges = true;
+  var btn = document.getElementById('btn-manual-save');
+  var dot = document.getElementById('save-unsaved-dot');
+  if (btn) btn.textContent = '💾 Sauvegarder ●';
+  if (dot) dot.style.display = 'inline';
+}
+function markSaved() {
+  _unsavedChanges = false;
+  var btn = document.getElementById('btn-manual-save');
+  var dot = document.getElementById('save-unsaved-dot');
+  if (btn) btn.textContent = '💾 Sauvegarder';
+  if (dot) dot.style.display = 'none';
 }
 
 function subscribeRealtime() {
@@ -2832,45 +2877,27 @@ function exportAllData() {
   }
 }
 function resetAllData() {
-  if(!confirm('⚠️ Réinitialiser uniquement les données 2026 et revenir au backup de base ?\n\nLes données historiques 2025 importées depuis l\'Excel seront conservées.')) return;
-  if(!confirm('Confirmez la réinitialisation. Les ventes, commandes et saisies 2026 ajoutées après le backup seront supprimées, mais l\'historique 2025 sera conservé.')) return;
+  if(!confirm('↺ Annuler les modifications non sauvegardées ?\n\nToutes les modifications depuis votre dernière sauvegarde manuelle seront perdues. Les données sauvegardées sur Supabase seront restaurées.')) return;
 
-  var keepTheme = (DB.preferences && DB.preferences.theme) || localStorage.getItem('meridies_theme') || 'light';
-  var keepHistoricalSales = Array.isArray(DB.historicalSales) && DB.historicalSales.length
-    ? JSON.parse(JSON.stringify(DB.historicalSales))
-    : JSON.parse(JSON.stringify(typeof HISTORICAL_SALES_2025 !== 'undefined' ? HISTORICAL_SALES_2025 : []));
-  var keepHistoricalImported = !!(DB.preferences && DB.preferences.migrations && DB.preferences.migrations.historicalSales2025Imported);
-
-  restoreCleanResetBackup(false);
-
-  if(!DB.preferences) DB.preferences = {};
-  if(!DB.preferences.migrations) DB.preferences.migrations = {};
-  DB.preferences.theme = keepTheme;
-  DB.history = [];
-
-  DB.historicalSales = keepHistoricalSales;
-  DB.preferences.migrations.historicalSales2025Imported = keepHistoricalImported || !!DB.historicalSales.length;
-
-  saveDB();
-
-  try {
-    if (typeof initHistoricalSalesModule === 'function') initHistoricalSalesModule(false);
-  } catch(e) {
-    console.error(e);
-  }
-
-  enhanceLoadPostActions();
-
-  try {
-    supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() })
-      .then(function(r) {
-        setStatus(!r.error);
-        if (!r.error) subscribeRealtime();
-      })
-      .catch(function(){ setStatus(false); });
-  } catch(e) {}
-
-  toast('Réinitialisation effectuée : 2026 remise à zéro, historique 2025 conservé.');
+  // Recharger depuis Supabase = dernière sauvegarde manuelle
+  toast('⏳ Restauration en cours...');
+  supabase.from('app_state').select('data').eq('id', 1).single()
+    .then(function(res) {
+      if (res.error || !res.data || !res.data.data) {
+        toast('❌ Impossible de charger la dernière sauvegarde');
+        return;
+      }
+      DB = normalizeRestoredDB(res.data.data);
+      try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+      markSaved();
+      ensureBaseSeedData();
+      initDatalists();
+      renderAll();
+      enhanceLoadPostActions();
+      goTo('dashboard');
+      toast('✅ Données restaurées à la dernière sauvegarde');
+    })
+    .catch(function() { toast('❌ Erreur réseau lors de la restauration'); });
 }
 
 
@@ -5089,18 +5116,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-WEB-#107
 
   function injectSocialUI(){
     injectSocialStyles();
-    var adminNav = document.getElementById('nav-admin-analytics');
-    if(adminNav && !document.getElementById('nav-social-media')){
-      adminNav.insertAdjacentHTML('afterend', '<div class="nav-item" id="nav-social-media" data-admin-only="1" onclick="goTo(\'social-media\')"><span class="icon">📱</span>Réseaux sociaux</div>');
-    } else if(!adminNav){
-      var sidebarNav = document.querySelector('.sidebar-nav');
-      if(sidebarNav && !document.getElementById('nav-social-media')){
-        var wrapper = document.createElement('div');
-        wrapper.setAttribute('data-admin-only','1');
-        wrapper.innerHTML = '<div class="nav-section" data-admin-only="1">Communication digitale</div><div class="nav-item" id="nav-social-media" data-admin-only="1" onclick="goTo(\'social-media\')"><span class="icon">📱</span>Réseaux sociaux</div>';
-        sidebarNav.appendChild(wrapper);
-      }
-    }
+    // Le nav "Réseaux sociaux" est déjà dans le HTML statique — pas besoin de l'injecter
 
     var content = document.querySelector('.content');
     if(content && !document.getElementById('page-social-media')){
