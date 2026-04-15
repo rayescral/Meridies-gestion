@@ -1127,7 +1127,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <h1>MERIDIES</h1>
     <p>Gestion centralisée</p>
     <p id="sync-status" style="margin-top:6px;font-size:10px;font-weight:600;letter-spacing:.03em;">⏳ Connexion...</p>
-    <button id="btn-manual-save" onclick="manualSaveDB()" style="margin-top:10px;width:100%;padding:7px 10px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#a8832e);color:#1D1A17;font-size:11px;font-weight:700;border:none;cursor:pointer;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:5px;">💾 Sauvegarder</button>
+    <div id="save-status-indicator" style="margin-top:10px;font-size:10px;color:rgba(199,165,122,0.5);text-align:center;height:14px;"></div>
     <select id="role-select" class="role-select" onchange="changeRole(this.value)">
       <option value="admin">Rôle: Admin</option>
       <option value="terrain">Rôle: Terrain / Marchés</option>
@@ -1932,9 +1932,8 @@ function startRealtimePolling() {
       if (!startRealtimePolling._lastTs) { startRealtimePolling._lastTs = remoteTs; return; }
       if (remoteTs !== startRealtimePolling._lastTs) {
         startRealtimePolling._lastTs = remoteTs;
-        if (_unsavedChanges) {
-          toast('⚠️ Modifications distantes détectées — sauvegardez d\'abord vos changements');
-        } else {
+        // Ne pas écraser si une sauvegarde auto est en cours
+        if (!saveDB._pending) {
           DB = normalizeRestoredDB(res.data.data);
           try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
           renderAll();
@@ -1945,49 +1944,37 @@ function startRealtimePolling() {
   }, 30000);
 }
 
-
-// ── saveDB : enregistrement LOCAL uniquement (pas de Supabase) ──
+// ── saveDB : sauvegarde locale immédiate + Supabase debounced ──
+var _saveTimer = null;
 function saveDB() {
+  // 1. Toujours écrire dans localStorage immédiatement
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  markUnsaved();
+  // 2. Indicateur visuel
+  var ind = document.getElementById('save-status-indicator');
+  if (ind) ind.textContent = '⏳ Sauvegarde...';
+  saveDB._pending = true;
+  // 3. Debounce : attendre 2s d'inactivité avant de pousser vers Supabase
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async function() {
+    try {
+      var r = await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
+      if (r.error) throw r.error;
+      setStatus(true);
+      startRealtimePolling._lastTs = null;
+      if (ind) { ind.textContent = '✓ Sauvegardé'; setTimeout(function(){ if(ind) ind.textContent=''; }, 2000); }
+    } catch(err) {
+      setStatus(false);
+      if (ind) { ind.textContent = '❌ Erreur sync'; }
+      console.warn('[saveDB] Erreur Supabase :', err.message || err);
+    } finally {
+      saveDB._pending = false;
+    }
+  }, 2000);
 }
+saveDB._pending = false;
 
-// ── manualSaveDB : sauvegarde RÉELLE vers Supabase ─────────────
-async function manualSaveDB() {
-  var btn = document.getElementById('btn-manual-save');
-  if (btn) { btn.textContent = '⏳ Sauvegarde...'; btn.disabled = true; }
-  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  try {
-    var r = await supabase.from('app_state').upsert({ id: 1, data: DB, updated_at: new Date().toISOString() });
-    if (r.error) throw r.error;
-    setStatus(true);
-    markSaved();
-    startRealtimePolling._lastTs = null; // reset polling ts pour éviter faux positif
-    toast('✅ Données sauvegardées');
-  } catch(err) {
-    setStatus(false);
-    toast('❌ Erreur sauvegarde : ' + (err.message || err));
-  } finally {
-    if (btn) { btn.disabled = false; }
-  }
-}
-
-// ── Indicateur modifications non sauvegardées ──────────────────
-var _unsavedChanges = false;
-function markUnsaved() {
-  _unsavedChanges = true;
-  var btn = document.getElementById('btn-manual-save');
-  var dot = document.getElementById('save-unsaved-dot');
-  if (btn) btn.textContent = '💾 Sauvegarder ●';
-  if (dot) dot.style.display = 'inline';
-}
-function markSaved() {
-  _unsavedChanges = false;
-  var btn = document.getElementById('btn-manual-save');
-  var dot = document.getElementById('save-unsaved-dot');
-  if (btn) btn.textContent = '💾 Sauvegarder';
-  if (dot) dot.style.display = 'none';
-}
+// ── resetAllData : restaure depuis Supabase ────────────────────
+function markSaved() {} // conservé pour compatibilité (no-op)
 
 function subscribeRealtime() {
   supabase.channel('meridies_sync')
@@ -3052,7 +3039,6 @@ function resetAllData() {
       }
       DB = normalizeRestoredDB(res.data.data);
       try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-      markSaved();
       ensureBaseSeedData();
       initDatalists();
       renderAll();
@@ -3649,7 +3635,28 @@ goTo = function(page){
   if(page === 'history') renderHistory();
 };
 
+function migrateWebToShopify() {
+  // Migration unique : passe tous les canaux "Web" en "Shopify"
+  var changed = 0;
+  (DB.ventes || []).forEach(function(v) {
+    if (v.canal === 'Web') { v.canal = 'Shopify'; changed++; }
+  });
+  // Nettoyer aussi la liste des canaux sauvegardés
+  if (DB.settings && Array.isArray(DB.settings.saleChannels)) {
+    DB.settings.saleChannels = DB.settings.saleChannels.map(function(c) {
+      return c === 'Web' ? 'Shopify' : c;
+    }).filter(function(c, i, arr) {
+      return arr.indexOf(c) === i; // dédoublonner si "Shopify" existait déjà
+    });
+  }
+  if (changed > 0) {
+    saveDB();
+    console.log('[Migration] ' + changed + ' vente(s) "Web" → "Shopify"');
+  }
+}
+
 function enhanceLoadPostActions(){
+  migrateWebToShopify();
   applyTheme((DB.preferences && DB.preferences.theme) || localStorage.getItem('meridies_theme') || 'light');
   patchActionWrappers();
   renderHistory();
@@ -3926,7 +3933,7 @@ renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); re
 // ============================================================
 // V4 FIXES — catalogue / ventes multi-articles / todo edit / settings
 // ============================================================
-var DEFAULT_SALE_CHANNELS = ['Marché','Web','B2B','Collaboration','Restaurant'];
+var DEFAULT_SALE_CHANNELS = ['Marché','Shopify','B2B','Collaboration','Restaurant'];
 var DEFAULT_CHARGE_CATEGORIES = ['Matériel du stand','Shopify','Boxtal','Packaging','Publicité','Logistique','Transport','Collaboration','Restaurant','Autre'];
 var DEFAULT_TODO_OWNERS = ['Quentin','Eliott','Seb','Quentin / Eliott'];
 
