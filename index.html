@@ -6791,10 +6791,6 @@ async function loadShopifyOrders() {
   }
 
   _shopifyAllOrders = orders || [];
-
-  // 2. Purger les ventes Shopify locales liées à des commandes supprimées côté Shopify
-  await purgeDeletedShopifyOrders(_shopifyAllOrders);
-
   setShopifyConnStatus(true, orders);
   renderShopifyOrdersTable(_shopifyAllOrders);
 
@@ -6811,54 +6807,9 @@ async function loadShopifyOrders() {
   var missing = _shopifyAllOrders.filter(function(o){ return o.meridies_status === 'manquant_matiere'; }).length;
   if (alertsEl) alertsEl.textContent = missing || '';
 
-  // 3. Fusion automatique dans DB.ventes
+  // 2. Fusion automatique dans DB.ventes
   if (_shopifyAllOrders.length > 0) {
     await fusionShopifyVentes(_shopifyAllOrders);
-  }
-}
-
-async function purgeDeletedShopifyOrders(orders) {
-  var safeOrders = Array.isArray(orders) ? orders : [];
-  var currentOrderDbIds = new Set(safeOrders.map(function(o){ return o.id; }).filter(Boolean));
-  var currentShopifyOrderIds = new Set(safeOrders.map(function(o){ return o.shopify_order_id; }).filter(Boolean));
-  var currentLineIds = new Set();
-
-  if (currentOrderDbIds.size > 0) {
-    var lineRes = await supabase
-      .from('shopify_order_lines')
-      .select('id,order_id')
-      .in('order_id', Array.from(currentOrderDbIds));
-
-    if (!lineRes.error && Array.isArray(lineRes.data)) {
-      lineRes.data.forEach(function(line){
-        if (line && line.id) currentLineIds.add(line.id);
-      });
-    }
-  }
-
-  var before = Array.isArray(DB.ventes) ? DB.ventes.length : 0;
-
-  DB.ventes = (DB.ventes || []).filter(function(v) {
-    if (!v || (!v.shopifyLineId && !v.shopifyOrderId)) return true;
-
-    if (safeOrders.length === 0) return false;
-
-    if (v.shopifyLineId && !currentLineIds.has(v.shopifyLineId)) return false;
-    if (v.shopifyOrderId && !currentShopifyOrderIds.has(v.shopifyOrderId)) return false;
-
-    return true;
-  });
-
-  if ((DB.ventes || []).length !== before) {
-    saveDB({ immediate: true, reason: 'Nettoyage Shopify...' });
-
-    if (typeof renderHistory === 'function') renderHistory();
-    if (typeof renderVentes === 'function') renderVentes();
-    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active') && typeof renderDashboard === 'function') {
-      renderDashboard();
-    }
-
-    showToast('🧹 Commandes Shopify supprimées retirées du site');
   }
 }
 
@@ -7101,13 +7052,28 @@ async function shopifyApiCall(endpoint, label) {
   try {
     var res = await fetch(url);
     var data = await res.json();
+
+    var hasShopifySyncChanges =
+      typeof data.savedOrders !== 'undefined' ||
+      typeof data.savedLines !== 'undefined' ||
+      typeof data.deletedOrders !== 'undefined' ||
+      typeof data.deletedLines !== 'undefined';
+
     if (data.ok) {
       showToast('✅ ' + (data.message || label + ' OK'));
       await loadShopifyPage();
-    } else {
-      showToast('❌ ' + (data.message || 'Erreur'));
-      console.error('[Shopify]', label, data);
+      return;
     }
+
+    if (hasShopifySyncChanges) {
+      showToast('⚠️ Sync partielle : commandes mises à jour, mais contrôle matière en erreur');
+      console.error('[Shopify]', label, data);
+      await loadShopifyPage();
+      return;
+    }
+
+    showToast('❌ ' + (data.message || 'Erreur'));
+    console.error('[Shopify]', label, data);
   } catch(e) {
     showToast('❌ Erreur réseau : ' + e.message);
   }
