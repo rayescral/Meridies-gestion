@@ -6777,6 +6777,7 @@ async function loadShopifyOrders() {
   var el = document.getElementById('shopify-orders-body');
   el.innerHTML = '<tr><td colspan="8" class="empty-state">⏳ Chargement...</td></tr>';
 
+  // 1. Charger les commandes
   var { data: orders, error } = await supabase
     .from('shopify_orders')
     .select('*')
@@ -6793,6 +6794,7 @@ async function loadShopifyOrders() {
   setShopifyConnStatus(true, orders);
   renderShopifyOrdersTable(_shopifyAllOrders);
 
+  // KPIs
   var kpiOrders = document.getElementById('shopify-kpi-orders');
   var kpiProduce = document.getElementById('shopify-kpi-toproduce');
   var countEl = document.getElementById('shopify-orders-count');
@@ -6800,19 +6802,22 @@ async function loadShopifyOrders() {
   if (countEl) countEl.textContent = _shopifyAllOrders.length;
   if (kpiProduce) kpiProduce.textContent = _shopifyAllOrders.filter(function(o){ return o.meridies_status === 'a_produire'; }).length;
 
+  // Badge sidebar
   var alertsEl = document.getElementById('nav-shopify-alerts');
   var missing = _shopifyAllOrders.filter(function(o){ return o.meridies_status === 'manquant_matiere'; }).length;
   if (alertsEl) alertsEl.textContent = missing || '';
 
+  // 2. Fusion automatique dans DB.ventes
   if (_shopifyAllOrders.length > 0) {
     await fusionShopifyVentes(_shopifyAllOrders);
   }
 }
 
+// ── Fusion Shopify → DB.ventes ────────────────────────────
 async function fusionShopifyVentes(orders) {
   var orderIds = orders.map(function(o){ return o.id; });
-  if (!orderIds.length) return;
 
+  // Charger toutes les lignes articles de ces commandes
   var { data: lines, error: linesError } = await supabase
     .from('shopify_order_lines')
     .select('*')
@@ -6820,22 +6825,27 @@ async function fusionShopifyVentes(orders) {
 
   if (linesError || !lines || !lines.length) return;
 
+  // Index des IDs de lignes déjà dans DB.ventes (pour éviter les doublons)
   var existingShopifyIds = {};
   (DB.ventes || []).forEach(function(v) {
-    if (v.shopifyLineId) existingShopifyIds[String(v.shopifyLineId)] = true;
+    if (v.shopifyLineId) existingShopifyIds[v.shopifyLineId] = true;
   });
 
+  // Index commandes par ID
   var orderMap = {};
   orders.forEach(function(o){ orderMap[o.id] = o; });
 
   var nouvelles = [];
+  var stockTouched = false;
 
   lines.forEach(function(line) {
-    if (existingShopifyIds[String(line.id)]) return;
+    // Déjà importé ?
+    if (existingShopifyIds[line.id]) return;
 
     var order = orderMap[line.order_id];
     if (!order) return;
 
+    // Chercher le produit dans le catalogue par SKU
     var sku = (line.sku || '').trim();
     var prodCat = null;
     if (sku) {
@@ -6844,6 +6854,7 @@ async function fusionShopifyVentes(orders) {
       });
     }
 
+    // Construire la vente
     var dateStr = order.created_at_shopify
       ? order.created_at_shopify.substring(0, 10)
       : today();
@@ -6852,7 +6863,6 @@ async function fusionShopifyVentes(orders) {
       id: 'shopify_' + line.id,
       shopifyLineId: line.id,
       shopifyOrderId: order.shopify_order_id,
-      shopifyOrderRowId: order.id,
       date: dateStr,
       canal: 'Shopify',
       numCde: order.order_name || '',
@@ -6867,6 +6877,15 @@ async function fusionShopifyVentes(orders) {
     };
 
     nouvelles.push(vente);
+
+    // Décrémenter le stock fini si produit trouvé dans catalogue
+    if (prodCat) {
+      var sf = (DB.stockFini || []).find(function(f){ return f.code === prodCat.code; });
+      if (sf) {
+        sf.stock = Math.max(0, (sf.stock || 0) - vente.qte);
+        stockTouched = true;
+      }
+    }
   });
 
   if (nouvelles.length > 0) {
@@ -6874,73 +6893,15 @@ async function fusionShopifyVentes(orders) {
     DB.ventes = DB.ventes.concat(nouvelles);
     saveDB();
     showToast('✅ ' + nouvelles.length + ' vente(s) Shopify importée(s) dans l\'historique');
+    // Rafraîchir le dashboard si visible
     if (document.getElementById('page-dashboard').classList.contains('active')) {
       renderDashboard();
     }
   }
 }
 
-function shopifySafeAttr(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/'/g, '&#39;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-async function verifyAndDeleteShopifyOrder(orderRowId, shopifyOrderId, orderName) {
-  var label = orderName || ('#' + (shopifyOrderId || orderRowId));
-  if (!orderRowId) {
-    showToast('❌ ID de commande introuvable');
-    return;
-  }
-
-  if (!confirm('Supprimer ' + label + ' de Supabase ?')) return;
-
-  showToast('⏳ Suppression de ' + label + '...');
-
-  try {
-    var linesRes = await supabase
-      .from('shopify_order_lines')
-      .select('id')
-      .eq('order_id', orderRowId);
-
-    if (linesRes.error) throw new Error(linesRes.error.message || 'Erreur lecture lignes');
-    var lineIds = (linesRes.data || []).map(function(x){ return String(x.id); });
-
-    var delLinesRes = await supabase
-      .from('shopify_order_lines')
-      .delete()
-      .eq('order_id', orderRowId);
-    if (delLinesRes.error) throw new Error(delLinesRes.error.message || 'Erreur suppression lignes');
-
-    var delOrderRes = await supabase
-      .from('shopify_orders')
-      .delete()
-      .eq('id', orderRowId);
-    if (delOrderRes.error) throw new Error(delOrderRes.error.message || 'Erreur suppression commande');
-
-    if (Array.isArray(DB.ventes)) {
-      DB.ventes = DB.ventes.filter(function(v) {
-        if (!v.shopifyLineId && !v.shopifyOrderId && !v.shopifyOrderRowId) return true;
-        if (lineIds.length && v.shopifyLineId && lineIds.indexOf(String(v.shopifyLineId)) !== -1) return false;
-        if (shopifyOrderId && String(v.shopifyOrderId || '') === String(shopifyOrderId)) return false;
-        if (orderRowId && String(v.shopifyOrderRowId || '') === String(orderRowId)) return false;
-        return true;
-      });
-      saveDB('Suppression commande Shopify');
-    }
-
-    showToast('✅ Commande supprimée');
-    await loadShopifyOrders();
-    if (document.getElementById('page-dashboard').classList.contains('active')) {
-      renderDashboard();
-    }
-  } catch (e) {
-    showToast('❌ ' + e.message);
-    console.error('[Shopify] delete order', e);
-  }
+function jsQuote(s){
+  return String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ').replace(/\r/g,' ');
 }
 
 function renderShopifyOrdersTable(orders) {
@@ -6954,10 +6915,7 @@ function renderShopifyOrdersTable(orders) {
   }
 
   el.innerHTML = orders.map(function(o) {
-    var safeRowId = shopifySafeAttr(o.id || '');
-    var safeOrderId = shopifySafeAttr(o.shopify_order_id || '');
-    var safeOrderName = shopifySafeAttr(o.order_name || '');
-
+    var orderName = jsQuote(o.order_name || '');
     return '<tr>' +
       '<td class="mono" style="font-weight:700;">' + escapeHtml(o.order_name || '—') + '</td>' +
       '<td style="font-size:12px;">' + escapeHtml(o.customer_email || '—') + '</td>' +
@@ -6966,12 +6924,80 @@ function renderShopifyOrdersTable(orders) {
       '<td>' + shopifyMeridieBadge(o.meridies_status) + '</td>' +
       '<td class="r mono">' + (o.total_price != null ? Number(o.total_price).toFixed(2) + ' ' + (o.currency || '€') : '—') + '</td>' +
       '<td class="mono" style="font-size:11px;color:var(--muted);">' + (o.created_at_shopify ? new Date(o.created_at_shopify).toLocaleDateString('fr-FR') : '—') + '</td>' +
-      '<td><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">' +
-        '<button class="btn btn-xs btn-secondary" onclick="viewShopifyOrderLines(\'' + safeRowId + '\',\'' + safeOrderName + '\')">Détail</button>' +
-        '<button class="btn btn-xs btn-danger" onclick="verifyAndDeleteShopifyOrder(\'' + safeRowId + '\',\'' + safeOrderId + '\',\'' + safeOrderName + '\')">Supprimer</button>' +
-      '</div></td>' +
+      '<td style="white-space:nowrap;display:flex;gap:6px;">' +
+        '<button class="btn btn-xs btn-secondary" onclick="viewShopifyOrderLines(\'' + o.id + '\',\'' + orderName + '\')">Détail</button>' +
+        '<button class="btn btn-xs btn-danger" onclick="deleteShopifyOrderDirect(\'' + o.id + '\',\'' + orderName + '\')">Supprimer</button>' +
+      '</td>' +
       '</tr>';
   }).join('');
+}
+
+async function deleteShopifyOrderDirect(orderId, orderName) {
+  if (!orderId) {
+    showToast('❌ ID de commande introuvable');
+    return;
+  }
+
+  var label = orderName || orderId;
+  if (!confirm('Supprimer définitivement la commande ' + label + ' de Supabase ?')) return;
+
+  try {
+    showToast('⏳ Suppression en cours...');
+
+    // 1) récupérer les lignes pour nettoyer DB.ventes
+    var linesRes = await supabase
+      .from('shopify_order_lines')
+      .select('id')
+      .eq('order_id', orderId);
+
+    if (linesRes.error) {
+      showToast('❌ ' + linesRes.error.message);
+      return;
+    }
+
+    var lineIds = (linesRes.data || []).map(function(l){ return String(l.id); });
+
+    // 2) supprimer les lignes
+    var deleteLinesRes = await supabase
+      .from('shopify_order_lines')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (deleteLinesRes.error) {
+      showToast('❌ ' + deleteLinesRes.error.message);
+      return;
+    }
+
+    // 3) supprimer la commande
+    var deleteOrderRes = await supabase
+      .from('shopify_orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (deleteOrderRes.error) {
+      showToast('❌ ' + deleteOrderRes.error.message);
+      return;
+    }
+
+    // 4) nettoyer les ventes locales
+    if (!Array.isArray(DB.ventes)) DB.ventes = [];
+    DB.ventes = DB.ventes.filter(function(v){
+      if (v.shopifyOrderRowId && String(v.shopifyOrderRowId) === String(orderId)) return false;
+      if (v.shopifyLineId && lineIds.indexOf(String(v.shopifyLineId)) !== -1) return false;
+      return true;
+    });
+
+    saveDB('Suppression commande Shopify');
+    showToast('✅ Commande supprimée');
+
+    await loadShopifyOrders();
+    if (typeof renderDashboard === 'function' && document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active')) {
+      renderDashboard();
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('❌ ' + (e && e.message ? e.message : 'Erreur inconnue'));
+  }
 }
 
 function applyShopifyOrdersFilter() {
