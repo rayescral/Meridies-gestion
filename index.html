@@ -1967,9 +1967,11 @@ async function loadDB() {
 
 // ── Système de sync centralisé ────────────────────────────────
 var _syncState = {
-  lastKnownTs: null,   // timestamp Supabase connu
-  saving: false,       // sauvegarde en cours
-  saveTimer: null      // timer debounce
+  lastKnownTs: null,      // timestamp Supabase connu
+  saving: false,          // sauvegarde réseau en cours
+  saveTimer: null,        // compat
+  hasUnsavedChanges: false,
+  pendingRemoteTs: null
 };
 
 function setSyncIndicator(state, msg) {
@@ -1998,16 +2000,22 @@ function dbDecompress(data) {
   } catch(e) { return data; }
 }
 
-// saveDB : localStorage UNIQUEMENT — Supabase = manuel via bouton
+// saveDB : sauvegarde locale immédiate uniquement.
+// La synchronisation Supabase se fait uniquement via le bouton “Sauvegarder”.
 var _saveTimer = null;
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  setSyncIndicator('idle');
+  _syncState.hasUnsavedChanges = true;
+  _syncState.saving = false;
+  clearTimeout(_saveTimer);
+  setSyncIndicator('idle', 'Modifications locales — clique sur Sauvegarder');
 }
 saveDB._pending = false;
 
 async function pushToSupabase() {
   var ts = new Date().toISOString();
+  _syncState.saving = true;
+  setSyncIndicator('saving', 'Enregistrement en cours...');
   try {
     var compressed = dbCompress(DB);
     var res = await fetch(SUPA_URL + '/rest/v1/app_state?id=eq.1', {
@@ -2025,24 +2033,31 @@ async function pushToSupabase() {
       throw new Error('HTTP ' + res.status + ' : ' + txt.substring(0, 100));
     }
     _syncState.saving = false;
+    _syncState.hasUnsavedChanges = false;
     _syncState.lastKnownTs = ts;
+    _syncState.pendingRemoteTs = null;
+    try {
+      localStorage.setItem('meridies_db', JSON.stringify(DB));
+      localStorage.setItem('meridies_db_ts', ts);
+    } catch(_) {}
     setStatus(true);
-    setSyncIndicator('ok', 'Sauvegardé ✓');
-    setTimeout(function() { setSyncIndicator('idle'); }, 2500);
+    setSyncIndicator('ok', 'Sauvegardé et synchronisé ✓');
+    setTimeout(function() {
+      if (!_syncState.hasUnsavedChanges) setSyncIndicator('idle', 'Synchronisé');
+    }, 2500);
+    return true;
   } catch(err) {
     _syncState.saving = false;
     setStatus(false);
     var msg = (err && err.message) ? err.message : String(err);
-    setSyncIndicator('error', '⚠️ Erreur sync');
+    setSyncIndicator('error', '⚠️ Erreur de synchronisation');
     toast('❌ Sync : ' + msg.substring(0, 80));
     console.error('[pushToSupabase]', err);
-    // Retry dans 15s
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(pushToSupabase, 15000);
+    return false;
   }
 }
 
-// Bouton de sauvegarde manuelle (toujours présent pour forcer si besoin)
+// Bouton de sauvegarde manuelle : seule action qui synchronise vers Supabase.
 async function manualSave() {
   clearTimeout(_saveTimer);
   await pushToSupabase();
@@ -2050,19 +2065,63 @@ async function manualSave() {
 
 function markSaved() {} // rétrocompatibilité (no-op)
 
-// Polling 10s — détecte les changements faits par un autre appareil
-// Polling désactivé — sync manuelle uniquement
-function startRealtimePolling() { /* no-op */ }
+// Polling de secours : vérifie rapidement les changements distants si le realtime ne répond pas.
+function startRealtimePolling() {
+  setInterval(async function() {
+    if (_syncState.saving) return; // ne pas écraser pendant une sauvegarde en cours
+    try {
+      var res = await supabase.from('app_state').select('updated_at,data').eq('id', 1).single();
+      if (res.error || !res.data) return;
+      var remoteTs = res.data.updated_at || '';
+      if (!_syncState.lastKnownTs) { _syncState.lastKnownTs = remoteTs; return; }
+      if (remoteTs !== _syncState.lastKnownTs) {
+        if (_syncState.hasUnsavedChanges) {
+          _syncState.pendingRemoteTs = remoteTs;
+          setSyncIndicator('error', 'Conflit possible : sauvegarde locale non envoyée');
+          return;
+        }
+        _syncState.lastKnownTs = remoteTs;
+        _syncState.pendingRemoteTs = null;
+        DB = normalizeRestoredDB(dbDecompress(res.data.data));
+        try {
+          localStorage.setItem('meridies_db', JSON.stringify(DB));
+          localStorage.setItem('meridies_db_ts', remoteTs);
+        } catch(_) {}
+        renderAll();
+        if (typeof renderSaleCart === 'function') renderSaleCart();
+        toast('🔄 Données mises à jour');
+      }
+    } catch(_) {}
+  }, 5000);
+}
 
-// Realtime désactivé — sync manuelle uniquement
-function subscribeRealtime() { /* no-op */ }
-
-function renderAll() {
-  // Rend uniquement la page visible + dashboard (KPIs)
-  var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
-  var fn = _renderMap[activePage];
-  if (fn) fn();
-  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
+// Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
+function subscribeRealtime() {
+  try {
+    supabase.channel('meridies_realtime_sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
+        if (_syncState.saving) return; // ignorer si c'est notre propre sauvegarde
+        if (payload.new && payload.new.data) {
+          var remoteTs = payload.new.updated_at || '';
+          if (remoteTs === _syncState.lastKnownTs) return; // déjà connu
+          if (_syncState.hasUnsavedChanges) {
+            _syncState.pendingRemoteTs = remoteTs;
+            setSyncIndicator('error', 'Conflit possible : sauvegarde locale non envoyée');
+            return;
+          }
+          _syncState.lastKnownTs = remoteTs;
+          _syncState.pendingRemoteTs = null;
+          DB = normalizeRestoredDB(dbDecompress(payload.new.data));
+          try {
+            localStorage.setItem('meridies_db', JSON.stringify(DB));
+            localStorage.setItem('meridies_db_ts', remoteTs);
+          } catch(_) {}
+          renderAll();
+          if (typeof renderSaleCart === 'function') renderSaleCart();
+          toast('🔄 Données mises à jour en temps réel');
+        }
+      }).subscribe();
+  } catch(e) { console.warn('[Realtime] Non disponible, polling actif'); }
 }
 
 // Map page-id → fonction de rendu
@@ -2072,11 +2131,11 @@ var _renderMap = {
   'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
   'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
   'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
-  'ventes':          function(){ if(typeof renderVentes==='function') renderVentes(); },
-  'commandes':       function(){ if(typeof renderBC==='function') renderBC(); },
+  'saisie-vente':    function(){ if(typeof renderVentePage==='function') renderVentePage(); },
+  'commandes':       function(){ if(typeof renderCommandes==='function') renderCommandes(); else if(typeof renderBC==='function') renderBC(); },
   'fournisseurs':    function(){ if(typeof renderFournisseurs==='function') renderFournisseurs(); },
-  'todos':           function(){ if(typeof renderTodos==='function') renderTodos(); },
-  'planning':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
+  'todo':            function(){ if(typeof renderTodos==='function') renderTodos(); },
+  'calendar':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
   'drops':           function(){ if(typeof renderDropsCollections==='function') renderDropsCollections(); },
   'compta':          function(){ if(typeof renderCompta==='function') renderCompta(); },
   'journal':         function(){ if(typeof renderMarketJournal==='function') renderMarketJournal(); },
@@ -2084,15 +2143,22 @@ var _renderMap = {
   'history':         function(){ if(typeof renderHistory==='function') renderHistory(); },
   'pilotage':        function(){ if(typeof renderPilotage==='function') renderPilotage(); },
   'clients':         function(){ if(typeof renderClients==='function') renderClients(); },
-  'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); }
+  'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); },
+  'shopify':         function(){ if(typeof loadShopifyPage==='function') loadShopifyPage(); },
+  'social-media':    function(){ if(typeof renderSocialDashboard==='function') renderSocialDashboard(); }
 };
 
-function refreshBusinessViews(message) {
-  if (message) toast(message);
-  // Rend uniquement la page visible — pas de renders en cascade
+function renderAll() {
+  // Rend uniquement la page actuellement visible + dashboard (KPIs toujours à jour)
   var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
+  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
   var fn = _renderMap[activePage];
   if (fn) fn();
+}
+
+function refreshBusinessViews(message) {
+  renderAll();
+  if (message) toast(message);
 }
 
 var currentSaleItems = [];
@@ -2202,11 +2268,7 @@ function getSalesTransactions(){
   return Object.keys(groups).map(function(k){ return groups[k]; });
 }
 
-var _renderDashboardRunning = false;
 function renderDashboard() {
-  if (_renderDashboardRunning) return;
-  _renderDashboardRunning = true;
-  try {
   // ── Calculs de base ──────────────────────────────────────
   var now = new Date();
   var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -2288,7 +2350,6 @@ function renderDashboard() {
   (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
   document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">⚠️ '+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
 
-  } finally { _renderDashboardRunning = false; }
 }
 
 // ── Chargement lazy des graphiques du dashboard ──────────────
@@ -3767,18 +3828,25 @@ function ensureEnhancementDefaults(){
     if(!m.team) m.team = '';
     if(!m.nextActions) m.nextActions = '';
   });
+  sanitizeBackupSnapshots();
+}
+function sanitizeBackupSnapshots(){
+  DB.backups = (DB.backups || []).slice(0,8).map(function(b, idx){
+    var clone = {
+      id: b && b.id ? b.id : (Date.now() + idx),
+      at: b && b.at ? b.at : new Date().toISOString(),
+      reason: b && b.reason ? b.reason : 'Point manuel',
+      data: b && b.data ? JSON.parse(JSON.stringify(b.data)) : null
+    };
+    if(clone.data && typeof clone.data === 'object') clone.data.backups = [];
+    return clone;
+  });
 }
 var __origSaveDB = saveDB;
-var _lastBackupSnapshotTime = 0;
 saveDB = function(reason){
   ensureEnhancementDefaults();
   __origSaveDB();
-  // Snapshot max 1 fois par minute pour éviter de bloquer le thread
-  var now = Date.now();
-  if (now - _lastBackupSnapshotTime > 60000) {
-    _lastBackupSnapshotTime = now;
-    setTimeout(function(){ storeBackupSnapshot(reason || 'Sauvegarde automatique'); }, 0);
-  }
+  // Plus de snapshot automatique à chaque modification : cela alourdissait fortement l'app.
 };
 var __origLoadDB = loadDB;
 loadDB = async function(){
@@ -3833,13 +3901,13 @@ function applyRolePreferences(){
 }
 function storeBackupSnapshot(reason){
   ensureEnhancementDefaults();
-  // Exclure DB.backups du snapshot pour éviter la croissance exponentielle
-  var dbCopy = JSON.parse(JSON.stringify(DB));
-  delete dbCopy.backups;
-  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Autosave', data: dbCopy };
+  var snapshotData = JSON.parse(JSON.stringify(DB));
+  // Évite l'imbrication infinie des sauvegardes dans les sauvegardes.
+  snapshotData.backups = [];
+  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Point manuel', data: snapshotData };
   DB.backups = DB.backups || [];
   DB.backups.unshift(snap);
-  DB.backups = DB.backups.slice(0, 5);
+  DB.backups = DB.backups.slice(0,8);
   try{ localStorage.setItem('meridies_db', JSON.stringify(DB)); }catch(e){}
   renderBackups();
 }
@@ -4022,13 +4090,7 @@ renderDashboard = function(){ __origRenderDashboard(); renderAlertSummary(); };
 var __origGoTo = goTo;
 goTo = function(page){ __origGoTo(page); if(page==='pilotage') renderPilotage(); if(page==='clients') renderClients(); if(page==='backups') renderBackups(); };
 var __origRenderAll = renderAll;
-renderAll = function(){
-  __origRenderAll();
-  var p = sessionStorage.getItem('meridies_page') || '';
-  if (p === 'pilotage' && typeof renderPilotage === 'function') renderPilotage();
-  if (p === 'clients' && typeof renderClients === 'function') renderClients();
-  if (p === 'backups' && typeof renderBackups === 'function') renderBackups();
-};
+renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); renderBackups(); };
 
 
 // ============================================================
@@ -6975,55 +7037,6 @@ window.addEventListener('appinstalled', function() {
   if (btn) btn.remove();
   if (typeof toast === 'function') toast('✅ MERIDIES installé sur cet appareil');
 });
-</script>
-
-<script>
-// ══════════════════════════════════════════════════════════════
-// OVERRIDE FINAL ABSOLU — s'exécute après TOUS les autres scripts
-// ══════════════════════════════════════════════════════════════
-(function(){
-  var _pm = {
-    'dashboard':       function(){ if(typeof renderDashboard==='function') renderDashboard(); },
-    'catalogue':       function(){ if(typeof renderCatalogue==='function') renderCatalogue(); },
-    'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
-    'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
-    'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
-    'ventes':          function(){ if(typeof renderVentes==='function') renderVentes(); },
-    'commandes':       function(){ if(typeof renderBC==='function') renderBC(); },
-    'fournisseurs':    function(){ if(typeof renderFournisseurs==='function') renderFournisseurs(); },
-    'todos':           function(){ if(typeof renderTodos==='function') renderTodos(); },
-    'planning':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
-    'drops':           function(){ if(typeof renderDropsCollections==='function') renderDropsCollections(); },
-    'compta':          function(){ if(typeof renderCompta==='function') renderCompta(); },
-    'journal':         function(){ if(typeof renderMarketJournal==='function') renderMarketJournal(); },
-    'sav':             function(){ if(typeof renderSav==='function') renderSav(); },
-    'history':         function(){ if(typeof renderHistory==='function') renderHistory(); },
-    'pilotage':        function(){ if(typeof renderPilotage==='function') renderPilotage(); },
-    'clients':         function(){ if(typeof renderClients==='function') renderClients(); },
-    'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); },
-    'admin-analytics': function(){ if(typeof renderAdminAnalytics==='function') renderAdminAnalytics(); },
-    'social-media':    function(){ if(typeof renderSocialDashboard==='function') renderSocialDashboard(); }
-  };
-
-  function _getPage(){ return sessionStorage.getItem('meridies_page') || 'dashboard'; }
-
-  // renderAll : rend UNIQUEMENT la page visible
-  renderAll = function(){
-    var page = _getPage();
-    var fn = _pm[page];
-    if (fn) fn();
-    if (typeof syncDashboardYearSelector === 'function') try{ syncDashboardYearSelector(); }catch(e){}
-    if (typeof renderSaleChannelSelectors === 'function') try{ renderSaleChannelSelectors(); }catch(e){}
-  };
-
-  // refreshBusinessViews : rend la page active + toast
-  refreshBusinessViews = function(message){
-    if (message && typeof toast === 'function') toast(message);
-    var page = _getPage();
-    var fn = _pm[page];
-    if (fn) fn();
-  };
-})();
 </script>
 </body>
 </html>
