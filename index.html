@@ -5322,9 +5322,25 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var match = (DB.catalogue||[]).find(function(item){ return familyCodeFromProduct(item)===fam && item.story; });
     return match ? match.story : '';
   }
+  function renderProductPhotoPreviewMarkup(photo){
+    return photo
+      ? '<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;display:block;">'
+      : '<span style="font-size:28px;opacity:.45;">🖼️</span>';
+  }
+  function updateProductPhotoPreviewUI(mode){
+    var preview = document.getElementById(mode==='edit' ? 'edit-photo-preview' : 'np-photo-preview');
+    var removeBtn = document.getElementById(mode==='edit' ? 'edit-photo-remove' : 'np-photo-remove');
+    var title = document.getElementById(mode==='edit' ? 'edit-photo-title' : 'np-photo-title');
+    var hasPhoto = !!window.__productDraftImage;
+    if(preview) preview.innerHTML = renderProductPhotoPreviewMarkup(window.__productDraftImage || '');
+    if(removeBtn) removeBtn.style.display = hasPhoto ? 'inline-flex' : 'none';
+    if(title) title.textContent = hasPhoto ? 'Changer la photo' : 'Ajouter une photo';
+  }
   function renderProductPhotoBox(mode, currentPhoto){
     var inputId = mode==='edit' ? 'edit-photo-file' : 'np-photo-file';
     var previewId = mode==='edit' ? 'edit-photo-preview' : 'np-photo-preview';
+    var titleId = mode==='edit' ? 'edit-photo-title' : 'np-photo-title';
+    var removeId = mode==='edit' ? 'edit-photo-remove' : 'np-photo-remove';
     var label = currentPhoto ? 'Changer la photo' : 'Ajouter une photo';
     return ''+
       '<div class="field" style="margin-bottom:14px;">'+
@@ -5332,17 +5348,22 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
         '<input type="file" id="'+inputId+'" accept="image/*" style="display:none" onchange="handleProductPhotoUpload(event,\''+mode+'\')">'+
         '<div onclick="document.getElementById(\''+inputId+'\').click()" style="cursor:pointer;border:1px dashed rgba(201,168,76,0.45);background:var(--surface2);border-radius:14px;padding:14px;display:flex;gap:14px;align-items:center;min-height:112px;">'+
           '<div id="'+previewId+'" style="width:88px;height:88px;border-radius:12px;overflow:hidden;background:var(--surface3);display:flex;align-items:center;justify-content:center;flex:0 0 88px;">'+
-            (currentPhoto ? '<img src="'+currentPhoto+'" style="width:100%;height:100%;object-fit:cover;display:block;">' : '<span style="font-size:28px;opacity:.45;">🖼️</span>')+
+            renderProductPhotoPreviewMarkup(currentPhoto)+
           '</div>'+
           '<div style="flex:1;min-width:0;">'+
-            '<div style="font-weight:700;font-size:13px;margin-bottom:4px;">'+label+'</div>'+
+            '<div id="'+titleId+'" style="font-weight:700;font-size:13px;margin-bottom:4px;">'+label+'</div>'+
             '<div style="font-size:12px;color:var(--muted);line-height:1.45;">Clique pour ouvrir tes documents et sélectionner une image. Format conseillé : carré ou portrait léger.</div>'+
+            '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">'+
+              '<button type="button" class="btn btn-secondary btn-xs" onclick="event.stopPropagation(); document.getElementById(\''+inputId+'\').click();">Remplacer</button>'+
+              '<button type="button" id="'+removeId+'" class="btn btn-danger btn-xs" onclick="event.stopPropagation(); removeProductPhoto(\''+mode+'\')" style="display:'+(currentPhoto ? 'inline-flex' : 'none')+';">Supprimer l\'image</button>'+
+            '</div>'+
           '</div>'+
         '</div>'+
       '</div>';
   }
 
   window.__productDraftImage = null;
+  window.__productDraftImageTouched = false;
   window.handleProductPhotoUpload = function(event, mode){
     var file = event && event.target && event.target.files ? event.target.files[0] : null;
     if(!file) return;
@@ -5350,14 +5371,23 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var reader = new FileReader();
     reader.onload = function(e){
       window.__productDraftImage = e.target.result;
-      var preview = document.getElementById(mode==='edit' ? 'edit-photo-preview' : 'np-photo-preview');
-      if(preview) preview.innerHTML = '<img src="'+window.__productDraftImage+'" style="width:100%;height:100%;object-fit:cover;display:block;">';
+      window.__productDraftImageTouched = true;
+      updateProductPhotoPreviewUI(mode);
     };
     reader.readAsDataURL(file);
   };
+  window.removeProductPhoto = function(mode){
+    window.__productDraftImage = '';
+    window.__productDraftImageTouched = true;
+    var input = document.getElementById(mode==='edit' ? 'edit-photo-file' : 'np-photo-file');
+    if(input) input.value = '';
+    updateProductPhotoPreviewUI(mode);
+    toast('Image supprimée');
+  };
 
   window.openAddProduct = function(){
-    window.__productDraftImage = null;
+    window.__productDraftImage = '';
+    window.__productDraftImageTouched = false;
     openModal(
       '<div class="modal-title">Ajouter un produit</div>' +
       renderProductPhotoBox('add','') +
@@ -5393,7 +5423,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var pv = parseFloat(document.getElementById('np-pv').value) || 0;
     var pa = parseFloat(document.getElementById('np-pa').value) || 0;
     var story = (document.getElementById('np-story').value||'').trim();
-    var photo = window.__productDraftImage || '';
+    var photo = window.__productDraftImageTouched ? (window.__productDraftImage || '') : '';
     if(!ref || !codeFam || !design || !couleur || tailles.length===0){ toast('Champs incomplets'); return; }
     tailles.forEach(function(t){
       DB.catalogue.push({code: codeFam + '-' + t, ref: ref, design: design, couleur: couleur, designation: design + ' ' + couleur, taille: t, pv: pv, pa: pa, story: story, photo: photo});
@@ -5412,6 +5442,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var ca = (DB.ventes||[]).filter(function(v){return v.code===p.code;}).reduce(function(s,v){return s+((v.pv||0)*(v.qte||1));},0);
     var fini = (DB.stockFini||[]).find(function(f){return f.code===p.code;});
     window.__productDraftImage = getProductPhoto(p) || '';
+    window.__productDraftImageTouched = false;
     openModal(
       '<div class="modal-title">Fiche produit</div>'+
       '<div class="modal-sub">'+escapeHtml(p.code)+'</div>'+
@@ -5440,12 +5471,13 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var pv = parseFloat(document.getElementById('edit-pv').value)||0;
     var pa = parseFloat(document.getElementById('edit-pa').value)||0;
     var story = document.getElementById('edit-story').value||'';
-    var photo = window.__productDraftImage || getProductPhoto(p) || '';
+    var photo = window.__productDraftImageTouched ? (window.__productDraftImage || '') : (getProductPhoto(p) || '');
     DB.catalogue[idx].pv = pv;
     DB.catalogue[idx].pa = pa;
     familyIndexes.forEach(function(fidx){
       DB.catalogue[fidx].story = story;
       if(photo) DB.catalogue[fidx].photo = photo;
+      else delete DB.catalogue[fidx].photo;
     });
     saveDB('Fiche produit mise à jour');
     closeModal();
