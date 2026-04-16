@@ -135,6 +135,27 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   return data || [];
 }
 
+function isTruthyDeletedFlag(value) {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0 || value == null) return false;
+
+  const normalized = String(value).trim().toLowerCase();
+
+  return [
+    "true",
+    "1",
+    "t",
+    "yes",
+    "y",
+    "oui",
+    "supprime",
+    "supprimé",
+    "supprimee",
+    "supprimée",
+    "deleted"
+  ].includes(normalized);
+}
+
 async function safeDeleteOrder({
   supabaseUrl,
   serviceRoleKey,
@@ -198,18 +219,15 @@ async function safeDeleteOrder({
     };
   }
 
-  const deletedOnShopify =
-    order.deleted_on_shopify === true ||
-    order.deleted_on_shopify === "true" ||
-    order.deleted_on_shopify === 1 ||
-    order.deleted_on_shopify === "1";
+  const deletedOnShopify = isTruthyDeletedFlag(order.deleted_on_shopify);
 
   if (!deletedOnShopify) {
     return {
       status: 409,
       body: {
         ok: false,
-        message: `La commande ${orderName || order.order_name || order.name || ""} est encore présente sur Shopify. Suppression bloquée.`
+        message: `La commande ${orderName || order.order_name || order.name || ""} est encore présente sur Shopify. Suppression bloquée.`,
+        debug_deleted_on_shopify: order.deleted_on_shopify
       }
     };
   }
@@ -441,9 +459,7 @@ export default async function handler(req, res) {
         for (const item of items) {
           const material = item.materials;
           const requiredQty = Number(item.qty_needed) * Number(line.quantity || 0);
-          const availableQty = Number(
-            material?.stock_available ?? material?.stock_on_hand ?? 0
-          );
+          const availableQty = Number(material?.stock_available ?? material?.stock_on_hand ?? 0);
           const missingQty = Math.max(0, requiredQty - availableQty);
 
           if (missingQty > 0) {
@@ -509,16 +525,19 @@ export default async function handler(req, res) {
     }
 
     if (alerts.length > 0) {
-      const alertResponse = await fetch(`${supabaseUrl}/rest/v1/material_alerts`, {
-        method: "POST",
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation"
-        },
-        body: JSON.stringify(alerts)
-      });
+      const alertResponse = await fetch(
+        `${supabaseUrl}/rest/v1/material_alerts`,
+        {
+          method: "POST",
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify(alerts)
+        }
+      );
 
       const alertData = await alertResponse.json();
 
