@@ -3706,22 +3706,22 @@ goTo = function(page){
 };
 
 function migrateWebToShopify() {
-  // Migration unique : passe tous les canaux "Web" en "Shopify"
   var changed = 0;
   (DB.ventes || []).forEach(function(v) {
     if (v.canal === 'Web') { v.canal = 'Shopify'; changed++; }
   });
-  // Nettoyer aussi la liste des canaux sauvegardés
   if (DB.settings && Array.isArray(DB.settings.saleChannels)) {
     DB.settings.saleChannels = DB.settings.saleChannels.map(function(c) {
       return c === 'Web' ? 'Shopify' : c;
-    }).filter(function(c, i, arr) {
-      return arr.indexOf(c) === i; // dédoublonner si "Shopify" existait déjà
-    });
+    }).filter(function(c, i, arr) { return arr.indexOf(c) === i; });
   }
   if (changed > 0) {
-    saveDB();
-    console.log('[Migration] ' + changed + ' vente(s) "Web" → "Shopify"');
+    console.log('[Migration] ' + changed + ' vente(s) "Web" → "Shopify" — push Supabase immédiat');
+    try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+    // Push immédiat sans debounce pour que la migration soit définitive sur Supabase
+    clearTimeout(_saveTimer);
+    pushToSupabase();
+    toast('🔄 ' + changed + ' ventes "Web" converties en "Shopify" et sauvegardées');
   }
 }
 
