@@ -1998,14 +1998,14 @@ function dbDecompress(data) {
   } catch(e) { return data; }
 }
 
-// saveDB : localStorage immédiat + Supabase debounced 60s avec compression
+// saveDB : localStorage immédiat + Supabase debounced 1.5s avec compression
 var _saveTimer = null;
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
   setSyncIndicator('saving', 'Modification...');
   _syncState.saving = true;
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(pushToSupabase, 60000);
+  _saveTimer = setTimeout(pushToSupabase, 1500);
 }
 saveDB._pending = false;
 
@@ -2039,9 +2039,9 @@ async function pushToSupabase() {
     setSyncIndicator('error', '⚠️ Erreur sync');
     toast('❌ Sync : ' + msg.substring(0, 80));
     console.error('[pushToSupabase]', err);
-    // Retry dans 60s
+    // Retry dans 15s
     clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(pushToSupabase, 60000);
+    _saveTimer = setTimeout(pushToSupabase, 15000);
   }
 }
 
@@ -2072,7 +2072,7 @@ function startRealtimePolling() {
         toast('🔄 Données mises à jour');
       }
     } catch(_) {}
-  }, 60000); // toutes les 60 secondes
+  }, 15000); // toutes les 15 secondes
 }
 
 // Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
@@ -2092,6 +2092,14 @@ function subscribeRealtime() {
         }
       }).subscribe();
   } catch(e) { console.warn('[Realtime] Non disponible, polling actif'); }
+}
+
+function renderAll() {
+  // Rend uniquement la page visible + dashboard (KPIs)
+  var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
+  var fn = _renderMap[activePage];
+  if (fn) fn();
+  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
 }
 
 // Map page-id → fonction de rendu
@@ -2116,17 +2124,19 @@ var _renderMap = {
   'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); }
 };
 
-function renderAll() {
-  // Rend uniquement la page actuellement visible + dashboard (KPIs toujours à jour)
+function refreshBusinessViews(message) {
+  if (message) toast(message);
+  // Rend la page active immédiatement
   var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
-  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
   var fn = _renderMap[activePage];
   if (fn) fn();
-}
-
-function refreshBusinessViews(message) {
-  renderAll();
-  if (message) toast(message);
+  // Rend ventes + history en différé (léger, non bloquant) si pas déjà la page active
+  setTimeout(function() {
+    if (activePage !== 'ventes' && typeof renderVentes === 'function') renderVentes();
+    if (activePage !== 'history' && typeof renderHistory === 'function') renderHistory();
+    // Dashboard KPIs seulement si on n'y est pas déjà (évite double render)
+    if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
+  }, 50);
 }
 
 var currentSaleItems = [];
@@ -2236,7 +2246,11 @@ function getSalesTransactions(){
   return Object.keys(groups).map(function(k){ return groups[k]; });
 }
 
+var _renderDashboardRunning = false;
 function renderDashboard() {
+  if (_renderDashboardRunning) return;
+  _renderDashboardRunning = true;
+  try {
   // ── Calculs de base ──────────────────────────────────────
   var now = new Date();
   var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -2318,6 +2332,7 @@ function renderDashboard() {
   (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
   document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">⚠️ '+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
 
+  } finally { _renderDashboardRunning = false; }
 }
 
 // ── Chargement lazy des graphiques du dashboard ──────────────
