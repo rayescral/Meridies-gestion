@@ -6967,6 +6967,7 @@ async function deleteShopifyOrder(orderId, orderName) {
     var data = await res.json();
 
     if (!res.ok || !data.ok) {
+      console.error('[safe_delete_order]', data);
       showToast('❌ ' + (data.message || 'Suppression refusée'));
       return;
     }
