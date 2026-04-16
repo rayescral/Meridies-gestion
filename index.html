@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -1861,7 +1862,7 @@ async function loadDB() {
   try {
     var res = await supabase.from('app_state').select('data,updated_at').eq('id', 1).single();
     if (!res.error && res.data && res.data.data) {
-      DB = normalizeRestoredDB(res.data.data);
+      DB = normalizeRestoredDB(dbDecompress(res.data.data));
       loaded = true;
       _syncState.lastKnownTs = res.data.updated_at || '';
       setStatus(true);
@@ -1940,23 +1941,39 @@ function setSyncIndicator(state, msg) {
   ind.style.color = state === 'error' ? '#DC2626' : state === 'ok' ? '#059669' : 'rgba(199,165,122,0.6)';
 }
 
-// saveDB : localStorage uniquement (instantané, pas de Supabase)
+// ── Compression / décompression ────────────────────────────────
+function dbCompress(obj) {
+  try {
+    var json = JSON.stringify(obj);
+    var c = (typeof LZString !== 'undefined') ? LZString.compressToBase64(json) : null;
+    return c ? { _c: 1, d: c } : obj; // fallback sans compression si lib pas chargée
+  } catch(e) { return obj; }
+}
+function dbDecompress(data) {
+  try {
+    if (data && data._c === 1 && data.d) {
+      var json = (typeof LZString !== 'undefined') ? LZString.decompressFromBase64(data.d) : null;
+      return json ? JSON.parse(json) : data;
+    }
+    return data;
+  } catch(e) { return data; }
+}
+
+// saveDB : localStorage immédiat + Supabase debounced 1.5s avec compression
+var _saveTimer = null;
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
+  setSyncIndicator('saving', 'Modification...');
+  _syncState.saving = true;
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(pushToSupabase, 1500);
 }
-saveDB._pending = false; // rétrocompatibilité
+saveDB._pending = false;
 
-// manualSave : pousse vers Supabase via fetch direct (plus rapide que le client JS)
-async function manualSave() {
-  var btn = document.getElementById('btn-save');
-  var ind = document.getElementById('save-status-indicator');
-  if (btn) { btn.textContent = '⏳ Sauvegarde...'; btn.disabled = true; btn.style.opacity = '.6'; }
-  if (ind) { ind.textContent = ''; }
-  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-
+async function pushToSupabase() {
   var ts = new Date().toISOString();
   try {
-    // fetch direct REST — return=minimal évite que Supabase renvoie le blob entier
+    var compressed = dbCompress(DB);
     var res = await fetch(SUPA_URL + '/rest/v1/app_state?id=eq.1', {
       method: 'PATCH',
       headers: {
@@ -1965,29 +1982,37 @@ async function manualSave() {
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ data: DB, updated_at: ts })
+      body: JSON.stringify({ data: compressed, updated_at: ts })
     });
-
     if (!res.ok) {
-      var errText = await res.text();
-      throw new Error('HTTP ' + res.status + ' — ' + errText.substring(0, 120));
+      var txt = await res.text();
+      throw new Error('HTTP ' + res.status + ' : ' + txt.substring(0, 100));
     }
-
     _syncState.saving = false;
     _syncState.lastKnownTs = ts;
     setStatus(true);
-    if (ind) { ind.textContent = '✓ Sauvegardé'; setTimeout(function(){ if(ind) ind.textContent=''; }, 3000); }
-    toast('✅ Sauvegardé');
+    setSyncIndicator('ok', 'Sauvegardé ✓');
+    setTimeout(function() { setSyncIndicator('idle'); }, 2500);
   } catch(err) {
+    _syncState.saving = false;
     setStatus(false);
     var msg = (err && err.message) ? err.message : String(err);
-    if (ind) { ind.textContent = '⚠️ Erreur'; }
-    toast('❌ ' + msg.substring(0, 100));
-    console.error('[manualSave]', err);
-  } finally {
-    if (btn) { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; btn.style.opacity = '1'; }
+    setSyncIndicator('error', '⚠️ Erreur sync');
+    toast('❌ Sync : ' + msg.substring(0, 80));
+    console.error('[pushToSupabase]', err);
+    // Retry dans 10s
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(pushToSupabase, 10000);
   }
 }
+
+// Bouton de sauvegarde manuelle (toujours présent pour forcer si besoin)
+async function manualSave() {
+  clearTimeout(_saveTimer);
+  await pushToSupabase();
+}
+
+function markSaved() {} // rétrocompatibilité
 
 function markSaved() {} // rétrocompatibilité (no-op)
 
@@ -2004,7 +2029,7 @@ function startRealtimePolling() {
       // Changement détecté depuis un autre appareil
       if (remoteTs !== _syncState.lastKnownTs) {
         _syncState.lastKnownTs = remoteTs;
-        DB = normalizeRestoredDB(res.data.data);
+        DB = normalizeRestoredDB(dbDecompress(res.data.data));
         try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
         renderAll();
         toast('🔄 Données mises à jour');
@@ -2023,7 +2048,7 @@ function subscribeRealtime() {
           var remoteTs = payload.new.updated_at || '';
           if (remoteTs === _syncState.lastKnownTs) return; // déjà connu
           _syncState.lastKnownTs = remoteTs;
-          DB = normalizeRestoredDB(payload.new.data);
+          DB = normalizeRestoredDB(dbDecompress(payload.new.data));
           try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
           renderAll();
           toast('🔄 Données mises à jour en temps réel');
