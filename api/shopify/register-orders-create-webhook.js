@@ -131,14 +131,16 @@ export default async function handler(req, res) {
       });
     }
 
+    const sharedAddress = `${appUrl}/api/shopify/webhooks/orders-create`;
+
     const desired = [
       {
         topic: "orders/create",
-        address: `${appUrl}/api/shopify/webhooks/orders-create`
+        address: sharedAddress
       },
       {
         topic: "orders/delete",
-        address: `${appUrl}/api/shopify/webhooks/orders-delete`
+        address: sharedAddress
       }
     ];
 
@@ -175,6 +177,7 @@ export default async function handler(req, res) {
           accessToken: store.access_token,
           webhookId: stale.id
         });
+
         removed.push({
           topic: stale.topic,
           oldAddress: stale.address,
