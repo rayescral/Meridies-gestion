@@ -6967,63 +6967,59 @@ function bindShopifyOrderButtons() {
 }
 
 async function deleteShopifyOrder(orderId, orderName) {
-  if (!confirm('Supprimer la commande Shopify ' + (orderName || '') + ' uniquement si elle n\'existe plus sur Shopify ?')) return;
+  if (!confirm('Supprimer la commande Shopify ' + (orderName || '') + ' ?')) return;
 
   try {
-    var order = (_shopifyAllOrders || []).find(function(o) {
-      return String(o.id) === String(orderId);
+    showToast('⏳ Suppression...');
+
+    var linesRes = await supabase
+      .from('shopify_order_lines')
+      .select('id')
+      .eq('order_id', orderId);
+
+    if (linesRes.error) {
+      console.error(linesRes.error);
+      showToast('❌ Erreur lignes : ' + linesRes.error.message);
+      return;
+    }
+
+    var lineIds = (linesRes.data || []).map(function(l) {
+      return l.id;
     });
 
-    if (!order) {
-      showToast('❌ Commande introuvable dans la liste');
+    var delLinesRes = await supabase
+      .from('shopify_order_lines')
+      .delete()
+      .eq('order_id', orderId);
+
+    if (delLinesRes.error) {
+      console.error(delLinesRes.error);
+      showToast('❌ Erreur suppression lignes : ' + delLinesRes.error.message);
       return;
     }
 
-    if (!order.shopify_order_id) {
-      showToast('❌ shopify_order_id manquant sur cette commande');
+    var delOrderRes = await supabase
+      .from('shopify_orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (delOrderRes.error) {
+      console.error(delOrderRes.error);
+      showToast('❌ Erreur suppression commande : ' + delOrderRes.error.message);
       return;
     }
-
-    showToast('⏳ Vérification Shopify...');
-
-    var response = await fetch('/api/shopify/check-materials', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'safe_delete_order',
-        supabaseOrderId: order.id,
-        shopifyOrderId: order.shopify_order_id,
-        orderName: order.order_name || orderName || ''
-      })
-    });
-
-    var raw = await response.text();
-    var data = {};
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch (_) {
-      data = { ok: false, message: raw || 'Réponse invalide du serveur' };
-    }
-
-    if (!response.ok || !data.ok) {
-      console.error('safe_delete_order failed', response.status, data);
-      showToast('❌ ' + (data.message || ('Erreur ' + response.status)));
-      return;
-    }
-
-    var deletedLineIds = Array.isArray(data.deletedLineIds) ? data.deletedLineIds : [];
 
     if (!Array.isArray(DB.ventes)) DB.ventes = [];
     DB.ventes = DB.ventes.filter(function(v) {
       if (!v.shopifyLineId) return true;
-      return deletedLineIds.indexOf(v.shopifyLineId) === -1;
+      return lineIds.indexOf(v.shopifyLineId) === -1;
     });
 
-    saveDB('Suppression sécurisée commande Shopify');
+    saveDB('Suppression commande Shopify');
 
     if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
     _shopifyAllOrders = _shopifyAllOrders.filter(function(o) {
-      return String(o.id) !== String(orderId);
+      return o.id !== orderId;
     });
 
     renderShopifyOrdersTable(_shopifyAllOrders);
@@ -7032,7 +7028,7 @@ async function deleteShopifyOrder(orderId, orderName) {
     showToast('✅ Commande supprimée');
   } catch (e) {
     console.error(e);
-    showToast('❌ ' + (e && e.message ? e.message : 'Erreur inconnue'));
+    showToast('❌ ' + e.message);
   }
 }
 
