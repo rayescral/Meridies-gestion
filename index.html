@@ -6933,7 +6933,7 @@ function renderShopifyOrdersTable(orders) {
         '<td class="mono" style="font-size:11px;color:var(--muted);">' + created + '</td>' +
         '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
           '<button class="btn btn-xs btn-secondary js-shopify-detail" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Détail</button>' +
-          '<button class="btn btn-xs btn-danger js-shopify-delete" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Supprimer</button>' +
+          '<button class="btn btn-xs btn-danger js-shopify-delete" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-shopify-order-id="' + encodeURIComponent(String(o.shopify_order_id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Supprimer</button>' +
         '</td>' +
       '</tr>';
   }).join('');
@@ -6960,54 +6960,57 @@ function bindShopifyOrderButtons() {
       ev.preventDefault();
       ev.stopPropagation();
       var orderId = decodeURIComponent(btn.dataset.orderId || '');
+      var shopifyOrderId = decodeURIComponent(btn.dataset.shopifyOrderId || '');
       var orderName = decodeURIComponent(btn.dataset.orderName || '');
-      deleteShopifyOrder(orderId, orderName);
+      deleteShopifyOrder(orderId, shopifyOrderId, orderName);
     };
   });
 }
 
-async function deleteShopifyOrder(orderId, orderName) {
+async function deleteShopifyOrder(orderId, shopifyOrderId, orderName) {
   if (!confirm('Supprimer la commande Shopify ' + (orderName || '') + ' ?')) return;
 
+  if (!orderId) {
+    showToast('❌ Identifiant Supabase introuvable');
+    return;
+  }
+
+  if (!shopifyOrderId) {
+    showToast('❌ Impossible de vérifier Shopify : identifiant Shopify introuvable');
+    return;
+  }
+
   try {
-    showToast('⏳ Suppression...');
+    showToast('⏳ Vérification Shopify...');
 
-    var linesRes = await supabase
-      .from('shopify_order_lines')
-      .select('id')
-      .eq('order_id', orderId);
-
-    if (linesRes.error) {
-      console.error(linesRes.error);
-      showToast('❌ Erreur lignes : ' + linesRes.error.message);
-      return;
-    }
-
-    var lineIds = (linesRes.data || []).map(function(l) {
-      return l.id;
+    var res = await fetch('/api/shopify/check-materials', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: 'safe_delete_order',
+        supabaseOrderId: orderId,
+        shopifyOrderId: shopifyOrderId,
+        orderName: orderName || ''
+      })
     });
 
-    var delLinesRes = await supabase
-      .from('shopify_order_lines')
-      .delete()
-      .eq('order_id', orderId);
+    var data = {};
+    try {
+      data = await res.json();
+    } catch (parseError) {
+      data = {};
+    }
 
-    if (delLinesRes.error) {
-      console.error(delLinesRes.error);
-      showToast('❌ Erreur suppression lignes : ' + delLinesRes.error.message);
+    if (!res.ok || !data.ok) {
+      var message = (data && data.message) ? data.message : 'Suppression impossible';
+      showToast((res.status === 409 ? '⚠️ ' : '❌ ') + message);
+      console.error('[Shopify delete]', res.status, data);
       return;
     }
 
-    var delOrderRes = await supabase
-      .from('shopify_orders')
-      .delete()
-      .eq('id', orderId);
-
-    if (delOrderRes.error) {
-      console.error(delOrderRes.error);
-      showToast('❌ Erreur suppression commande : ' + delOrderRes.error.message);
-      return;
-    }
+    var lineIds = Array.isArray(data.deletedLineIds) ? data.deletedLineIds : [];
 
     if (!Array.isArray(DB.ventes)) DB.ventes = [];
     DB.ventes = DB.ventes.filter(function(v) {
@@ -7024,8 +7027,9 @@ async function deleteShopifyOrder(orderId, orderName) {
 
     renderShopifyOrdersTable(_shopifyAllOrders);
     renderAll();
+    await loadShopifyPage();
 
-    showToast('✅ Commande supprimée');
+    showToast('✅ ' + (data.message || 'Commande supprimée'));
   } catch (e) {
     console.error(e);
     showToast('❌ ' + e.message);
