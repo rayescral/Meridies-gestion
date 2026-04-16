@@ -7052,28 +7052,13 @@ async function shopifyApiCall(endpoint, label) {
   try {
     var res = await fetch(url);
     var data = await res.json();
-
-    var hasShopifySyncChanges =
-      typeof data.savedOrders !== 'undefined' ||
-      typeof data.savedLines !== 'undefined' ||
-      typeof data.deletedOrders !== 'undefined' ||
-      typeof data.deletedLines !== 'undefined';
-
     if (data.ok) {
       showToast('✅ ' + (data.message || label + ' OK'));
       await loadShopifyPage();
-      return;
-    }
-
-    if (hasShopifySyncChanges) {
-      showToast('⚠️ Sync partielle : commandes mises à jour, mais contrôle matière en erreur');
+    } else {
+      showToast('❌ ' + (data.message || 'Erreur'));
       console.error('[Shopify]', label, data);
-      await loadShopifyPage();
-      return;
     }
-
-    showToast('❌ ' + (data.message || 'Erreur'));
-    console.error('[Shopify]', label, data);
   } catch(e) {
     showToast('❌ Erreur réseau : ' + e.message);
   }
@@ -7081,8 +7066,32 @@ async function shopifyApiCall(endpoint, label) {
 
 async function shopifyRegisterWebhook() {
   var shop = (DB.settings && DB.settings.shopifyShop) || '';
-  if (!shop) { showToast('❌ Configure d\'abord le domaine Shopify'); return; }
-  await shopifyApiCall('/api/shopify/register-orders-create-webhook', 'Enregistrement webhook');
+  if (!shop) { showToast('❌ Configure d'abord le domaine Shopify'); return; }
+
+  showToast('⏳ Enregistrement du webhook Shopify...');
+
+  try {
+    var res = await fetch('/api/shopify/register-orders-create-webhook?shop=' + encodeURIComponent(shop));
+    var data = await res.json();
+
+    if (data.ok) {
+      var createdCount = Array.isArray(data.created) ? data.created.length : 0;
+      var keptCount = Array.isArray(data.kept) ? data.kept.length : 0;
+      var removedCount = Array.isArray(data.removed) ? data.removed.length : 0;
+      var details = [];
+      if (createdCount) details.push(createdCount + ' créé' + (createdCount > 1 ? 's' : ''));
+      if (keptCount) details.push(keptCount + ' déjà actif' + (keptCount > 1 ? 's' : ''));
+      if (removedCount) details.push(removedCount + ' remplacé' + (removedCount > 1 ? 's' : ''));
+      var suffix = details.length ? ' (' + details.join(' · ') + ')' : '';
+      showToast('✅ Webhook Shopify enregistré avec succès' + suffix);
+      return;
+    }
+
+    showToast('❌ ' + (data.message || 'Impossible d'enregistrer le webhook'));
+    console.error('[Shopify] Enregistrement webhook', data);
+  } catch(e) {
+    showToast('❌ Erreur réseau : ' + e.message);
+  }
 }
 
 // ── Config boutique ────────────────────────────────────────
