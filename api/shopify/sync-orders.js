@@ -53,6 +53,115 @@ async function getVariantMap({ supabaseUrl, serviceRoleKey, storeId }) {
   return Object.fromEntries((data || []).map(row => [row.shopify_variant_id, row.id]));
 }
 
+async function fetchExistingOrders({ supabaseUrl, serviceRoleKey, storeId }) {
+  const params = new URLSearchParams();
+  params.set("select", "id,shopify_order_id,meridies_status");
+  params.set("store_id", `eq.${storeId}`);
+  params.set("limit", "1000");
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_orders?${params.toString()}`, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Impossible de lire shopify_orders existantes: ${JSON.stringify(data)}`);
+  }
+
+  return data || [];
+}
+
+async function fetchExistingLines({ supabaseUrl, serviceRoleKey, orderIds }) {
+  if (!orderIds.length) return [];
+
+  const params = new URLSearchParams();
+  params.set("select", "id,order_id,shopify_line_item_id");
+  params.set("order_id", `in.(${orderIds.join(",")})`);
+  params.set("limit", "5000");
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_order_lines?${params.toString()}`, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Impossible de lire shopify_order_lines existantes: ${JSON.stringify(data)}`);
+  }
+
+  return data || [];
+}
+
+async function deleteOrderLinesByOrderIds({ supabaseUrl, serviceRoleKey, orderIds }) {
+  if (!orderIds.length) return { ok: true, deleted: 0 };
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_order_lines?order_id=in.(${orderIds.join(",")})`, {
+    method: "DELETE",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Prefer: "return=representation"
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Impossible de supprimer shopify_order_lines: ${JSON.stringify(data)}`);
+  }
+
+  return { ok: true, deleted: Array.isArray(data) ? data.length : 0 };
+}
+
+async function deleteOrdersByIds({ supabaseUrl, serviceRoleKey, orderIds }) {
+  if (!orderIds.length) return { ok: true, deleted: 0 };
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_orders?id=in.(${orderIds.join(",")})`, {
+    method: "DELETE",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Prefer: "return=representation"
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Impossible de supprimer shopify_orders: ${JSON.stringify(data)}`);
+  }
+
+  return { ok: true, deleted: Array.isArray(data) ? data.length : 0 };
+}
+
+async function deleteObsoleteLines({ supabaseUrl, serviceRoleKey, obsoleteLineIds }) {
+  if (!obsoleteLineIds.length) return { ok: true, deleted: 0 };
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/shopify_order_lines?id=in.(${obsoleteLineIds.join(",")})`, {
+    method: "DELETE",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      Prefer: "return=representation"
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Impossible de supprimer les lignes obsolètes: ${JSON.stringify(data)}`);
+  }
+
+  return { ok: true, deleted: Array.isArray(data) ? data.length : 0 };
+}
+
 export default async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -86,6 +195,16 @@ export default async function handler(req, res) {
         message: "Aucune boutique Shopify connectée trouvée"
       });
     }
+
+    const existingOrders = await fetchExistingOrders({
+      supabaseUrl,
+      serviceRoleKey: supabaseServiceRoleKey,
+      storeId: store.id
+    });
+
+    const existingOrderMap = Object.fromEntries(
+      existingOrders.map(row => [row.shopify_order_id, row])
+    );
 
     const graphqlResponse = await fetch(
       `https://${store.shop_domain}/admin/api/2026-04/graphql.json`,
@@ -158,6 +277,7 @@ export default async function handler(req, res) {
     }
 
     const orders = graphqlData?.data?.orders?.edges?.map(edge => edge.node) || [];
+    const liveShopifyOrderIds = new Set(orders.map(order => order.id));
 
     const orderRows = orders.map(order => ({
       store_id: store.id,
@@ -170,7 +290,7 @@ export default async function handler(req, res) {
       total_price: order.totalPriceSet?.shopMoney?.amount != null
         ? Number(order.totalPriceSet.shopMoney.amount)
         : null,
-      meridies_status: "nouvelle",
+      meridies_status: existingOrderMap[order.id]?.meridies_status || "nouvelle",
       raw_payload: order,
       created_at_shopify: order.createdAt,
       updated_at: new Date().toISOString()
@@ -203,6 +323,23 @@ export default async function handler(req, res) {
     const orderIdMap = Object.fromEntries(
       upsertOrdersData.map(row => [row.shopify_order_id, row.id])
     );
+
+    const obsoleteOrders = existingOrders.filter(row => !liveShopifyOrderIds.has(row.shopify_order_id));
+    const obsoleteOrderIds = obsoleteOrders.map(row => row.id);
+
+    if (obsoleteOrderIds.length > 0) {
+      await deleteOrderLinesByOrderIds({
+        supabaseUrl,
+        serviceRoleKey: supabaseServiceRoleKey,
+        orderIds: obsoleteOrderIds
+      });
+
+      await deleteOrdersByIds({
+        supabaseUrl,
+        serviceRoleKey: supabaseServiceRoleKey,
+        orderIds: obsoleteOrderIds
+      });
+    }
 
     const variantMap = await getVariantMap({
       supabaseUrl,
@@ -258,6 +395,29 @@ export default async function handler(req, res) {
       }
     }
 
+    const currentOrderIds = upsertOrdersData.map(row => row.id);
+    const existingLines = await fetchExistingLines({
+      supabaseUrl,
+      serviceRoleKey: supabaseServiceRoleKey,
+      orderIds: currentOrderIds
+    });
+
+    const liveLineKeys = new Set(
+      lineRows.map(line => `${line.order_id}__${line.shopify_line_item_id}`)
+    );
+
+    const obsoleteLineIds = existingLines
+      .filter(line => !liveLineKeys.has(`${line.order_id}__${line.shopify_line_item_id}`))
+      .map(line => line.id);
+
+    if (obsoleteLineIds.length > 0) {
+      await deleteObsoleteLines({
+        supabaseUrl,
+        serviceRoleKey: supabaseServiceRoleKey,
+        obsoleteLineIds
+      });
+    }
+
     const materialCheckResponse = await fetch(
       `${appUrl}/api/shopify/check-materials?shop=${encodeURIComponent(store.shop_domain)}`
     );
@@ -271,16 +431,20 @@ export default async function handler(req, res) {
         shop: store.shop_domain,
         savedOrders: upsertOrdersData.length,
         savedLines: upsertLinesData.length,
+        deletedOrders: obsoleteOrderIds.length,
+        deletedLines: obsoleteLineIds.length,
         materialCheck: materialCheckData
       });
     }
 
     return res.status(200).json({
       ok: true,
-      message: "Commandes Shopify synchronisées + contrôle matière lancé",
+      message: "Commandes Shopify synchronisées + suppressions propagées + contrôle matière lancé",
       shop: store.shop_domain,
       savedOrders: upsertOrdersData.length,
       savedLines: upsertLinesData.length,
+      deletedOrders: obsoleteOrderIds.length,
+      deletedLines: obsoleteLineIds.length,
       materialCheck: materialCheckData
     });
   } catch (error) {
