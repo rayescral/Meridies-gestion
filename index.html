@@ -1609,7 +1609,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <button class="btn btn-primary btn-sm" onclick="shopifyApiCall('/api/shopify/sync-products','Sync produits')">🔄 Synchroniser les produits</button>
         <button class="btn btn-primary btn-sm" onclick="shopifyApiCall('/api/shopify/sync-orders','Sync commandes')">🔄 Synchroniser les commandes</button>
         <button class="btn btn-secondary btn-sm" onclick="shopifyApiCall('/api/shopify/check-materials','Contrôle matière')">🧪 Lancer le contrôle matière</button>
-        <button id="btn-shopify-register-webhook" type="button" class="btn btn-secondary btn-sm" onclick="shopifyRegisterWebhook(this)">🔗 Enregistrer le webhook</button>
+        <button class="btn btn-secondary btn-sm" onclick="shopifyRegisterWebhook()">🔗 Enregistrer le webhook</button>
       </div>
     </div>
   </div>
@@ -7079,69 +7079,10 @@ async function shopifyApiCall(endpoint, label) {
   }
 }
 
-async function shopifyRegisterWebhook(btn) {
+async function shopifyRegisterWebhook() {
   var shop = (DB.settings && DB.settings.shopifyShop) || '';
-  if (!shop) {
-    showToast('❌ Configure d'abord le domaine Shopify');
-    return;
-  }
-
-  var button = btn || document.getElementById('btn-shopify-register-webhook');
-  var originalHtml = button ? button.innerHTML : '';
-
-  if (button) {
-    if (button.dataset.loading === '1') return;
-    button.dataset.loading = '1';
-    button.disabled = true;
-    button.style.opacity = '0.7';
-    button.style.cursor = 'wait';
-    button.innerHTML = '⏳ Enregistrement...';
-  }
-
-  showToast('⏳ Enregistrement du webhook Shopify...');
-
-  try {
-    var url = '/api/shopify/register-orders-create-webhook?shop=' + encodeURIComponent(shop) + '&_ts=' + Date.now();
-    var res = await fetch(url, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
-    });
-
-    var raw = await res.text();
-    var data = {};
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch(parseErr) {
-      data = { ok: false, message: raw || 'Réponse serveur invalide' };
-    }
-
-    if (res.ok && data.ok) {
-      var createdCount = Array.isArray(data.created) ? data.created.length : 0;
-      var keptCount = Array.isArray(data.kept) ? data.kept.length : 0;
-      var removedCount = Array.isArray(data.removed) ? data.removed.length : 0;
-      var detail = [];
-      if (createdCount) detail.push(createdCount + ' créé(s)');
-      if (keptCount) detail.push(keptCount + ' déjà actif(s)');
-      if (removedCount) detail.push(removedCount + ' remplacé(s)');
-      showToast('✅ Webhook Shopify enregistré' + (detail.length ? ' · ' + detail.join(' · ') : ''));
-      await loadShopifyPage();
-    } else {
-      showToast('❌ ' + (data.message || 'Impossible d'enregistrer le webhook'));
-      console.error('[Shopify] Enregistrement webhook', { status: res.status, response: data, raw: raw });
-    }
-  } catch(e) {
-    showToast('❌ Erreur réseau : ' + e.message);
-    console.error('[Shopify] Enregistrement webhook', e);
-  } finally {
-    if (button) {
-      button.dataset.loading = '0';
-      button.disabled = false;
-      button.style.opacity = '';
-      button.style.cursor = '';
-      button.innerHTML = originalHtml || '🔗 Enregistrer le webhook';
-    }
-  }
+  if (!shop) { showToast('❌ Configure d\'abord le domaine Shopify'); return; }
+  await shopifyApiCall('/api/shopify/register-orders-create-webhook', 'Enregistrement webhook');
 }
 
 // ── Config boutique ────────────────────────────────────────
