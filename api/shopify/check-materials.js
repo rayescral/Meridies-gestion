@@ -152,9 +152,7 @@ async function safeDeleteOrder({
   }
 
   const orderResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(
-      supabaseOrderId
-    )}&select=id,order_name,name,deleted_on_shopify`,
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}&select=*`,
     {
       method: "GET",
       headers: {
@@ -164,7 +162,18 @@ async function safeDeleteOrder({
     }
   );
 
-  const orderData = await orderResp.json();
+  let orderData;
+  try {
+    orderData = await orderResp.json();
+  } catch (e) {
+    return {
+      status: 500,
+      body: {
+        ok: false,
+        message: "Réponse invalide lors de la lecture de la commande dans Supabase"
+      }
+    };
+  }
 
   if (!orderResp.ok) {
     return {
@@ -177,7 +186,7 @@ async function safeDeleteOrder({
     };
   }
 
-  const order = orderData?.[0];
+  const order = Array.isArray(orderData) ? orderData[0] : null;
 
   if (!order) {
     return {
@@ -206,9 +215,7 @@ async function safeDeleteOrder({
   }
 
   const selectLinesResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(
-      supabaseOrderId
-    )}&select=id`,
+    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}&select=id`,
     {
       method: "GET",
       headers: {
@@ -234,9 +241,7 @@ async function safeDeleteOrder({
   const deletedLineIds = (lines || []).map(l => l.id);
 
   const delLinesResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(
-      supabaseOrderId
-    )}`,
+    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}`,
     {
       method: "DELETE",
       headers: {
@@ -259,9 +264,7 @@ async function safeDeleteOrder({
   }
 
   const delOrderResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(
-      supabaseOrderId
-    )}`,
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}`,
     {
       method: "DELETE",
       headers: {
