@@ -7036,7 +7036,7 @@ async function deleteShopifyOrder(orderId, orderName) {
   try {
     showToast('⏳ Vérification avant suppression...');
 
-    const resp = await fetch('/api/check-materials', {
+    const resp = await fetch('/api/shopify/check-materials', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
