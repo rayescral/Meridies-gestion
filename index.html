@@ -1215,12 +1215,36 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
 
   <div class="grid2" style="margin-bottom:16px;">
-    <div class="card"><div class="card-header"><span class="card-title">CA par canal</span></div><div style="position:relative;height:200px;"><canvas id="ch1"></canvas></div></div>
-    <div class="card"><div class="card-header"><span class="card-title">Top designs</span></div><div style="position:relative;height:200px;"><canvas id="ch2"></canvas></div></div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">CA par canal</span></div>
+      <div id="ch1-wrap" style="position:relative;height:200px;">
+        <div id="ch1-overlay" onclick="loadChart('ch1')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
+        <canvas id="ch1" style="display:none;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Top designs</span></div>
+      <div id="ch2-wrap" style="position:relative;height:200px;">
+        <div id="ch2-overlay" onclick="loadChart('ch2')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
+        <canvas id="ch2" style="display:none;"></canvas>
+      </div>
+    </div>
   </div>
   <div class="grid2" style="margin-bottom:16px;">
-    <div class="card"><div class="card-header"><span class="card-title">Etat des stocks</span></div><div style="position:relative;height:200px;"><canvas id="ch3"></canvas></div></div>
-    <div class="card"><div class="card-header"><span class="card-title">Ventes par taille</span></div><div style="position:relative;height:200px;"><canvas id="ch4"></canvas></div></div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Etat des stocks</span></div>
+      <div id="ch3-wrap" style="position:relative;height:200px;">
+        <div id="ch3-overlay" onclick="loadChart('ch3')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
+        <canvas id="ch3" style="display:none;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Ventes par taille</span></div>
+      <div id="ch4-wrap" style="position:relative;height:200px;">
+        <div id="ch4-overlay" onclick="loadChart('ch4')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
+        <canvas id="ch4" style="display:none;"></canvas>
+      </div>
+    </div>
   </div>
   <div class="grid2">
     <div class="card">
@@ -2259,25 +2283,23 @@ function renderDashboard() {
     '<div class="kpi '+(shopifyPending>0?'kpi-warning':'')+'"><div class="kpi-label">Shopify en attente</div><div class="kpi-value">'+(typeof shopifyPending==='number'?shopifyPending:'—')+'</div><div class="kpi-sub">commandes non expédiées</div></div>'+
     '<div class="kpi '+(stockCrit>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes stock</div><div class="kpi-value">'+stockCrit+'</div><div class="kpi-sub">'+(stockCrit>0?'références sous seuil':'Tout est ok')+'</div></div>';
 
-  // ── Graphiques ───────────────────────────────────────────
-  var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
-  function mkC(id,type,labels,data,colors,extra){
-    var el=document.getElementById(id);if(!el)return;
-    if(el._c){try{el._c.destroy();}catch(e){}}
-    if(!data||!data.length||data.every(function(d){return !d;})){
-      el.parentNode.innerHTML='<div class="empty-state" style="padding-top:50px;font-size:12px;">Enregistrez des ventes pour voir ce graphique</div>';return;
-    }
-    el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
+  // ── Graphiques : calculer un hash léger des données ─────────
+  var _newChartHash = (DB.ventes||[]).length + '|' + (DB.ventes||[]).reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0)
+    + '|' + (DB.stockFini||[]).reduce(function(s,i){return s+(i.stock||0);},0)
+    + '|' + (DB.stockDTF||[]).reduce(function(s,i){return s+(i.stock||0);},0)
+    + '|' + viergeTot;
+  // Si les données ont changé, invalider les graphiques déjà affichés pour forcer un re-render au prochain clic
+  if (_newChartHash !== window._dashChartHash) {
+    window._dashChartHash = _newChartHash;
+    ['ch1','ch2','ch3','ch4'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && el._c) { try{el._c.destroy();}catch(e){} el._c = null; }
+      // Réafficher l'overlay si le graphique était déjà chargé
+      var overlay = document.getElementById(id+'-overlay');
+      if (overlay) overlay.style.display = 'flex';
+      if (el) el.style.display = 'none';
+    });
   }
-  var cs={};(DB.ventes||[]).forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
-  mkC('ch1','doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
-  var ds={};(DB.ventes||[]).forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
-  var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-  mkC('ch2','bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
-  mkC('ch3','bar',['Produits finis','Vierges','DTF'],[stockFini,viergeTot,dtfTot],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
-  var ts={};(DB.ventes||[]).forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
-  var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
-  mkC('ch4','pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
 
   // ── Dernières ventes + marge ─────────────────────────────
   var last=(DB.ventes||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,8);
@@ -2296,31 +2318,50 @@ function renderDashboard() {
   (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
   document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">⚠️ '+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
 
-  // ── Alertes matières Supabase (async) ────────────────────
-  renderDashboardAlerts();
 }
 
-async function renderDashboardAlerts() {
-  var card = document.getElementById('dash-alerts-card');
-  var content = document.getElementById('dash-alerts-content');
-  if (!card || !content) return;
-  try {
-    var { data, error } = await supabase.from('material_alerts').select('severity,message,alert_type').eq('status','open').order('created_at',{ascending:false}).limit(10);
-    if (error || !data || !data.length) { card.style.display='none'; return; }
-    card.style.display='block';
-    content.innerHTML = data.map(function(a){
-      var isHigh = a.severity==='high';
-      return '<div class="alert-material-item'+(isHigh?'':' warn')+'">' +
-        '<span class="icon">'+(isHigh?'🔴':'⚠️')+'</span>' +
-        '<div><div class="msg">'+escapeHtml(a.message||a.alert_type||'Alerte matière')+'</div>' +
-        '<div class="sub">'+(isHigh?'Sévérité haute':'Sévérité normale')+'</div></div>' +
-        '</div>';
-    }).join('');
-    // Mettre à jour le badge nav Shopify avec le total
-    var navBadge = document.getElementById('nav-shopify-alerts');
-    if (navBadge) navBadge.textContent = data.length || '';
-  } catch(e) { card.style.display='none'; }
+// ── Chargement lazy des graphiques du dashboard ──────────────
+function loadChart(id) {
+  var overlay = document.getElementById(id+'-overlay');
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (overlay) overlay.style.display = 'none';
+  el.style.display = 'block';
+
+  // Utiliser getDashboardSales() si dispo (inclut les données historiques 2025+)
+  var ventes = (typeof getDashboardSales === 'function') ? getDashboardSales() : (DB.ventes || []);
+
+  var C=['#C9A84C','#2563EB','#059669','#DC2626','#7C3AED','#EA580C','#0891B2'];
+  function mkC(type,labels,data,colors,extra){
+    if(el._c){try{el._c.destroy();}catch(e){}}
+    if(!data||!data.length||data.every(function(d){return !d;})){
+      el.style.display='none';
+      var msg=document.createElement('div');msg.className='empty-state';msg.style='padding-top:50px;font-size:12px;';msg.textContent='Enregistrez des ventes pour voir ce graphique';
+      el.parentNode.appendChild(msg);return;
+    }
+    el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
+  }
+
+  if(id==='ch1'){
+    var cs={};ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
+    mkC('doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
+  } else if(id==='ch2'){
+    var ds={};ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
+    var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+    mkC('bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
+  } else if(id==='ch3'){
+    var sf=(DB.stockFini||[]).reduce(function(s,i){return s+(i.stock||0);},0);
+    var dt=(DB.stockDTF||[]).reduce(function(s,i){return s+(i.stock||0);},0);
+    var vt=(DB.stockVierge||[]).reduce(function(s,i){return s+(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);},0);
+    mkC('bar',['Produits finis','Vierges','DTF'],[sf,vt,dt],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
+  } else if(id==='ch4'){
+    var ts={};ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
+    var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
+    mkC('pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
+  }
 }
+
+function renderDashboardAlerts() {} // no-op — supprimé pour éviter les appels Supabase async depuis le dashboard
 
 // ============================================================
 // CATALOGUE, STOCK VIERGE, STOCK DTF, STOCK FINI (inchangés du bloc de base)
@@ -4666,6 +4707,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     histEnsurePreferences();
     return filterSalesByYear(getAllSalesData(), DB.preferences.dashboardYear || 'all');
   }
+  window.getDashboardSales = getDashboardSales; // exposé globalement pour loadChart()
 
   function makeYoySummary(year){
     var sales = filterSalesByYear(getAllSalesData(), year);
