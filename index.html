@@ -6921,8 +6921,6 @@ function renderShopifyOrdersTable(orders) {
     var meridies = shopifyMeridieBadge(o.meridies_status);
     var total = (o.total_price != null ? Number(o.total_price).toFixed(2) + ' ' + (o.currency || '€') : '—');
     var created = (o.created_at_shopify ? new Date(o.created_at_shopify).toLocaleDateString('fr-FR') : '—');
-    var detailCall = ('viewShopifyOrderLines(' + JSON.stringify(String(o.id || '')) + ',' + JSON.stringify(String(o.order_name || '')) + ')').replace(/'/g, '&#39;');
-    var deleteCall = ('deleteShopifyOrder(' + JSON.stringify(String(o.id || '')) + ',' + JSON.stringify(String(o.order_name || '')) + ')').replace(/'/g, '&#39;');
 
     return '' +
       '<tr>' +
@@ -6934,21 +6932,46 @@ function renderShopifyOrdersTable(orders) {
         '<td class="r mono">' + total + '</td>' +
         '<td class="mono" style="font-size:11px;color:var(--muted);">' + created + '</td>' +
         '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
-          '<button class="btn btn-xs btn-secondary" onclick="' + detailCall + '">Détail</button>' +
-          '<button class="btn btn-xs btn-danger" onclick="' + deleteCall + '">Supprimer</button>' +
+          '<button class="btn btn-xs btn-secondary js-shopify-detail" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Détail</button>' +
+          '<button class="btn btn-xs btn-danger js-shopify-delete" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Supprimer</button>' +
         '</td>' +
       '</tr>';
   }).join('');
+
+  bindShopifyOrderButtons();
+}
+
+function bindShopifyOrderButtons() {
+  var root = document.getElementById('shopify-orders-body');
+  if (!root) return;
+
+  root.querySelectorAll('.js-shopify-detail').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var orderId = decodeURIComponent(btn.dataset.orderId || '');
+      var orderName = decodeURIComponent(btn.dataset.orderName || '');
+      viewShopifyOrderLines(orderId, orderName);
+    };
+  });
+
+  root.querySelectorAll('.js-shopify-delete').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var orderId = decodeURIComponent(btn.dataset.orderId || '');
+      var orderName = decodeURIComponent(btn.dataset.orderName || '');
+      deleteShopifyOrder(orderId, orderName);
+    };
+  });
 }
 
 async function deleteShopifyOrder(orderId, orderName) {
-  if (!confirm('Vérifier Shopify puis supprimer la commande ' + (orderName || '') + ' si elle n\'existe plus ?')) return;
+  if (!confirm('Supprimer la commande Shopify ' + (orderName || '') + ' uniquement si elle n\'existe plus sur Shopify ?')) return;
 
   try {
-    showToast('⏳ Vérification Shopify...');
-
     var order = (_shopifyAllOrders || []).find(function(o) {
-      return o.id === orderId;
+      return String(o.id) === String(orderId);
     });
 
     if (!order) {
@@ -6956,46 +6979,66 @@ async function deleteShopifyOrder(orderId, orderName) {
       return;
     }
 
+    if (!order.shopify_order_id) {
+      showToast('❌ shopify_order_id manquant sur cette commande');
+      return;
+    }
+
+    showToast('⏳ Vérification Shopify...');
+
     var response = await fetch('/api/shopify/check-materials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'safe_delete_order',
-        supabaseOrderId: order.id,
+        supabaseOrderId: orderId,
         shopifyOrderId: order.shopify_order_id,
-        orderName: order.order_name || ''
+        orderName: orderName || order.order_name || ''
       })
     });
 
-    var data;
+    var rawText = await response.text();
+    var data = {};
     try {
-      data = await response.json();
-    } catch (jsonError) {
-      throw new Error('Réponse serveur invalide');
-    }
-
-    if (!response.ok || !data.ok) {
-      showToast('❌ ' + ((data && data.message) ? data.message : 'Suppression refusée'));
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch (parseErr) {
+      console.error('Réponse backend non JSON:', rawText);
+      showToast('❌ Réponse serveur invalide');
       return;
     }
 
-    var deletedLineIds = Array.isArray(data.deletedLineIds) ? data.deletedLineIds : [];
+    if (!response.ok || !data.ok) {
+      console.error('safe_delete_order refusé:', data);
+      showToast('❌ ' + (data.message || 'Suppression refusée'));
+      return;
+    }
+
+    var deletedLineIds = Array.isArray(data.deletedLineIds) ? data.deletedLineIds.map(String) : [];
 
     if (!Array.isArray(DB.ventes)) DB.ventes = [];
     DB.ventes = DB.ventes.filter(function(v) {
       if (!v.shopifyLineId) return true;
-      return deletedLineIds.indexOf(v.shopifyLineId) === -1;
+      return deletedLineIds.indexOf(String(v.shopifyLineId)) === -1;
     });
 
     saveDB('Suppression sécurisée commande Shopify');
 
-    if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
-    _shopifyAllOrders = _shopifyAllOrders.filter(function(o) {
-      return o.id !== orderId;
-    });
+    if (typeof loadShopifyOrders === 'function') {
+      await loadShopifyOrders();
+    } else {
+      _shopifyAllOrders = (_shopifyAllOrders || []).filter(function(o) {
+        return String(o.id) !== String(orderId);
+      });
+      renderShopifyOrdersTable(_shopifyAllOrders);
+    }
 
-    renderShopifyOrdersTable(_shopifyAllOrders);
-    renderAll();
+    if (typeof loadShopifyAlerts === 'function') {
+      await loadShopifyAlerts();
+    }
+
+    if (typeof renderAll === 'function') {
+      renderAll();
+    }
 
     showToast('✅ Commande supprimée');
   } catch (e) {
@@ -7003,6 +7046,9 @@ async function deleteShopifyOrder(orderId, orderName) {
     showToast('❌ ' + (e && e.message ? e.message : 'Erreur inconnue'));
   }
 }
+
+window.deleteShopifyOrder = deleteShopifyOrder;
+window.bindShopifyOrderButtons = bindShopifyOrderButtons;
 
 function applyShopifyOrdersFilter() {
   var filter = document.getElementById('shopify-orders-filter').value;
