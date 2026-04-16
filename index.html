@@ -4048,34 +4048,161 @@ function renderPilotage(){
       '<div class="card"><div class="card-header"><span class="card-title">Rôle actif</span></div><div class="role-chip">'+escapeHtml((DB.preferences&&DB.preferences.role)||'admin')+'</div><p style="font-size:12px;color:var(--muted);margin-top:10px;">Adapte les vues pour le terrain, la logistique ou la compta.</p></div></div>'+
     '</div>';
 }
+function getClientCRMItems(){
+  var map={};
+  var suppressed = {};
+  (DB.clientSuppressions||[]).forEach(function(key){ suppressed[String(key)] = true; });
+
+  (DB.ventes||[]).forEach(function(v){
+    if(!v.email) return;
+    var emailKey = String(v.email).trim().toLowerCase();
+    var crmKey = 'email:' + emailKey;
+    if(!map[crmKey]) map[crmKey] = {crmKey:crmKey,email:v.email,name:v.email.split('@')[0],orders:0,spent:0,lastDate:v.date||'',notes:'',phone:'',tags:[]};
+    map[crmKey].orders += 1;
+    map[crmKey].spent += (v.pv||0)*(v.qte||1);
+    if((v.date||'') > map[crmKey].lastDate) map[crmKey].lastDate = v.date||'';
+  });
+
+  (DB.clients||[]).forEach(function(c){
+    var crmKey = c.email ? ('email:' + String(c.email).trim().toLowerCase()) : ('manual:' + c.id);
+    map[crmKey] = Object.assign(map[crmKey]||{orders:0,spent:0,lastDate:'',tags:[]}, c, {crmKey:crmKey});
+  });
+
+  return Object.keys(map)
+    .filter(function(k){ return !suppressed[k]; })
+    .map(function(k){ return map[k]; })
+    .sort(function(a,b){ return (b.spent||0)-(a.spent||0); });
+}
+
+function getClientByCRMKey(crmKey){
+  crmKey = String(crmKey||'');
+  var items = getClientCRMItems();
+  for(var i=0;i<items.length;i++){
+    if(items[i].crmKey === crmKey) return items[i];
+  }
+  return null;
+}
+
 function renderClients(){
   var el=document.getElementById('clients-grid'); if(!el) return;
-  var map={};
-  (DB.ventes||[]).forEach(function(v){ if(!v.email) return; if(!map[v.email]) map[v.email]={email:v.email,name:v.email.split('@')[0],orders:0,spent:0,lastDate:v.date||'',notes:'',phone:''}; map[v.email].orders += 1; map[v.email].spent += (v.pv||0)*(v.qte||1); if((v.date||'') > map[v.email].lastDate) map[v.email].lastDate=v.date||''; });
-  (DB.clients||[]).forEach(function(c){ var k=c.email||('manual_'+c.id); map[k]=Object.assign(map[k]||{orders:0,spent:0,lastDate:''}, c); });
-  var items=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){ return (b.spent||0)-(a.spent||0); });
-  el.innerHTML = items.length ? items.map(function(c,idx){
-    return '<div class="client-card"><div style="display:flex;justify-content:space-between;gap:8px;"><div><div style="font-weight:700">'+escapeHtml(c.name||c.email||'Client')+'</div><div style="font-size:12px;color:var(--muted)">'+escapeHtml(c.email||'')+(c.phone?' · '+escapeHtml(c.phone):'')+'</div></div><button class="btn btn-secondary btn-xs" onclick="openAddClient('+(c.id||0)+')">Éditer</button></div><div class="metric-row" style="grid-template-columns:repeat(3,1fr);margin-top:10px;"><div class="metric-box"><div class="label">Commandes</div><div class="value" style="font-size:18px">'+(c.orders||0)+'</div></div><div class="metric-box"><div class="label">Dépensé</div><div class="value" style="font-size:18px">'+fmt(c.spent||0)+'</div></div><div class="metric-box"><div class="label">Dernière</div><div class="value" style="font-size:14px">'+(c.lastDate?formatDate(c.lastDate):'—')+'</div></div></div><div style="font-size:12px;color:var(--muted);margin-top:8px;">'+escapeHtml(c.notes||'Aucune note')+'</div></div>';
+  var items=getClientCRMItems();
+  el.innerHTML = items.length ? items.map(function(c){
+    return '<div class="client-card">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">'+
+        '<div>'+
+          '<div style="font-weight:700">'+escapeHtml(c.name||c.email||'Client')+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)">'+escapeHtml(c.email||'')+(c.phone?' · '+escapeHtml(c.phone):'')+'</div>'+
+        '</div>'+
+        '<button class="btn btn-secondary btn-xs" onclick="openClientSheet(\''+c.crmKey+'\')">Voir la fiche</button>'+
+      '</div>'+
+      '<div class="metric-row" style="grid-template-columns:repeat(3,1fr);margin-top:10px;">'+
+        '<div class="metric-box"><div class="label">Commandes</div><div class="value" style="font-size:18px">'+(c.orders||0)+'</div></div>'+
+        '<div class="metric-box"><div class="label">Dépensé</div><div class="value" style="font-size:18px">'+fmt(c.spent||0)+'</div></div>'+
+        '<div class="metric-box"><div class="label">Dernière</div><div class="value" style="font-size:14px">'+(c.lastDate?formatDate(c.lastDate):'—')+'</div></div>'+
+      '</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:8px;">'+escapeHtml(c.notes||'Aucune note')+'</div>'+
+    '</div>';
   }).join('') : '<div class="empty-state"><div class="icon">👥</div>Aucun client identifié</div>';
 }
-function openAddClient(id){
-  var c = (DB.clients||[]).find(function(x){return x.id===id;}) || {id:null,name:'',email:'',phone:'',notes:''};
-  var deleteBtn = c.id ? '<button class="btn btn-danger btn-sm" onclick="deleteClient('+c.id+')" style="margin-right:auto;">🗑 Supprimer</button>' : '';
-  openModal('<div class="modal-title">'+(c.id?'Modifier un client':'Nouveau client')+'</div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Nom</label><input class="input" id="cl-name" value="'+escapeHtml(c.name)+'"></div><div class="field"><label>Email</label><input class="input" id="cl-email" value="'+escapeHtml(c.email)+'"></div></div><div class="grid2" style="margin-bottom:14px;"><div class="field"><label>Téléphone</label><input class="input" id="cl-phone" value="'+escapeHtml(c.phone)+'"></div><div class="field"><label>Tags</label><input class="input" id="cl-tags" value="'+escapeHtml((c.tags||[]).join(', '))+'"></div></div><div class="field" style="margin-bottom:14px;"><label>Notes</label><input class="input" id="cl-notes" value="'+escapeHtml(c.notes)+'"></div><div style="display:flex;gap:8px;align-items:center;">'+deleteBtn+'<button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveClient('+(c.id||'null')+')">Enregistrer</button></div>');
+
+function openClientSheet(crmKey){
+  var c = getClientByCRMKey(crmKey);
+  if(!c) return toast('Client introuvable');
+  var tags = (c.tags||[]).length ? (c.tags||[]).map(function(t){ return '<span class="tag">'+escapeHtml(t)+'</span>'; }).join('') : '<span class="tag">Aucun tag</span>';
+  var source = c.id ? 'Fiche CRM enregistrée' : 'Client détecté via les ventes';
+  openModal(
+    '<div class="modal-title">Fiche CRM client</div>'+
+    '<div class="modal-sub">'+escapeHtml(source)+'</div>'+
+    '<div class="client-card" style="margin-bottom:14px;padding:16px;">'+
+      '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">'+escapeHtml(c.name||c.email||'Client')+'</div>'+
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">'+escapeHtml(c.email||'Aucun email')+(c.phone?' · '+escapeHtml(c.phone):'')+'</div>'+
+      '<div class="metric-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;">'+
+        '<div class="metric-box"><div class="label">Commandes</div><div class="value" style="font-size:18px">'+(c.orders||0)+'</div></div>'+
+        '<div class="metric-box"><div class="label">Dépensé</div><div class="value" style="font-size:18px">'+fmt(c.spent||0)+'</div></div>'+
+        '<div class="metric-box"><div class="label">Dernière commande</div><div class="value" style="font-size:14px">'+(c.lastDate?formatDate(c.lastDate):'—')+'</div></div>'+
+      '</div>'+
+      '<div class="field" style="margin-bottom:10px;"><label>Notes CRM</label><div style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);font-size:13px;">'+escapeHtml(c.notes||'Aucune note enregistrée')+'</div></div>'+
+      '<div class="field"><label>Tags</label><div style="display:flex;gap:6px;flex-wrap:wrap;">'+tags+'</div></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">'+
+      '<button class="btn btn-danger" onclick="deleteClient(\''+c.crmKey+'\')">🗑 Supprimer du CRM</button>'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Fermer</button>'+
+      '<button class="btn btn-primary" onclick="openClientEditor(\''+c.crmKey+'\')">✏️ Modifier la fiche</button>'+
+    '</div>'
+  );
 }
-function deleteClient(id){
-  if(!confirm('Supprimer ce client ?')) return;
-  DB.clients = (DB.clients||[]).filter(function(c){ return c.id !== id; });
-  saveDB();
+
+function openAddClient(){
+  openClientEditor(null);
+}
+
+function openClientEditor(crmKey){
+  var c = crmKey ? getClientByCRMKey(crmKey) : null;
+  c = c || {crmKey:null,id:null,name:'',email:'',phone:'',notes:'',tags:[]};
+  var backAction = crmKey ? "openClientSheet('"+c.crmKey+"')" : 'closeModal()';
+  var saveAction = 'saveClient(' + (c.id||'null') + ',' + (c.crmKey ? ("'"+c.crmKey+"'") : 'null') + ')';
+  openModal(
+    '<div class="modal-title">'+(crmKey?'Modifier la fiche CRM':'Nouveau contact')+'</div>'+
+    '<div class="modal-sub">'+(crmKey?'Modifie les informations de ce client sans repasser par l’écran de création.':'Ajoute un contact manuellement au mini CRM.')+'</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Nom</label><input class="input" id="cl-name" value="'+escapeHtml(c.name||'')+'"></div>'+
+      '<div class="field"><label>Email</label><input class="input" id="cl-email" value="'+escapeHtml(c.email||'')+'"></div>'+
+    '</div>'+
+    '<div class="grid2" style="margin-bottom:14px;">'+
+      '<div class="field"><label>Téléphone</label><input class="input" id="cl-phone" value="'+escapeHtml(c.phone||'')+'"></div>'+
+      '<div class="field"><label>Tags</label><input class="input" id="cl-tags" value="'+escapeHtml((c.tags||[]).join(', '))+'"></div>'+
+    '</div>'+
+    '<div class="field" style="margin-bottom:14px;"><label>Notes</label><textarea class="input" id="cl-notes" style="min-height:110px;resize:vertical;">'+escapeHtml(c.notes||'')+'</textarea></div>'+
+    '<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="'+backAction+'">'+(crmKey?'Retour à la fiche':'Annuler')+'</button>'+
+      '<button class="btn btn-primary" onclick="'+saveAction+'">Enregistrer</button>'+
+    '</div>'
+  );
+}
+
+function deleteClient(crmKey){
+  crmKey = String(crmKey||'');
+  if(!crmKey) return;
+  if(!confirm('Supprimer ce client du mini CRM ?')) return;
+
+  if(crmKey.indexOf('email:')===0){
+    var email = crmKey.slice(6).toLowerCase();
+    DB.clients = (DB.clients||[]).filter(function(c){ return String(c.email||'').trim().toLowerCase() !== email; });
+  } else if(crmKey.indexOf('manual:')===0){
+    var id = Number(crmKey.split(':')[1]);
+    DB.clients = (DB.clients||[]).filter(function(c){ return c.id !== id; });
+  }
+
+  DB.clientSuppressions = (DB.clientSuppressions||[]).filter(function(x){ return x !== crmKey; });
+  DB.clientSuppressions.push(crmKey);
+
+  saveDB('Client supprimé du CRM');
   closeModal();
   if(typeof refreshBusinessViews === 'function') refreshBusinessViews();
-  toast('Client supprimé');
+  recordAction('Client supprimé du CRM');
+  toast('Client supprimé du CRM');
 }
-function saveClient(id){
-  var c={id:id||Date.now(),name:document.getElementById('cl-name').value,email:document.getElementById('cl-email').value,phone:document.getElementById('cl-phone').value,notes:document.getElementById('cl-notes').value,tags:(document.getElementById('cl-tags').value||'').split(',').map(function(t){return t.trim();}).filter(Boolean)};
+
+function saveClient(id, crmKey){
+  var c={
+    id:id||Date.now(),
+    name:document.getElementById('cl-name').value,
+    email:document.getElementById('cl-email').value,
+    phone:document.getElementById('cl-phone').value,
+    notes:document.getElementById('cl-notes').value,
+    tags:(document.getElementById('cl-tags').value||'').split(',').map(function(t){return t.trim();}).filter(Boolean)
+  };
   if(!c.name && !c.email) return toast('Nom ou email requis');
+
   var idx=(DB.clients||[]).findIndex(function(x){return x.id===c.id;});
   if(idx>-1) DB.clients[idx]=c; else DB.clients.unshift(c);
+
+  DB.clientSuppressions = (DB.clientSuppressions||[]).filter(function(x){ return x !== crmKey; });
+  if(c.email){
+    var emailKey = 'email:' + String(c.email).trim().toLowerCase();
+    DB.clientSuppressions = DB.clientSuppressions.filter(function(x){ return x !== emailKey; });
+  }
+
   saveDB('Client enregistré');
   closeModal();
   refreshBusinessViews();
