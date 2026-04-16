@@ -6999,10 +6999,11 @@ async function markOrderDeletedOnShopify(orderId, orderName) {
   try {
     showToast('⏳ Mise à jour...');
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('shopify_orders')
       .update({ deleted_on_shopify: true })
-      .eq('id', orderId);
+      .eq('id', orderId)
+      .select('id, deleted_on_shopify');
 
     if (error) {
       console.error(error);
@@ -7010,9 +7011,27 @@ async function markOrderDeletedOnShopify(orderId, orderName) {
       return;
     }
 
+    if (!Array.isArray(data) || data.length === 0) {
+      showToast('❌ Aucune ligne mise à jour. Vérifie l’ID ou les permissions Supabase.');
+      return;
+    }
+
+    const updatedRow = data[0];
+    const isUpdated =
+      updatedRow.deleted_on_shopify === true ||
+      updatedRow.deleted_on_shopify === 'true' ||
+      updatedRow.deleted_on_shopify === 1 ||
+      updatedRow.deleted_on_shopify === '1';
+
+    if (!isUpdated) {
+      console.error('Valeur retournée après update :', updatedRow.deleted_on_shopify);
+      showToast('❌ La valeur n’a pas été enregistrée correctement dans Supabase');
+      return;
+    }
+
     if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
 
-    var order = _shopifyAllOrders.find(function(o) {
+    const order = _shopifyAllOrders.find(function(o) {
       return String(o.id) === String(orderId);
     });
 
