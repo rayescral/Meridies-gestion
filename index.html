@@ -6891,70 +6891,55 @@ function shopifySafeAttr(str) {
 
 async function verifyAndDeleteShopifyOrder(orderRowId, shopifyOrderId, orderName) {
   var label = orderName || ('#' + (shopifyOrderId || orderRowId));
-  if (!confirm('Vérifier puis supprimer ' + label + ' si elle n\'existe plus sur Shopify ?')) return;
-
-  showToast('⏳ Vérification de ' + label + '...');
-
-  var shop = (DB.settings && DB.settings.shopifyShop) || '';
-  if (!shop) {
-    showToast('❌ Configure d\'abord le domaine Shopify');
+  if (!orderRowId) {
+    showToast('❌ ID de commande introuvable');
     return;
   }
 
+  if (!confirm('Supprimer ' + label + ' de Supabase ?')) return;
+
+  showToast('⏳ Suppression de ' + label + '...');
+
   try {
-    var res = await fetch('/api/shopify/verify-delete-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        shop: shop,
-        orderRowId: orderRowId,
-        shopifyOrderId: shopifyOrderId,
-        orderName: orderName || ''
-      })
-    });
+    var linesRes = await supabase
+      .from('shopify_order_lines')
+      .select('id')
+      .eq('order_id', orderRowId);
 
-    var data = {};
-    try {
-      data = await res.json();
-    } catch (_) {}
+    if (linesRes.error) throw new Error(linesRes.error.message || 'Erreur lecture lignes');
+    var lineIds = (linesRes.data || []).map(function(x){ return String(x.id); });
 
-    if (!res.ok) {
-      showToast('❌ Vérification impossible : endpoint backend indisponible');
-      console.error('[Shopify] verify-delete-order', data || res.statusText);
-      return;
-    }
+    var delLinesRes = await supabase
+      .from('shopify_order_lines')
+      .delete()
+      .eq('order_id', orderRowId);
+    if (delLinesRes.error) throw new Error(delLinesRes.error.message || 'Erreur suppression lignes');
 
-    if (data.existsInShopify) {
-      showToast('ℹ️ La commande existe encore sur Shopify');
-      return;
-    }
-
-    if (!data.ok) {
-      showToast('❌ ' + (data.message || 'Suppression refusée'));
-      return;
-    }
-
-    var deletedLineIds = (data.deletedLineIds || []).map(function(id){ return String(id); });
+    var delOrderRes = await supabase
+      .from('shopify_orders')
+      .delete()
+      .eq('id', orderRowId);
+    if (delOrderRes.error) throw new Error(delOrderRes.error.message || 'Erreur suppression commande');
 
     if (Array.isArray(DB.ventes)) {
       DB.ventes = DB.ventes.filter(function(v) {
-        if (!v.shopifyLineId) return true;
-        if (deletedLineIds.length && deletedLineIds.indexOf(String(v.shopifyLineId)) !== -1) return false;
-        if (shopifyOrderId && String(v.shopifyOrderId) === String(shopifyOrderId)) return false;
+        if (!v.shopifyLineId && !v.shopifyOrderId && !v.shopifyOrderRowId) return true;
+        if (lineIds.length && v.shopifyLineId && lineIds.indexOf(String(v.shopifyLineId)) !== -1) return false;
+        if (shopifyOrderId && String(v.shopifyOrderId || '') === String(shopifyOrderId)) return false;
         if (orderRowId && String(v.shopifyOrderRowId || '') === String(orderRowId)) return false;
         return true;
       });
       saveDB('Suppression commande Shopify');
     }
 
-    showToast('✅ Commande supprimée de Supabase');
+    showToast('✅ Commande supprimée');
     await loadShopifyOrders();
     if (document.getElementById('page-dashboard').classList.contains('active')) {
       renderDashboard();
     }
   } catch (e) {
-    showToast('❌ Erreur réseau : ' + e.message);
-    console.error('[Shopify] verify-delete-order', e);
+    showToast('❌ ' + e.message);
+    console.error('[Shopify] delete order', e);
   }
 }
 
