@@ -1967,9 +1967,11 @@ async function loadDB() {
 
 // ── Système de sync centralisé ────────────────────────────────
 var _syncState = {
-  lastKnownTs: null,   // timestamp Supabase connu
-  saving: false,       // sauvegarde en cours
-  saveTimer: null      // timer debounce
+  lastKnownTs: null,      // timestamp Supabase connu
+  saving: false,          // sauvegarde réseau en cours
+  saveTimer: null,        // compat
+  hasUnsavedChanges: false,
+  pendingRemoteTs: null
 };
 
 function setSyncIndicator(state, msg) {
@@ -1998,32 +2000,22 @@ function dbDecompress(data) {
   } catch(e) { return data; }
 }
 
-// saveDB : localStorage immédiat + Supabase avec debounce court
+// saveDB : sauvegarde locale immédiate uniquement.
+// La synchronisation Supabase se fait uniquement via le bouton “Sauvegarder”.
 var _saveTimer = null;
-var SAVE_DEBOUNCE_MS = 1000;
-var SAVE_RETRY_MS = 5000;
-function saveDB(messageOrOptions, maybeOptions) {
-  var options = {};
-  if (messageOrOptions && typeof messageOrOptions === 'object') {
-    options = messageOrOptions;
-  } else if (maybeOptions && typeof maybeOptions === 'object') {
-    options = maybeOptions;
-  }
-  var immediate = !!options.immediate;
+function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  setSyncIndicator('saving', immediate ? 'Envoi...' : 'Modification...');
-  _syncState.saving = true;
+  _syncState.hasUnsavedChanges = true;
+  _syncState.saving = false;
   clearTimeout(_saveTimer);
-  if (immediate) {
-    pushToSupabase();
-  } else {
-    _saveTimer = setTimeout(pushToSupabase, SAVE_DEBOUNCE_MS);
-  }
+  setSyncIndicator('idle', 'Modifications locales — clique sur Sauvegarder');
 }
 saveDB._pending = false;
 
 async function pushToSupabase() {
   var ts = new Date().toISOString();
+  _syncState.saving = true;
+  setSyncIndicator('saving', 'Enregistrement en cours...');
   try {
     var compressed = dbCompress(DB);
     var res = await fetch(SUPA_URL + '/rest/v1/app_state?id=eq.1', {
@@ -2041,24 +2033,31 @@ async function pushToSupabase() {
       throw new Error('HTTP ' + res.status + ' : ' + txt.substring(0, 100));
     }
     _syncState.saving = false;
+    _syncState.hasUnsavedChanges = false;
     _syncState.lastKnownTs = ts;
+    _syncState.pendingRemoteTs = null;
+    try {
+      localStorage.setItem('meridies_db', JSON.stringify(DB));
+      localStorage.setItem('meridies_db_ts', ts);
+    } catch(_) {}
     setStatus(true);
-    setSyncIndicator('ok', 'Sauvegardé ✓');
-    setTimeout(function() { setSyncIndicator('idle'); }, 2500);
+    setSyncIndicator('ok', 'Sauvegardé et synchronisé ✓');
+    setTimeout(function() {
+      if (!_syncState.hasUnsavedChanges) setSyncIndicator('idle', 'Synchronisé');
+    }, 2500);
+    return true;
   } catch(err) {
     _syncState.saving = false;
     setStatus(false);
     var msg = (err && err.message) ? err.message : String(err);
-    setSyncIndicator('error', '⚠️ Erreur sync');
+    setSyncIndicator('error', '⚠️ Erreur de synchronisation');
     toast('❌ Sync : ' + msg.substring(0, 80));
     console.error('[pushToSupabase]', err);
-    // Retry court pour rétablir vite la synchro
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(pushToSupabase, SAVE_RETRY_MS);
+    return false;
   }
 }
 
-// Bouton de sauvegarde manuelle (toujours présent pour forcer si besoin)
+// Bouton de sauvegarde manuelle : seule action qui synchronise vers Supabase.
 async function manualSave() {
   clearTimeout(_saveTimer);
   await pushToSupabase();
@@ -2066,7 +2065,7 @@ async function manualSave() {
 
 function markSaved() {} // rétrocompatibilité (no-op)
 
-// Polling 10s — détecte les changements faits par un autre appareil
+// Polling de secours : vérifie rapidement les changements distants si le realtime ne répond pas.
 function startRealtimePolling() {
   setInterval(async function() {
     if (_syncState.saving) return; // ne pas écraser pendant une sauvegarde en cours
@@ -2074,18 +2073,26 @@ function startRealtimePolling() {
       var res = await supabase.from('app_state').select('updated_at,data').eq('id', 1).single();
       if (res.error || !res.data) return;
       var remoteTs = res.data.updated_at || '';
-      // Initialisation
       if (!_syncState.lastKnownTs) { _syncState.lastKnownTs = remoteTs; return; }
-      // Changement détecté depuis un autre appareil
       if (remoteTs !== _syncState.lastKnownTs) {
+        if (_syncState.hasUnsavedChanges) {
+          _syncState.pendingRemoteTs = remoteTs;
+          setSyncIndicator('error', 'Conflit possible : sauvegarde locale non envoyée');
+          return;
+        }
         _syncState.lastKnownTs = remoteTs;
+        _syncState.pendingRemoteTs = null;
         DB = normalizeRestoredDB(dbDecompress(res.data.data));
-        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
+        try {
+          localStorage.setItem('meridies_db', JSON.stringify(DB));
+          localStorage.setItem('meridies_db_ts', remoteTs);
+        } catch(_) {}
         renderAll();
+        if (typeof renderSaleCart === 'function') renderSaleCart();
         toast('🔄 Données mises à jour');
       }
     } catch(_) {}
-  }, 10000); // toutes les 10 secondes
+  }, 5000);
 }
 
 // Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
@@ -2097,10 +2104,20 @@ function subscribeRealtime() {
         if (payload.new && payload.new.data) {
           var remoteTs = payload.new.updated_at || '';
           if (remoteTs === _syncState.lastKnownTs) return; // déjà connu
+          if (_syncState.hasUnsavedChanges) {
+            _syncState.pendingRemoteTs = remoteTs;
+            setSyncIndicator('error', 'Conflit possible : sauvegarde locale non envoyée');
+            return;
+          }
           _syncState.lastKnownTs = remoteTs;
+          _syncState.pendingRemoteTs = null;
           DB = normalizeRestoredDB(dbDecompress(payload.new.data));
-          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
+          try {
+            localStorage.setItem('meridies_db', JSON.stringify(DB));
+            localStorage.setItem('meridies_db_ts', remoteTs);
+          } catch(_) {}
           renderAll();
+          if (typeof renderSaleCart === 'function') renderSaleCart();
           toast('🔄 Données mises à jour en temps réel');
         }
       }).subscribe();
@@ -2114,11 +2131,11 @@ var _renderMap = {
   'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
   'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
   'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
-  'saisie-vente':    function(){ if(typeof renderVentePage==='function') renderVentePage(); else if(typeof renderVentes==='function') renderVentes(); },
-  'commandes':       function(){ if(typeof renderBC==='function') renderBC(); },
+  'saisie-vente':    function(){ if(typeof renderVentePage==='function') renderVentePage(); },
+  'commandes':       function(){ if(typeof renderCommandes==='function') renderCommandes(); else if(typeof renderBC==='function') renderBC(); },
   'fournisseurs':    function(){ if(typeof renderFournisseurs==='function') renderFournisseurs(); },
-  'todos':           function(){ if(typeof renderTodos==='function') renderTodos(); },
-  'planning':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
+  'todo':            function(){ if(typeof renderTodos==='function') renderTodos(); },
+  'calendar':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
   'drops':           function(){ if(typeof renderDropsCollections==='function') renderDropsCollections(); },
   'compta':          function(){ if(typeof renderCompta==='function') renderCompta(); },
   'journal':         function(){ if(typeof renderMarketJournal==='function') renderMarketJournal(); },
@@ -2126,7 +2143,9 @@ var _renderMap = {
   'history':         function(){ if(typeof renderHistory==='function') renderHistory(); },
   'pilotage':        function(){ if(typeof renderPilotage==='function') renderPilotage(); },
   'clients':         function(){ if(typeof renderClients==='function') renderClients(); },
-  'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); }
+  'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); },
+  'shopify':         function(){ if(typeof loadShopifyPage==='function') loadShopifyPage(); },
+  'social-media':    function(){ if(typeof renderSocialDashboard==='function') renderSocialDashboard(); }
 };
 
 function renderAll() {
@@ -3809,12 +3828,25 @@ function ensureEnhancementDefaults(){
     if(!m.team) m.team = '';
     if(!m.nextActions) m.nextActions = '';
   });
+  sanitizeBackupSnapshots();
+}
+function sanitizeBackupSnapshots(){
+  DB.backups = (DB.backups || []).slice(0,8).map(function(b, idx){
+    var clone = {
+      id: b && b.id ? b.id : (Date.now() + idx),
+      at: b && b.at ? b.at : new Date().toISOString(),
+      reason: b && b.reason ? b.reason : 'Point manuel',
+      data: b && b.data ? JSON.parse(JSON.stringify(b.data)) : null
+    };
+    if(clone.data && typeof clone.data === 'object') clone.data.backups = [];
+    return clone;
+  });
 }
 var __origSaveDB = saveDB;
 saveDB = function(reason){
   ensureEnhancementDefaults();
   __origSaveDB();
-  storeBackupSnapshot(reason || 'Sauvegarde automatique');
+  // Plus de snapshot automatique à chaque modification : cela alourdissait fortement l'app.
 };
 var __origLoadDB = loadDB;
 loadDB = async function(){
@@ -3869,7 +3901,10 @@ function applyRolePreferences(){
 }
 function storeBackupSnapshot(reason){
   ensureEnhancementDefaults();
-  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Autosave', data: JSON.parse(JSON.stringify(DB)) };
+  var snapshotData = JSON.parse(JSON.stringify(DB));
+  // Évite l'imbrication infinie des sauvegardes dans les sauvegardes.
+  snapshotData.backups = [];
+  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Point manuel', data: snapshotData };
   DB.backups = DB.backups || [];
   DB.backups.unshift(snap);
   DB.backups = DB.backups.slice(0,8);
@@ -4455,7 +4490,7 @@ function enregistrerVente() {
     if(sf) sf.stock = Math.max(0, (sf.stock||0) - (line.qte||0));
   });
 
-  saveDB('Vente enregistrée', { immediate: true });
+  saveDB('Vente enregistrée');
   resetCurrentSaleCart();
   clearVenteForm();
   refreshBusinessViews('Vente enregistrée !');
@@ -4533,7 +4568,7 @@ function deleteVente(id) {
     var sf = (DB.stockFini||[]).find(function(f){ return f.code===v.code; });
     if(sf) sf.stock = (sf.stock||0) + (v.qte||1);
   });
-  saveDB('Vente supprimée', { immediate: true });
+  saveDB('Vente supprimée');
   refreshBusinessViews('Vente supprimée');
 }
 
