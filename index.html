@@ -1998,14 +1998,11 @@ function dbDecompress(data) {
   } catch(e) { return data; }
 }
 
-// saveDB : localStorage immédiat + Supabase debounced 60s avec compression
+// saveDB : localStorage UNIQUEMENT — Supabase = manuel via bouton
 var _saveTimer = null;
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  setSyncIndicator('saving', 'Modification...');
-  _syncState.saving = true;
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(pushToSupabase, 60000);
+  setSyncIndicator('idle');
 }
 saveDB._pending = false;
 
@@ -2039,9 +2036,9 @@ async function pushToSupabase() {
     setSyncIndicator('error', '⚠️ Erreur sync');
     toast('❌ Sync : ' + msg.substring(0, 80));
     console.error('[pushToSupabase]', err);
-    // Retry dans 60s
+    // Retry dans 15s
     clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(pushToSupabase, 60000);
+    _saveTimer = setTimeout(pushToSupabase, 15000);
   }
 }
 
@@ -2054,44 +2051,18 @@ async function manualSave() {
 function markSaved() {} // rétrocompatibilité (no-op)
 
 // Polling 10s — détecte les changements faits par un autre appareil
-function startRealtimePolling() {
-  setInterval(async function() {
-    if (_syncState.saving) return; // ne pas écraser pendant une sauvegarde en cours
-    try {
-      var res = await supabase.from('app_state').select('updated_at,data').eq('id', 1).single();
-      if (res.error || !res.data) return;
-      var remoteTs = res.data.updated_at || '';
-      // Initialisation
-      if (!_syncState.lastKnownTs) { _syncState.lastKnownTs = remoteTs; return; }
-      // Changement détecté depuis un autre appareil
-      if (remoteTs !== _syncState.lastKnownTs) {
-        _syncState.lastKnownTs = remoteTs;
-        DB = normalizeRestoredDB(dbDecompress(res.data.data));
-        try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
-        renderAll();
-        toast('🔄 Données mises à jour');
-      }
-    } catch(_) {}
-  }, 60000); // toutes les 60 secondes
-}
+// Polling désactivé — sync manuelle uniquement
+function startRealtimePolling() { /* no-op */ }
 
-// Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
-function subscribeRealtime() {
-  try {
-    supabase.channel('meridies_realtime_sync')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
-        if (_syncState.saving) return; // ignorer si c'est notre propre sauvegarde
-        if (payload.new && payload.new.data) {
-          var remoteTs = payload.new.updated_at || '';
-          if (remoteTs === _syncState.lastKnownTs) return; // déjà connu
-          _syncState.lastKnownTs = remoteTs;
-          DB = normalizeRestoredDB(dbDecompress(payload.new.data));
-          try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(_) {}
-          renderAll();
-          toast('🔄 Données mises à jour en temps réel');
-        }
-      }).subscribe();
-  } catch(e) { console.warn('[Realtime] Non disponible, polling actif'); }
+// Realtime désactivé — sync manuelle uniquement
+function subscribeRealtime() { /* no-op */ }
+
+function renderAll() {
+  // Rend uniquement la page visible + dashboard (KPIs)
+  var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
+  var fn = _renderMap[activePage];
+  if (fn) fn();
+  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
 }
 
 // Map page-id → fonction de rendu
@@ -2116,17 +2087,12 @@ var _renderMap = {
   'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); }
 };
 
-function renderAll() {
-  // Rend uniquement la page actuellement visible + dashboard (KPIs toujours à jour)
+function refreshBusinessViews(message) {
+  if (message) toast(message);
+  // Rend uniquement la page visible — pas de renders en cascade
   var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
-  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
   var fn = _renderMap[activePage];
   if (fn) fn();
-}
-
-function refreshBusinessViews(message) {
-  renderAll();
-  if (message) toast(message);
 }
 
 var currentSaleItems = [];
@@ -2236,7 +2202,11 @@ function getSalesTransactions(){
   return Object.keys(groups).map(function(k){ return groups[k]; });
 }
 
+var _renderDashboardRunning = false;
 function renderDashboard() {
+  if (_renderDashboardRunning) return;
+  _renderDashboardRunning = true;
+  try {
   // ── Calculs de base ──────────────────────────────────────
   var now = new Date();
   var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -2318,6 +2288,7 @@ function renderDashboard() {
   (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
   document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">⚠️ '+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
 
+  } finally { _renderDashboardRunning = false; }
 }
 
 // ── Chargement lazy des graphiques du dashboard ──────────────
@@ -3798,10 +3769,16 @@ function ensureEnhancementDefaults(){
   });
 }
 var __origSaveDB = saveDB;
+var _lastBackupSnapshotTime = 0;
 saveDB = function(reason){
   ensureEnhancementDefaults();
   __origSaveDB();
-  storeBackupSnapshot(reason || 'Sauvegarde automatique');
+  // Snapshot max 1 fois par minute pour éviter de bloquer le thread
+  var now = Date.now();
+  if (now - _lastBackupSnapshotTime > 60000) {
+    _lastBackupSnapshotTime = now;
+    setTimeout(function(){ storeBackupSnapshot(reason || 'Sauvegarde automatique'); }, 0);
+  }
 };
 var __origLoadDB = loadDB;
 loadDB = async function(){
@@ -3856,10 +3833,13 @@ function applyRolePreferences(){
 }
 function storeBackupSnapshot(reason){
   ensureEnhancementDefaults();
-  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Autosave', data: JSON.parse(JSON.stringify(DB)) };
+  // Exclure DB.backups du snapshot pour éviter la croissance exponentielle
+  var dbCopy = JSON.parse(JSON.stringify(DB));
+  delete dbCopy.backups;
+  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Autosave', data: dbCopy };
   DB.backups = DB.backups || [];
   DB.backups.unshift(snap);
-  DB.backups = DB.backups.slice(0,8);
+  DB.backups = DB.backups.slice(0, 5);
   try{ localStorage.setItem('meridies_db', JSON.stringify(DB)); }catch(e){}
   renderBackups();
 }
@@ -4042,7 +4022,13 @@ renderDashboard = function(){ __origRenderDashboard(); renderAlertSummary(); };
 var __origGoTo = goTo;
 goTo = function(page){ __origGoTo(page); if(page==='pilotage') renderPilotage(); if(page==='clients') renderClients(); if(page==='backups') renderBackups(); };
 var __origRenderAll = renderAll;
-renderAll = function(){ __origRenderAll(); renderPilotage(); renderClients(); renderBackups(); };
+renderAll = function(){
+  __origRenderAll();
+  var p = sessionStorage.getItem('meridies_page') || '';
+  if (p === 'pilotage' && typeof renderPilotage === 'function') renderPilotage();
+  if (p === 'clients' && typeof renderClients === 'function') renderClients();
+  if (p === 'backups' && typeof renderBackups === 'function') renderBackups();
+};
 
 
 // ============================================================
@@ -6989,6 +6975,55 @@ window.addEventListener('appinstalled', function() {
   if (btn) btn.remove();
   if (typeof toast === 'function') toast('✅ MERIDIES installé sur cet appareil');
 });
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// OVERRIDE FINAL ABSOLU — s'exécute après TOUS les autres scripts
+// ══════════════════════════════════════════════════════════════
+(function(){
+  var _pm = {
+    'dashboard':       function(){ if(typeof renderDashboard==='function') renderDashboard(); },
+    'catalogue':       function(){ if(typeof renderCatalogue==='function') renderCatalogue(); },
+    'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
+    'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
+    'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
+    'ventes':          function(){ if(typeof renderVentes==='function') renderVentes(); },
+    'commandes':       function(){ if(typeof renderBC==='function') renderBC(); },
+    'fournisseurs':    function(){ if(typeof renderFournisseurs==='function') renderFournisseurs(); },
+    'todos':           function(){ if(typeof renderTodos==='function') renderTodos(); },
+    'planning':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
+    'drops':           function(){ if(typeof renderDropsCollections==='function') renderDropsCollections(); },
+    'compta':          function(){ if(typeof renderCompta==='function') renderCompta(); },
+    'journal':         function(){ if(typeof renderMarketJournal==='function') renderMarketJournal(); },
+    'sav':             function(){ if(typeof renderSav==='function') renderSav(); },
+    'history':         function(){ if(typeof renderHistory==='function') renderHistory(); },
+    'pilotage':        function(){ if(typeof renderPilotage==='function') renderPilotage(); },
+    'clients':         function(){ if(typeof renderClients==='function') renderClients(); },
+    'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); },
+    'admin-analytics': function(){ if(typeof renderAdminAnalytics==='function') renderAdminAnalytics(); },
+    'social-media':    function(){ if(typeof renderSocialDashboard==='function') renderSocialDashboard(); }
+  };
+
+  function _getPage(){ return sessionStorage.getItem('meridies_page') || 'dashboard'; }
+
+  // renderAll : rend UNIQUEMENT la page visible
+  renderAll = function(){
+    var page = _getPage();
+    var fn = _pm[page];
+    if (fn) fn();
+    if (typeof syncDashboardYearSelector === 'function') try{ syncDashboardYearSelector(); }catch(e){}
+    if (typeof renderSaleChannelSelectors === 'function') try{ renderSaleChannelSelectors(); }catch(e){}
+  };
+
+  // refreshBusinessViews : rend la page active + toast
+  refreshBusinessViews = function(message){
+    if (message && typeof toast === 'function') toast(message);
+    var page = _getPage();
+    var fn = _pm[page];
+    if (fn) fn();
+  };
+})();
 </script>
 </body>
 </html>
