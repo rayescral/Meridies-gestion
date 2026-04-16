@@ -135,75 +135,147 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   return data || [];
 }
 
-function normalizeShopifyOrderId(shopifyOrderId) {
-  const rawValue = String(shopifyOrderId || "").trim();
-  if (!rawValue) return "";
+function extractShopifyDeletionState(order) {
+  if (!order || typeof order !== "object") {
+    return {
+      known: false,
+      deleted: false,
+      sourceField: null
+    };
+  }
 
-  const gidMatch = rawValue.match(/(\d+)(?!.*\d)/);
-  return gidMatch ? gidMatch[1] : rawValue;
+  const hasOwn = key => Object.prototype.hasOwnProperty.call(order, key);
+
+  const booleanFieldsTrueMeansDeleted = [
+    "deleted_on_shopify",
+    "is_deleted_on_shopify",
+    "deleted_from_shopify",
+    "shopify_deleted"
+  ];
+
+  for (const field of booleanFieldsTrueMeansDeleted) {
+    if (hasOwn(field) && typeof order[field] === "boolean") {
+      return {
+        known: true,
+        deleted: order[field],
+        sourceField: field
+      };
+    }
+  }
+
+  const booleanFieldsTrueMeansStillPresent = [
+    "present_on_shopify",
+    "exists_on_shopify",
+    "shopify_exists"
+  ];
+
+  for (const field of booleanFieldsTrueMeansStillPresent) {
+    if (hasOwn(field) && typeof order[field] === "boolean") {
+      return {
+        known: true,
+        deleted: !order[field],
+        sourceField: field
+      };
+    }
+  }
+
+  const dateFieldsMeanDeletedWhenFilled = [
+    "deleted_at_shopify",
+    "removed_from_shopify_at",
+    "shopify_deleted_at"
+  ];
+
+  for (const field of dateFieldsMeanDeletedWhenFilled) {
+    if (hasOwn(field)) {
+      return {
+        known: true,
+        deleted: !!order[field],
+        sourceField: field
+      };
+    }
+  }
+
+  return {
+    known: false,
+    deleted: false,
+    sourceField: null
+  };
 }
 
 async function safeDeleteOrder({
   supabaseUrl,
   serviceRoleKey,
-  shopDomain,
-  shopifyAdminToken,
   supabaseOrderId,
-  shopifyOrderId,
   orderName
 }) {
-  if (!supabaseOrderId || !shopifyOrderId) {
+  if (!supabaseOrderId) {
     return {
       status: 400,
       body: {
         ok: false,
-        message: "supabaseOrderId ou shopifyOrderId manquant"
+        message: "supabaseOrderId manquant"
       }
     };
   }
 
-  const normalizedShopifyOrderId = normalizeShopifyOrderId(shopifyOrderId);
-
-  if (!normalizedShopifyOrderId) {
-    return {
-      status: 400,
-      body: {
-        ok: false,
-        message: "Identifiant Shopify invalide"
-      }
-    };
-  }
-
-  // Vérifie si la commande existe encore sur Shopify
-  const shopifyResp = await fetch(
-    `https://${shopDomain}/admin/api/2024-10/orders/${encodeURIComponent(normalizedShopifyOrderId)}.json`,
+  // Lire la commande dans Supabase sans imposer une colonne précise
+  const orderResp = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}&select=*`,
     {
       method: "GET",
       headers: {
-        "X-Shopify-Access-Token": shopifyAdminToken,
-        "Content-Type": "application/json"
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
       }
     }
   );
 
-  if (shopifyResp.status === 200) {
+  const orderData = await orderResp.json();
+
+  if (!orderResp.ok) {
     return {
-      status: 409,
+      status: 500,
       body: {
         ok: false,
-        message: `La commande ${orderName || normalizedShopifyOrderId} est encore présente sur Shopify. Supprime-la d'abord dans Shopify avant de la retirer du site.`
+        message: "Impossible de lire la commande dans Supabase",
+        details: orderData
       }
     };
   }
 
-  if (shopifyResp.status !== 404) {
-    const txt = await shopifyResp.text();
+  const order = orderData?.[0];
+
+  if (!order) {
     return {
-      status: 502,
+      status: 404,
       body: {
         ok: false,
-        message: `Erreur vérification Shopify (${shopifyResp.status})`,
-        details: txt
+        message: "Commande introuvable dans Supabase"
+      }
+    };
+  }
+
+  const deletionState = extractShopifyDeletionState(order);
+
+  // Si aucun champ de contrôle n'existe encore, on renvoie un message propre
+  if (!deletionState.known) {
+    return {
+      status: 412,
+      body: {
+        ok: false,
+        message:
+          "Impossible de vérifier si la commande a été supprimée de Shopify. Ajoute dans Supabase un champ booléen `deleted_on_shopify` (par défaut false), puis passe-le à true quand la commande n'existe plus sur Shopify."
+      }
+    };
+  }
+
+  // Si la commande est encore présente côté Shopify, on bloque
+  if (!deletionState.deleted) {
+    return {
+      status: 409,
+      body: {
+        ok: false,
+        message: `La commande ${orderName || order.order_name || order.name || ""} est encore présente sur Shopify. Suppression bloquée.`
       }
     };
   }
@@ -287,7 +359,7 @@ async function safeDeleteOrder({
     status: 200,
     body: {
       ok: true,
-      message: `Commande ${orderName || normalizedShopifyOrderId} supprimée du site et de Supabase.`,
+      message: `Commande ${orderName || order.order_name || order.name || ""} supprimée du site et de Supabase.`,
       deletedLineIds
     }
   };
@@ -305,33 +377,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // MODE SUPPRESSION SÉCURISÉE
+    // MODE SUPPRESSION SÉCURISÉE SANS TOKEN SHOPIFY
     if (req.method === "POST" && req.body && req.body.action === "safe_delete_order") {
-      const shopDomain =
-        process.env.SHOPIFY_SHOP_DOMAIN ||
-        process.env.SHOPIFY_STORE_DOMAIN ||
-        process.env.SHOPIFY_SHOP ||
-        "";
-
-      const shopifyAdminToken =
-        process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ||
-        process.env.SHOPIFY_ACCESS_TOKEN ||
-        "";
-
-      if (!shopDomain || !shopifyAdminToken) {
-        return res.status(500).json({
-          ok: false,
-          message: "Variables Shopify serveur manquantes (SHOPIFY_SHOP_DOMAIN / SHOPIFY_ADMIN_ACCESS_TOKEN)"
-        });
-      }
-
       const result = await safeDeleteOrder({
         supabaseUrl,
         serviceRoleKey,
-        shopDomain,
-        shopifyAdminToken,
         supabaseOrderId: req.body.supabaseOrderId,
-        shopifyOrderId: req.body.shopifyOrderId,
         orderName: req.body.orderName
       });
 
