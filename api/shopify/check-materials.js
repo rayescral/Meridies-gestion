@@ -135,10 +135,138 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   return data || [];
 }
 
+async function safeDeleteOrder({ supabaseUrl, serviceRoleKey, shopDomain, shopifyAdminToken, supabaseOrderId, shopifyOrderId, orderName }) {
+  if (!supabaseOrderId || !shopifyOrderId) {
+    return {
+      status: 400,
+      body: {
+        ok: false,
+        message: "supabaseOrderId ou shopifyOrderId manquant"
+      }
+    };
+  }
+
+  // Vérification Shopify
+  const shopifyResp = await fetch(
+    `https://${shopDomain}/admin/api/2024-10/orders/${shopifyOrderId}.json`,
+    {
+      method: "GET",
+      headers: {
+        "X-Shopify-Access-Token": shopifyAdminToken,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+  if (shopifyResp.status === 200) {
+    return {
+      status: 409,
+      body: {
+        ok: false,
+        message: `La commande ${orderName || ""} existe encore sur Shopify. Suppression bloquée.`
+      }
+    };
+  }
+
+  if (shopifyResp.status !== 404) {
+    const txt = await shopifyResp.text();
+    return {
+      status: 502,
+      body: {
+        ok: false,
+        message: `Erreur vérification Shopify (${shopifyResp.status})`,
+        details: txt
+      }
+    };
+  }
+
+  // Lire les lignes à supprimer
+  const selectLinesResp = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}&select=id`,
+    {
+      method: "GET",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
+    }
+  );
+
+  if (!selectLinesResp.ok) {
+    const txt = await selectLinesResp.text();
+    return {
+      status: 500,
+      body: {
+        ok: false,
+        message: "Impossible de lire les lignes Supabase",
+        details: txt
+      }
+    };
+  }
+
+  const lines = await selectLinesResp.json();
+  const deletedLineIds = (lines || []).map(l => l.id);
+
+  // Supprimer les lignes
+  const delLinesResp = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
+    }
+  );
+
+  if (!delLinesResp.ok) {
+    const txt = await delLinesResp.text();
+    return {
+      status: 500,
+      body: {
+        ok: false,
+        message: "Impossible de supprimer les lignes Supabase",
+        details: txt
+      }
+    };
+  }
+
+  // Supprimer la commande
+  const delOrderResp = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`
+      }
+    }
+  );
+
+  if (!delOrderResp.ok) {
+    const txt = await delOrderResp.text();
+    return {
+      status: 500,
+      body: {
+        ok: false,
+        message: "Impossible de supprimer la commande Supabase",
+        details: txt
+      }
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      deletedLineIds
+    }
+  };
+}
+
 export default async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const shop = String(req.query.shop || "").trim().toLowerCase();
 
   if (!supabaseUrl || !serviceRoleKey) {
     return res.status(500).json({
@@ -147,14 +275,50 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!shop || !shop.endsWith(".myshopify.com")) {
-    return res.status(400).json({
-      ok: false,
-      message: "Paramètre shop invalide"
-    });
-  }
-
   try {
+    // ===== MODE SUPPRESSION SÉCURISÉE =====
+    if (req.method === "POST" && req.body && req.body.action === "safe_delete_order") {
+      const shopDomain =
+        process.env.SHOPIFY_SHOP_DOMAIN ||
+        process.env.SHOPIFY_STORE_DOMAIN ||
+        process.env.SHOPIFY_SHOP ||
+        "";
+
+      const shopifyAdminToken =
+        process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ||
+        process.env.SHOPIFY_ACCESS_TOKEN ||
+        "";
+
+      if (!shopDomain || !shopifyAdminToken) {
+        return res.status(500).json({
+          ok: false,
+          message: "Variables Shopify serveur manquantes (SHOPIFY_SHOP_DOMAIN / SHOPIFY_ADMIN_ACCESS_TOKEN)"
+        });
+      }
+
+      const result = await safeDeleteOrder({
+        supabaseUrl,
+        serviceRoleKey,
+        shopDomain,
+        shopifyAdminToken,
+        supabaseOrderId: req.body.supabaseOrderId,
+        shopifyOrderId: req.body.shopifyOrderId,
+        orderName: req.body.orderName
+      });
+
+      return res.status(result.status).json(result.body);
+    }
+
+    // ===== MODE CONTRÔLE MATIÈRE EXISTANT =====
+    const shop = String(req.query.shop || "").trim().toLowerCase();
+
+    if (!shop || !shop.endsWith(".myshopify.com")) {
+      return res.status(400).json({
+        ok: false,
+        message: "Paramètre shop invalide"
+      });
+    }
+
     const store = await getStore({ supabaseUrl, serviceRoleKey, shop });
 
     if (!store) {
