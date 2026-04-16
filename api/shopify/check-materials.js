@@ -218,7 +218,6 @@ async function safeDeleteOrder({
     };
   }
 
-  // Lire la commande dans Supabase sans imposer une colonne précise
   const orderResp = await fetch(
     `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}&select=*`,
     {
@@ -257,7 +256,6 @@ async function safeDeleteOrder({
 
   const deletionState = extractShopifyDeletionState(order);
 
-  // Si aucun champ de contrôle n'existe encore, on renvoie un message propre
   if (!deletionState.known) {
     return {
       status: 412,
@@ -269,7 +267,6 @@ async function safeDeleteOrder({
     };
   }
 
-  // Si la commande est encore présente côté Shopify, on bloque
   if (!deletionState.deleted) {
     return {
       status: 409,
@@ -280,7 +277,6 @@ async function safeDeleteOrder({
     };
   }
 
-  // Lire les lignes liées
   const selectLinesResp = await fetch(
     `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}&select=id`,
     {
@@ -307,7 +303,6 @@ async function safeDeleteOrder({
   const lines = await selectLinesResp.json();
   const deletedLineIds = (lines || []).map(l => l.id);
 
-  // Supprimer les lignes
   const delLinesResp = await fetch(
     `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}`,
     {
@@ -331,7 +326,6 @@ async function safeDeleteOrder({
     };
   }
 
-  // Supprimer la commande
   const delOrderResp = await fetch(
     `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}`,
     {
@@ -377,7 +371,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // MODE SUPPRESSION SÉCURISÉE SANS TOKEN SHOPIFY
     if (req.method === "POST" && req.body && req.body.action === "safe_delete_order") {
       const result = await safeDeleteOrder({
         supabaseUrl,
@@ -389,7 +382,6 @@ export default async function handler(req, res) {
       return res.status(result.status).json(result.body);
     }
 
-    // MODE CONTRÔLE MATIÈRE EXISTANT
     const shop = String(req.query.shop || "").trim().toLowerCase();
 
     if (!shop || !shop.endsWith(".myshopify.com")) {
