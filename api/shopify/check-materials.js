@@ -135,6 +135,14 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   return data || [];
 }
 
+function normalizeShopifyOrderId(shopifyOrderId) {
+  const rawValue = String(shopifyOrderId || "").trim();
+  if (!rawValue) return "";
+
+  const gidMatch = rawValue.match(/(\d+)(?!.*\d)/);
+  return gidMatch ? gidMatch[1] : rawValue;
+}
+
 async function safeDeleteOrder({
   supabaseUrl,
   serviceRoleKey,
@@ -154,7 +162,17 @@ async function safeDeleteOrder({
     };
   }
 
-  const normalizedShopifyOrderId = String(shopifyOrderId).trim();
+  const normalizedShopifyOrderId = normalizeShopifyOrderId(shopifyOrderId);
+
+  if (!normalizedShopifyOrderId) {
+    return {
+      status: 400,
+      body: {
+        ok: false,
+        message: "Identifiant Shopify invalide"
+      }
+    };
+  }
 
   // Vérifie si la commande existe encore sur Shopify
   const shopifyResp = await fetch(
@@ -173,7 +191,7 @@ async function safeDeleteOrder({
       status: 409,
       body: {
         ok: false,
-        message: `La commande ${orderName || ""} existe encore sur Shopify. Suppression bloquée.`
+        message: `La commande ${orderName || normalizedShopifyOrderId} est encore présente sur Shopify. Supprime-la d'abord dans Shopify avant de la retirer du site.`
       }
     };
   }
@@ -269,6 +287,7 @@ async function safeDeleteOrder({
     status: 200,
     body: {
       ok: true,
+      message: `Commande ${orderName || normalizedShopifyOrderId} supprimée du site et de Supabase.`,
       deletedLineIds
     }
   };
