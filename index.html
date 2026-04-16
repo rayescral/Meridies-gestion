@@ -1672,7 +1672,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>N° Cde</th><th>Client</th><th>Paiement</th><th>Expédition</th><th>Statut Méridies</th><th class="r">Total</th><th>Date</th><th>Actions</th></tr></thead>
+        <thead><tr><th>N° Cde</th><th>Client</th><th>Paiement</th><th>Expédition</th><th>Statut Méridies</th><th class="r">Total</th><th>Date</th><th></th></tr></thead>
         <tbody id="shopify-orders-body"><tr><td colspan="8" class="empty-state">Chargement...</td></tr></tbody>
       </table>
     </div>
@@ -2302,6 +2302,7 @@ function goTo(page) {
 // HELPERS
 // ============================================================
 function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},3000);}
+function showToast(msg){ toast(msg); }
 function fmt(n){return (n||0).toFixed(2).replace('.',',') + ' €';}
 function fmtN(n){return (n||0).toLocaleString('fr-FR');}
 function today(){return new Date().toISOString().slice(0,10);}
@@ -6903,42 +6904,48 @@ async function fusionShopifyVentes(orders) {
 function renderShopifyOrdersTable(orders) {
   var el = document.getElementById('shopify-orders-body');
   var countEl = document.getElementById('shopify-orders-count');
+
+  if (!el) return;
   if (countEl) countEl.textContent = orders.length;
 
-  if (!orders.length) {
+  if (!orders || !orders.length) {
     el.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune commande. Cliquez sur "Sync commandes".</td></tr>';
     return;
   }
 
   el.innerHTML = orders.map(function(o) {
-    var safeOrderId = String(o.id || '').replace(/'/g, "\\'");
-    var safeOrderName = String(o.order_name || '').replace(/'/g, "\\'");
-    return '<tr>' +
-      '<td class="mono" style="font-weight:700;">' + escapeHtml(o.order_name || '—') + '</td>' +
-      '<td style="font-size:12px;">' + escapeHtml(o.customer_email || '—') + '</td>' +
-      '<td>' + shopifyFinancialBadge(o.financial_status) + '</td>' +
-      '<td>' + shopifyFulfillmentBadge(o.fulfillment_status) + '</td>' +
-      '<td>' + shopifyMeridieBadge(o.meridies_status) + '</td>' +
-      '<td class="r mono">' + (o.total_price != null ? Number(o.total_price).toFixed(2) + ' ' + (o.currency || '€') : '—') + '</td>' +
-      '<td class="mono" style="font-size:11px;color:var(--muted);">' + (o.created_at_shopify ? new Date(o.created_at_shopify).toLocaleDateString('fr-FR') : '—') + '</td>' +
-      '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
-        '<button class="btn btn-xs btn-secondary" onclick="viewShopifyOrderLines(\'' + safeOrderId + '\',\'' + safeOrderName + '\')">Détail</button>' +
-        '<button class="btn btn-xs btn-danger" onclick="deleteShopifyOrder(\'' + safeOrderId + '\',\'' + safeOrderName + '\')">Supprimer</button>' +
-      '</td>' +
+    var orderName = escapeHtml(o.order_name || '—');
+    var email = escapeHtml(o.customer_email || '—');
+    var financial = shopifyFinancialBadge(o.financial_status);
+    var fulfillment = shopifyFulfillmentBadge(o.fulfillment_status);
+    var meridies = shopifyMeridieBadge(o.meridies_status);
+    var total = (o.total_price != null ? Number(o.total_price).toFixed(2) + ' ' + (o.currency || '€') : '—');
+    var created = (o.created_at_shopify ? new Date(o.created_at_shopify).toLocaleDateString('fr-FR') : '—');
+    var detailCall = ('viewShopifyOrderLines(' + JSON.stringify(String(o.id || '')) + ',' + JSON.stringify(String(o.order_name || '')) + ')').replace(/'/g, '&#39;');
+    var deleteCall = ('deleteShopifyOrder(' + JSON.stringify(String(o.id || '')) + ',' + JSON.stringify(String(o.order_name || '')) + ')').replace(/'/g, '&#39;');
+
+    return '' +
+      '<tr>' +
+        '<td class="mono" style="font-weight:700;">' + orderName + '</td>' +
+        '<td style="font-size:12px;">' + email + '</td>' +
+        '<td>' + financial + '</td>' +
+        '<td>' + fulfillment + '</td>' +
+        '<td>' + meridies + '</td>' +
+        '<td class="r mono">' + total + '</td>' +
+        '<td class="mono" style="font-size:11px;color:var(--muted);">' + created + '</td>' +
+        '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
+          '<button class="btn btn-xs btn-secondary" onclick="' + detailCall + '">Détail</button>' +
+          '<button class="btn btn-xs btn-danger" onclick="' + deleteCall + '">Supprimer</button>' +
+        '</td>' +
       '</tr>';
   }).join('');
 }
 
 async function deleteShopifyOrder(orderId, orderName) {
-  if (!orderId) {
-    showToast('❌ ID commande introuvable');
-    return;
-  }
-
   if (!confirm('Supprimer la commande Shopify ' + (orderName || '') + ' ?')) return;
 
   try {
-    showToast('⏳ Suppression en cours...');
+    showToast('⏳ Suppression...');
 
     var linesRes = await supabase
       .from('shopify_order_lines')
@@ -6946,12 +6953,14 @@ async function deleteShopifyOrder(orderId, orderName) {
       .eq('order_id', orderId);
 
     if (linesRes.error) {
-      console.error('Erreur lecture lignes Shopify:', linesRes.error);
-      showToast('❌ Erreur lecture lignes : ' + linesRes.error.message);
+      console.error(linesRes.error);
+      showToast('❌ Erreur lignes : ' + linesRes.error.message);
       return;
     }
 
-    var lineIds = (linesRes.data || []).map(function(l) { return l.id; });
+    var lineIds = (linesRes.data || []).map(function(l) {
+      return l.id;
+    });
 
     var delLinesRes = await supabase
       .from('shopify_order_lines')
@@ -6959,7 +6968,7 @@ async function deleteShopifyOrder(orderId, orderName) {
       .eq('order_id', orderId);
 
     if (delLinesRes.error) {
-      console.error('Erreur suppression lignes Shopify:', delLinesRes.error);
+      console.error(delLinesRes.error);
       showToast('❌ Erreur suppression lignes : ' + delLinesRes.error.message);
       return;
     }
@@ -6970,7 +6979,7 @@ async function deleteShopifyOrder(orderId, orderName) {
       .eq('id', orderId);
 
     if (delOrderRes.error) {
-      console.error('Erreur suppression commande Shopify:', delOrderRes.error);
+      console.error(delOrderRes.error);
       showToast('❌ Erreur suppression commande : ' + delOrderRes.error.message);
       return;
     }
@@ -6981,17 +6990,20 @@ async function deleteShopifyOrder(orderId, orderName) {
       return lineIds.indexOf(v.shopifyLineId) === -1;
     });
 
-    _shopifyAllOrders = (_shopifyAllOrders || []).filter(function(o) {
+    saveDB('Suppression commande Shopify');
+
+    if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
+    _shopifyAllOrders = _shopifyAllOrders.filter(function(o) {
       return o.id !== orderId;
     });
 
-    saveDB({ reason:'Suppression commande Shopify', immediate:true });
     renderShopifyOrdersTable(_shopifyAllOrders);
-    refreshBusinessViews('Commande Shopify supprimée');
+    renderAll();
+
     showToast('✅ Commande supprimée');
   } catch (e) {
-    console.error('deleteShopifyOrder fatal:', e);
-    showToast('❌ ' + (e && e.message ? e.message : 'Erreur inconnue'));
+    console.error(e);
+    showToast('❌ ' + e.message);
   }
 }
 
