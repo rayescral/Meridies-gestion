@@ -6921,8 +6921,6 @@ function renderShopifyOrdersTable(orders) {
     var meridies = shopifyMeridieBadge(o.meridies_status);
     var total = (o.total_price != null ? Number(o.total_price).toFixed(2) + ' ' + (o.currency || '€') : '—');
     var created = (o.created_at_shopify ? new Date(o.created_at_shopify).toLocaleDateString('fr-FR') : '—');
-    var detailCall = ('viewShopifyOrderLines(' + JSON.stringify(String(o.id || '')) + ',' + JSON.stringify(String(o.order_name || '')) + ')').replace(/'/g, '&#39;');
-    var deleteCall = ('deleteShopifyOrder(' + JSON.stringify(String(o.id || '')) + ',' + JSON.stringify(String(o.order_name || '')) + ')').replace(/'/g, '&#39;');
 
     return '' +
       '<tr>' +
@@ -6934,11 +6932,38 @@ function renderShopifyOrdersTable(orders) {
         '<td class="r mono">' + total + '</td>' +
         '<td class="mono" style="font-size:11px;color:var(--muted);">' + created + '</td>' +
         '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
-          '<button class="btn btn-xs btn-secondary" onclick="' + detailCall + '">Détail</button>' +
-          '<button class="btn btn-xs btn-danger" onclick="' + deleteCall + '">Supprimer</button>' +
+          '<button class="btn btn-xs btn-secondary js-shopify-detail" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Détail</button>' +
+          '<button class="btn btn-xs btn-danger js-shopify-delete" data-order-id="' + encodeURIComponent(String(o.id || '')) + '" data-order-name="' + encodeURIComponent(String(o.order_name || '')) + '">Supprimer</button>' +
         '</td>' +
       '</tr>';
   }).join('');
+
+  bindShopifyOrderButtons();
+}
+
+function bindShopifyOrderButtons() {
+  var root = document.getElementById('shopify-orders-body');
+  if (!root) return;
+
+  root.querySelectorAll('.js-shopify-detail').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var orderId = decodeURIComponent(btn.dataset.orderId || '');
+      var orderName = decodeURIComponent(btn.dataset.orderName || '');
+      viewShopifyOrderLines(orderId, orderName);
+    };
+  });
+
+  root.querySelectorAll('.js-shopify-delete').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      var orderId = decodeURIComponent(btn.dataset.orderId || '');
+      var orderName = decodeURIComponent(btn.dataset.orderName || '');
+      deleteShopifyOrder(orderId, orderName);
+    };
+  });
 }
 
 async function deleteShopifyOrder(orderId, orderName) {
@@ -7006,6 +7031,9 @@ async function deleteShopifyOrder(orderId, orderName) {
     showToast('❌ ' + e.message);
   }
 }
+
+window.deleteShopifyOrder = deleteShopifyOrder;
+window.bindShopifyOrderButtons = bindShopifyOrderButtons;
 
 function applyShopifyOrdersFilter() {
   var filter = document.getElementById('shopify-orders-filter').value;
