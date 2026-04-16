@@ -135,7 +135,15 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   return data || [];
 }
 
-async function safeDeleteOrder({ supabaseUrl, serviceRoleKey, shopDomain, shopifyAdminToken, supabaseOrderId, shopifyOrderId, orderName }) {
+async function safeDeleteOrder({
+  supabaseUrl,
+  serviceRoleKey,
+  shopDomain,
+  shopifyAdminToken,
+  supabaseOrderId,
+  shopifyOrderId,
+  orderName
+}) {
   if (!supabaseOrderId || !shopifyOrderId) {
     return {
       status: 400,
@@ -146,9 +154,11 @@ async function safeDeleteOrder({ supabaseUrl, serviceRoleKey, shopDomain, shopif
     };
   }
 
-  // Vérification Shopify
+  const normalizedShopifyOrderId = String(shopifyOrderId).trim();
+
+  // Vérifie si la commande existe encore sur Shopify
   const shopifyResp = await fetch(
-    `https://${shopDomain}/admin/api/2024-10/orders/${shopifyOrderId}.json`,
+    `https://${shopDomain}/admin/api/2024-10/orders/${encodeURIComponent(normalizedShopifyOrderId)}.json`,
     {
       method: "GET",
       headers: {
@@ -180,7 +190,7 @@ async function safeDeleteOrder({ supabaseUrl, serviceRoleKey, shopDomain, shopif
     };
   }
 
-  // Lire les lignes à supprimer
+  // Lire les lignes liées
   const selectLinesResp = await fetch(
     `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}&select=id`,
     {
@@ -276,7 +286,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ===== MODE SUPPRESSION SÉCURISÉE =====
+    // MODE SUPPRESSION SÉCURISÉE
     if (req.method === "POST" && req.body && req.body.action === "safe_delete_order") {
       const shopDomain =
         process.env.SHOPIFY_SHOP_DOMAIN ||
@@ -309,7 +319,7 @@ export default async function handler(req, res) {
       return res.status(result.status).json(result.body);
     }
 
-    // ===== MODE CONTRÔLE MATIÈRE EXISTANT =====
+    // MODE CONTRÔLE MATIÈRE EXISTANT
     const shop = String(req.query.shop || "").trim().toLowerCase();
 
     if (!shop || !shop.endsWith(".myshopify.com")) {
