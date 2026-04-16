@@ -155,7 +155,75 @@ function isTruthyDeletedFlag(value) {
     "deleted"
   ].includes(normalized);
 }
+async function markOrderDeletedOnShopifyServer({
+  supabaseUrl,
+  serviceRoleKey,
+  supabaseOrderId,
+  orderName
+}) {
+  if (!supabaseOrderId) {
+    return {
+      status: 400,
+      body: {
+        ok: false,
+        message: "supabaseOrderId manquant"
+      }
+    };
+  }
 
+  const updateResp = await fetch(
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation"
+      },
+      body: JSON.stringify({
+        deleted_on_shopify: true
+      })
+    }
+  );
+
+  let updateData = null;
+  try {
+    updateData = await updateResp.json();
+  } catch (e) {
+    updateData = null;
+  }
+
+  if (!updateResp.ok) {
+    return {
+      status: 500,
+      body: {
+        ok: false,
+        message: "Impossible de marquer la commande comme supprimée sur Shopify",
+        details: updateData
+      }
+    };
+  }
+
+  if (!Array.isArray(updateData) || updateData.length === 0) {
+    return {
+      status: 404,
+      body: {
+        ok: false,
+        message: "Aucune ligne mise à jour dans shopify_orders"
+      }
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      message: `Commande ${orderName || ""} marquée comme supprimée sur Shopify.`,
+      row: updateData[0]
+    }
+  };
+}
 async function safeDeleteOrder({
   supabaseUrl,
   serviceRoleKey,
@@ -324,7 +392,16 @@ export default async function handler(req, res) {
       message: "Variables Supabase serveur manquantes"
     });
   }
+if (req.method === "POST" && req.body && req.body.action === "mark_deleted_on_shopify") {
+  const result = await markOrderDeletedOnShopifyServer({
+    supabaseUrl,
+    serviceRoleKey,
+    supabaseOrderId: req.body.supabaseOrderId,
+    orderName: req.body.orderName
+  });
 
+  return res.status(result.status).json(result.body);
+}
   try {
     if (req.method === "POST" && req.body && req.body.action === "safe_delete_order") {
       const result = await safeDeleteOrder({
