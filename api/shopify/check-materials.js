@@ -135,73 +135,6 @@ async function getBomItemsDetailed({ supabaseUrl, serviceRoleKey, bomIds }) {
   return data || [];
 }
 
-function extractShopifyDeletionState(order) {
-  if (!order || typeof order !== "object") {
-    return {
-      known: false,
-      deleted: false,
-      sourceField: null
-    };
-  }
-
-  const hasOwn = key => Object.prototype.hasOwnProperty.call(order, key);
-
-  const booleanFieldsTrueMeansDeleted = [
-    "deleted_on_shopify",
-    "is_deleted_on_shopify",
-    "deleted_from_shopify",
-    "shopify_deleted"
-  ];
-
-  for (const field of booleanFieldsTrueMeansDeleted) {
-    if (hasOwn(field) && typeof order[field] === "boolean") {
-      return {
-        known: true,
-        deleted: order[field],
-        sourceField: field
-      };
-    }
-  }
-
-  const booleanFieldsTrueMeansStillPresent = [
-    "present_on_shopify",
-    "exists_on_shopify",
-    "shopify_exists"
-  ];
-
-  for (const field of booleanFieldsTrueMeansStillPresent) {
-    if (hasOwn(field) && typeof order[field] === "boolean") {
-      return {
-        known: true,
-        deleted: !order[field],
-        sourceField: field
-      };
-    }
-  }
-
-  const dateFieldsMeanDeletedWhenFilled = [
-    "deleted_at_shopify",
-    "removed_from_shopify_at",
-    "shopify_deleted_at"
-  ];
-
-  for (const field of dateFieldsMeanDeletedWhenFilled) {
-    if (hasOwn(field)) {
-      return {
-        known: true,
-        deleted: !!order[field],
-        sourceField: field
-      };
-    }
-  }
-
-  return {
-    known: false,
-    deleted: false,
-    sourceField: null
-  };
-}
-
 async function safeDeleteOrder({
   supabaseUrl,
   serviceRoleKey,
@@ -219,7 +152,9 @@ async function safeDeleteOrder({
   }
 
   const orderResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}&select=*`,
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(
+      supabaseOrderId
+    )}&select=id,order_name,name,deleted_on_shopify`,
     {
       method: "GET",
       headers: {
@@ -254,20 +189,13 @@ async function safeDeleteOrder({
     };
   }
 
-  const deletionState = extractShopifyDeletionState(order);
+  const deletedOnShopify =
+    order.deleted_on_shopify === true ||
+    order.deleted_on_shopify === "true" ||
+    order.deleted_on_shopify === 1 ||
+    order.deleted_on_shopify === "1";
 
-  if (!deletionState.known) {
-    return {
-      status: 412,
-      body: {
-        ok: false,
-        message:
-          "Impossible de vérifier si la commande a été supprimée de Shopify. Ajoute dans Supabase un champ booléen `deleted_on_shopify` (par défaut false), puis passe-le à true quand la commande n'existe plus sur Shopify."
-      }
-    };
-  }
-
-  if (!deletionState.deleted) {
+  if (!deletedOnShopify) {
     return {
       status: 409,
       body: {
@@ -278,7 +206,9 @@ async function safeDeleteOrder({
   }
 
   const selectLinesResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}&select=id`,
+    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(
+      supabaseOrderId
+    )}&select=id`,
     {
       method: "GET",
       headers: {
@@ -304,7 +234,9 @@ async function safeDeleteOrder({
   const deletedLineIds = (lines || []).map(l => l.id);
 
   const delLinesResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(supabaseOrderId)}`,
+    `${supabaseUrl}/rest/v1/shopify_order_lines?order_id=eq.${encodeURIComponent(
+      supabaseOrderId
+    )}`,
     {
       method: "DELETE",
       headers: {
@@ -327,7 +259,9 @@ async function safeDeleteOrder({
   }
 
   const delOrderResp = await fetch(
-    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(supabaseOrderId)}`,
+    `${supabaseUrl}/rest/v1/shopify_orders?id=eq.${encodeURIComponent(
+      supabaseOrderId
+    )}`,
     {
       method: "DELETE",
       headers: {
@@ -504,7 +438,9 @@ export default async function handler(req, res) {
         for (const item of items) {
           const material = item.materials;
           const requiredQty = Number(item.qty_needed) * Number(line.quantity || 0);
-          const availableQty = Number(material?.stock_available ?? material?.stock_on_hand ?? 0);
+          const availableQty = Number(
+            material?.stock_available ?? material?.stock_on_hand ?? 0
+          );
           const missingQty = Math.max(0, requiredQty - availableQty);
 
           if (missingQty > 0) {
@@ -570,19 +506,16 @@ export default async function handler(req, res) {
     }
 
     if (alerts.length > 0) {
-      const alertResponse = await fetch(
-        `${supabaseUrl}/rest/v1/material_alerts`,
-        {
-          method: "POST",
-          headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`,
-            "Content-Type": "application/json",
-            Prefer: "return=representation"
-          },
-          body: JSON.stringify(alerts)
-        }
-      );
+      const alertResponse = await fetch(`${supabaseUrl}/rest/v1/material_alerts`, {
+        method: "POST",
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation"
+        },
+        body: JSON.stringify(alerts)
+      });
 
       const alertData = await alertResponse.json();
 
