@@ -1967,11 +1967,17 @@ async function loadDB() {
 
 // ── Système de sync centralisé ────────────────────────────────
 var _syncState = {
-  lastKnownTs: null,      // timestamp Supabase connu
-  saving: false,          // sauvegarde réseau en cours
-  saveTimer: null,        // compat
-  hasUnsavedChanges: false,
-  pendingRemoteTs: null
+  lastKnownTs: null,   // timestamp Supabase connu
+  saving: false,       // sauvegarde en cours
+  saveTimer: null,     // timer debounce
+  queued: false,
+  localRev: 0,
+  syncedRev: 0,
+  inFlightRev: 0,
+  pendingRemote: null,
+  applyingRemote: false,
+  pollId: null,
+  channel: null
 };
 
 function setSyncIndicator(state, msg) {
@@ -2000,24 +2006,97 @@ function dbDecompress(data) {
   } catch(e) { return data; }
 }
 
-// saveDB : sauvegarde locale immédiate uniquement.
-// La synchronisation Supabase se fait uniquement via le bouton “Sauvegarder”.
+// saveDB : local immédiat + file de synchro robuste vers Supabase
 var _saveTimer = null;
-function saveDB() {
+function normalizeSaveOptions(arg){
+  if(arg && typeof arg === 'object' && !Array.isArray(arg)) return arg;
+  if(typeof arg === 'string') return { reason: arg };
+  return {};
+}
+function getRemoteSafeDB(){
+  try {
+    var clone = JSON.parse(JSON.stringify(DB || {}));
+    clone.backups = [];
+    return clone;
+  } catch(e) {
+    return DB;
+  }
+}
+function sanitizeBackupCollection(list){
+  if(!Array.isArray(list)) return [];
+  return list.slice(0, 8).map(function(b){
+    var safe = { id: Number(b && b.id) || Date.now(), at: (b && b.at) || new Date().toISOString(), reason: (b && b.reason) || 'Point manuel', data: {} };
+    try {
+      var raw = (b && b.data && typeof b.data === 'object') ? JSON.parse(JSON.stringify(b.data)) : {};
+      raw.backups = [];
+      safe.data = raw;
+    } catch(_) { safe.data = {}; }
+    return safe;
+  });
+}
+function persistLocalDB(){
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-  _syncState.hasUnsavedChanges = true;
-  _syncState.saving = false;
+}
+function applyRemoteState(remoteTs, rawData, silent){
+  if(!rawData) return;
+  _syncState.applyingRemote = true;
+  try {
+    var keepBackups = sanitizeBackupCollection((DB && DB.backups) || []);
+    var restored = normalizeRestoredDB(dbDecompress(rawData));
+    restored.backups = keepBackups;
+    DB = restored;
+    _syncState.lastKnownTs = remoteTs || _syncState.lastKnownTs || '';
+    _syncState.syncedRev = _syncState.localRev;
+    persistLocalDB();
+    renderAll();
+    if(typeof renderSaleCart === 'function') renderSaleCart();
+    if(!silent) toast('🔄 Données mises à jour');
+  } finally {
+    _syncState.applyingRemote = false;
+  }
+}
+function queueRemoteState(remoteTs, rawData){
+  if(!remoteTs || !rawData) return;
+  if(_syncState.lastKnownTs && remoteTs <= _syncState.lastKnownTs) return;
+  if(_syncState.saving || _syncState.localRev > _syncState.syncedRev){
+    _syncState.pendingRemote = { ts: remoteTs, data: rawData };
+    return;
+  }
+  applyRemoteState(remoteTs, rawData);
+}
+function scheduleSync(delay){
   clearTimeout(_saveTimer);
-  setSyncIndicator('idle', 'Modifications locales — clique sur Sauvegarder');
+  _saveTimer = setTimeout(function(){ pushToSupabase(); }, Math.max(0, delay || 0));
+}
+function saveDB(arg) {
+  var opts = normalizeSaveOptions(arg);
+  persistLocalDB();
+  _syncState.localRev = (_syncState.localRev || 0) + 1;
+  _syncState.queued = true;
+  setSyncIndicator('saving', opts.reason || 'Modification...');
+  if(opts.immediate){
+    clearTimeout(_saveTimer);
+    if(_syncState.saving) return;
+    pushToSupabase();
+    return;
+  }
+  scheduleSync(typeof opts.delay === 'number' ? opts.delay : 800);
 }
 saveDB._pending = false;
 
-async function pushToSupabase() {
+async function pushToSupabase(force) {
+  clearTimeout(_saveTimer);
+  _saveTimer = null;
+  if(_syncState.applyingRemote) return;
+  if(_syncState.saving){ _syncState.queued = true; return; }
+  if(!force && (_syncState.localRev || 0) === (_syncState.syncedRev || 0)) return;
+
   var ts = new Date().toISOString();
+  var rev = _syncState.localRev || 0;
   _syncState.saving = true;
-  setSyncIndicator('saving', 'Enregistrement en cours...');
+  _syncState.inFlightRev = rev;
   try {
-    var compressed = dbCompress(DB);
+    var compressed = dbCompress(getRemoteSafeDB());
     var res = await fetch(SUPA_URL + '/rest/v1/app_state?id=eq.1', {
       method: 'PATCH',
       headers: {
@@ -2030,97 +2109,78 @@ async function pushToSupabase() {
     });
     if (!res.ok) {
       var txt = await res.text();
-      throw new Error('HTTP ' + res.status + ' : ' + txt.substring(0, 100));
+      throw new Error('HTTP ' + res.status + ' : ' + txt.substring(0, 140));
     }
     _syncState.saving = false;
-    _syncState.hasUnsavedChanges = false;
+    _syncState.syncedRev = Math.max(_syncState.syncedRev || 0, rev);
     _syncState.lastKnownTs = ts;
-    _syncState.pendingRemoteTs = null;
-    try {
-      localStorage.setItem('meridies_db', JSON.stringify(DB));
-      localStorage.setItem('meridies_db_ts', ts);
-    } catch(_) {}
     setStatus(true);
-    setSyncIndicator('ok', 'Sauvegardé et synchronisé ✓');
+    setSyncIndicator('ok', 'Synchronisé ✓');
     setTimeout(function() {
-      if (!_syncState.hasUnsavedChanges) setSyncIndicator('idle', 'Synchronisé');
-    }, 2500);
-    return true;
+      if((_syncState.localRev || 0) === (_syncState.syncedRev || 0)) setSyncIndicator('idle');
+    }, 1800);
+
+    if(_syncState.pendingRemote && _syncState.pendingRemote.ts && _syncState.pendingRemote.ts > (_syncState.lastKnownTs || '')){
+      var pending = _syncState.pendingRemote;
+      _syncState.pendingRemote = null;
+      applyRemoteState(pending.ts, pending.data, true);
+      return;
+    }
+    _syncState.pendingRemote = null;
+
+    if((_syncState.localRev || 0) > (_syncState.syncedRev || 0) || _syncState.queued){
+      _syncState.queued = false;
+      scheduleSync(60);
+    }
   } catch(err) {
     _syncState.saving = false;
+    _syncState.queued = true;
     setStatus(false);
     var msg = (err && err.message) ? err.message : String(err);
-    setSyncIndicator('error', '⚠️ Erreur de synchronisation');
-    toast('❌ Sync : ' + msg.substring(0, 80));
+    setSyncIndicator('error', '⚠️ Erreur sync');
+    toast('❌ Sync : ' + msg.substring(0, 100));
     console.error('[pushToSupabase]', err);
-    return false;
+    scheduleSync(2500);
   }
 }
 
-// Bouton de sauvegarde manuelle : seule action qui synchronise vers Supabase.
+// Bouton de sauvegarde manuelle (force l’envoi réseau immédiat)
 async function manualSave() {
   clearTimeout(_saveTimer);
-  await pushToSupabase();
+  await pushToSupabase(true);
 }
 
 function markSaved() {} // rétrocompatibilité (no-op)
 
-// Polling de secours : vérifie rapidement les changements distants si le realtime ne répond pas.
+// Polling de secours court — recharge si un autre appareil a poussé plus récent
 function startRealtimePolling() {
-  setInterval(async function() {
-    if (_syncState.saving) return; // ne pas écraser pendant une sauvegarde en cours
+  if(_syncState.pollId) clearInterval(_syncState.pollId);
+  _syncState.pollId = setInterval(async function() {
     try {
       var res = await supabase.from('app_state').select('updated_at,data').eq('id', 1).single();
       if (res.error || !res.data) return;
       var remoteTs = res.data.updated_at || '';
       if (!_syncState.lastKnownTs) { _syncState.lastKnownTs = remoteTs; return; }
-      if (remoteTs !== _syncState.lastKnownTs) {
-        if (_syncState.hasUnsavedChanges) {
-          _syncState.pendingRemoteTs = remoteTs;
-          setSyncIndicator('error', 'Conflit possible : sauvegarde locale non envoyée');
-          return;
-        }
-        _syncState.lastKnownTs = remoteTs;
-        _syncState.pendingRemoteTs = null;
-        DB = normalizeRestoredDB(dbDecompress(res.data.data));
-        try {
-          localStorage.setItem('meridies_db', JSON.stringify(DB));
-          localStorage.setItem('meridies_db_ts', remoteTs);
-        } catch(_) {}
-        renderAll();
-        if (typeof renderSaleCart === 'function') renderSaleCart();
-        toast('🔄 Données mises à jour');
+      if (remoteTs && remoteTs > _syncState.lastKnownTs) {
+        queueRemoteState(remoteTs, res.data.data);
       }
     } catch(_) {}
-  }, 5000);
+  }, 4000);
 }
 
-// Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
+// Realtime Supabase — applique seulement si plus récent que l’état déjà connu
 function subscribeRealtime() {
   try {
-    supabase.channel('meridies_realtime_sync')
+    if(_syncState.channel && typeof _syncState.channel.unsubscribe === 'function'){
+      _syncState.channel.unsubscribe();
+    }
+    _syncState.channel = supabase.channel('meridies_realtime_sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state' }, function(payload) {
-        if (_syncState.saving) return; // ignorer si c'est notre propre sauvegarde
         if (payload.new && payload.new.data) {
-          var remoteTs = payload.new.updated_at || '';
-          if (remoteTs === _syncState.lastKnownTs) return; // déjà connu
-          if (_syncState.hasUnsavedChanges) {
-            _syncState.pendingRemoteTs = remoteTs;
-            setSyncIndicator('error', 'Conflit possible : sauvegarde locale non envoyée');
-            return;
-          }
-          _syncState.lastKnownTs = remoteTs;
-          _syncState.pendingRemoteTs = null;
-          DB = normalizeRestoredDB(dbDecompress(payload.new.data));
-          try {
-            localStorage.setItem('meridies_db', JSON.stringify(DB));
-            localStorage.setItem('meridies_db_ts', remoteTs);
-          } catch(_) {}
-          renderAll();
-          if (typeof renderSaleCart === 'function') renderSaleCart();
-          toast('🔄 Données mises à jour en temps réel');
+          queueRemoteState(payload.new.updated_at || '', payload.new.data);
         }
-      }).subscribe();
+      })
+      .subscribe();
   } catch(e) { console.warn('[Realtime] Non disponible, polling actif'); }
 }
 
@@ -2131,10 +2191,13 @@ var _renderMap = {
   'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
   'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
   'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
-  'saisie-vente':    function(){ if(typeof renderVentePage==='function') renderVentePage(); },
-  'commandes':       function(){ if(typeof renderCommandes==='function') renderCommandes(); else if(typeof renderBC==='function') renderBC(); },
+  'ventes':          function(){ if(typeof renderVentes==='function') renderVentes(); },
+  'saisie-vente':    function(){ if(typeof renderVentes==='function') renderVentes(); if(typeof renderVentePage==='function') renderVentePage(); },
+  'commandes':       function(){ if(typeof renderBC==='function') renderBC(); },
   'fournisseurs':    function(){ if(typeof renderFournisseurs==='function') renderFournisseurs(); },
+  'todos':           function(){ if(typeof renderTodos==='function') renderTodos(); },
   'todo':            function(){ if(typeof renderTodos==='function') renderTodos(); },
+  'planning':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
   'calendar':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
   'drops':           function(){ if(typeof renderDropsCollections==='function') renderDropsCollections(); },
   'compta':          function(){ if(typeof renderCompta==='function') renderCompta(); },
@@ -2144,8 +2207,7 @@ var _renderMap = {
   'pilotage':        function(){ if(typeof renderPilotage==='function') renderPilotage(); },
   'clients':         function(){ if(typeof renderClients==='function') renderClients(); },
   'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); },
-  'shopify':         function(){ if(typeof loadShopifyPage==='function') loadShopifyPage(); },
-  'social-media':    function(){ if(typeof renderSocialDashboard==='function') renderSocialDashboard(); }
+  'shopify':         function(){ if(typeof loadShopifyPage==='function') loadShopifyPage(); }
 };
 
 function renderAll() {
@@ -3819,6 +3881,7 @@ function enhanceLoadPostActions(){
 function ensureEnhancementDefaults(){
   if(!Array.isArray(DB.clients)) DB.clients = [];
   if(!Array.isArray(DB.backups)) DB.backups = [];
+  DB.backups = sanitizeBackupCollection(DB.backups);
   if(!DB.preferences || typeof DB.preferences !== 'object') DB.preferences = {theme:'light', role:'admin'};
   if(!DB.preferences.role) DB.preferences.role = 'admin';
   (DB.marketSessions||[]).forEach(function(m){
@@ -3828,25 +3891,11 @@ function ensureEnhancementDefaults(){
     if(!m.team) m.team = '';
     if(!m.nextActions) m.nextActions = '';
   });
-  sanitizeBackupSnapshots();
-}
-function sanitizeBackupSnapshots(){
-  DB.backups = (DB.backups || []).slice(0,8).map(function(b, idx){
-    var clone = {
-      id: b && b.id ? b.id : (Date.now() + idx),
-      at: b && b.at ? b.at : new Date().toISOString(),
-      reason: b && b.reason ? b.reason : 'Point manuel',
-      data: b && b.data ? JSON.parse(JSON.stringify(b.data)) : null
-    };
-    if(clone.data && typeof clone.data === 'object') clone.data.backups = [];
-    return clone;
-  });
 }
 var __origSaveDB = saveDB;
-saveDB = function(reason){
+saveDB = function(reasonOrOptions){
   ensureEnhancementDefaults();
-  __origSaveDB();
-  // Plus de snapshot automatique à chaque modification : cela alourdissait fortement l'app.
+  return __origSaveDB(reasonOrOptions);
 };
 var __origLoadDB = loadDB;
 loadDB = async function(){
@@ -3901,13 +3950,12 @@ function applyRolePreferences(){
 }
 function storeBackupSnapshot(reason){
   ensureEnhancementDefaults();
-  var snapshotData = JSON.parse(JSON.stringify(DB));
-  // Évite l'imbrication infinie des sauvegardes dans les sauvegardes.
-  snapshotData.backups = [];
-  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Point manuel', data: snapshotData };
+  var cleanData = normalizeRestoredDB(JSON.parse(JSON.stringify(DB)));
+  cleanData.backups = [];
+  var snap = { id: Date.now(), at: new Date().toISOString(), reason: reason||'Point manuel', data: cleanData };
   DB.backups = DB.backups || [];
   DB.backups.unshift(snap);
-  DB.backups = DB.backups.slice(0,8);
+  DB.backups = sanitizeBackupCollection(DB.backups);
   try{ localStorage.setItem('meridies_db', JSON.stringify(DB)); }catch(e){}
   renderBackups();
 }
@@ -4490,7 +4538,7 @@ function enregistrerVente() {
     if(sf) sf.stock = Math.max(0, (sf.stock||0) - (line.qte||0));
   });
 
-  saveDB('Vente enregistrée');
+  saveDB({ reason:'Vente enregistrée', immediate:true });
   resetCurrentSaleCart();
   clearVenteForm();
   refreshBusinessViews('Vente enregistrée !');
@@ -4568,7 +4616,7 @@ function deleteVente(id) {
     var sf = (DB.stockFini||[]).find(function(f){ return f.code===v.code; });
     if(sf) sf.stock = (sf.stock||0) + (v.qte||1);
   });
-  saveDB('Vente supprimée');
+  saveDB({ reason:'Vente supprimée', immediate:true });
   refreshBusinessViews('Vente supprimée');
 }
 
