@@ -1974,14 +1974,14 @@ function dbDecompress(data) {
   } catch(e) { return data; }
 }
 
-// saveDB : localStorage immédiat + Supabase debounced 1.5s avec compression
+// saveDB : localStorage immédiat + Supabase debounced 60s avec compression
 var _saveTimer = null;
 function saveDB() {
   try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
   setSyncIndicator('saving', 'Modification...');
   _syncState.saving = true;
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(pushToSupabase, 1500);
+  _saveTimer = setTimeout(pushToSupabase, 60000);
 }
 saveDB._pending = false;
 
@@ -2015,9 +2015,9 @@ async function pushToSupabase() {
     setSyncIndicator('error', '⚠️ Erreur sync');
     toast('❌ Sync : ' + msg.substring(0, 80));
     console.error('[pushToSupabase]', err);
-    // Retry dans 10s
+    // Retry dans 60s
     clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(pushToSupabase, 10000);
+    _saveTimer = setTimeout(pushToSupabase, 60000);
   }
 }
 
@@ -2026,8 +2026,6 @@ async function manualSave() {
   clearTimeout(_saveTimer);
   await pushToSupabase();
 }
-
-function markSaved() {} // rétrocompatibilité
 
 function markSaved() {} // rétrocompatibilité (no-op)
 
@@ -2050,7 +2048,7 @@ function startRealtimePolling() {
         toast('🔄 Données mises à jour');
       }
     } catch(_) {}
-  }, 10000); // toutes les 10 secondes
+  }, 60000); // toutes les 60 secondes
 }
 
 // Realtime Supabase (si activé) — mise à jour instantanée inter-appareils
@@ -2072,25 +2070,34 @@ function subscribeRealtime() {
   } catch(e) { console.warn('[Realtime] Non disponible, polling actif'); }
 }
 
+// Map page-id → fonction de rendu
+var _renderMap = {
+  'dashboard':       function(){ if(typeof renderDashboard==='function') renderDashboard(); },
+  'catalogue':       function(){ if(typeof renderCatalogue==='function') renderCatalogue(); },
+  'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
+  'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
+  'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
+  'ventes':          function(){ if(typeof renderVentes==='function') renderVentes(); },
+  'commandes':       function(){ if(typeof renderBC==='function') renderBC(); },
+  'fournisseurs':    function(){ if(typeof renderFournisseurs==='function') renderFournisseurs(); },
+  'todos':           function(){ if(typeof renderTodos==='function') renderTodos(); },
+  'planning':        function(){ if(typeof renderCalendarPlanning==='function') renderCalendarPlanning(); },
+  'drops':           function(){ if(typeof renderDropsCollections==='function') renderDropsCollections(); },
+  'compta':          function(){ if(typeof renderCompta==='function') renderCompta(); },
+  'journal':         function(){ if(typeof renderMarketJournal==='function') renderMarketJournal(); },
+  'sav':             function(){ if(typeof renderSav==='function') renderSav(); },
+  'history':         function(){ if(typeof renderHistory==='function') renderHistory(); },
+  'pilotage':        function(){ if(typeof renderPilotage==='function') renderPilotage(); },
+  'clients':         function(){ if(typeof renderClients==='function') renderClients(); },
+  'backups':         function(){ if(typeof renderBackups==='function') renderBackups(); }
+};
+
 function renderAll() {
-  if (typeof renderDashboard === 'function') renderDashboard();
-  if (typeof renderCatalogue === 'function') renderCatalogue();
-  if (typeof renderStockVierge === 'function') renderStockVierge();
-  if (typeof renderStockDTF === 'function') renderStockDTF();
-  if (typeof renderStockFini === 'function') renderStockFini();
-  if (typeof renderVentes === 'function') renderVentes();
-  if (typeof renderBC === 'function') renderBC();
-  if (typeof renderFournisseurs === 'function') renderFournisseurs();
-  if (typeof renderTodos === 'function') renderTodos();
-  if (typeof renderCalendarPlanning === 'function') renderCalendarPlanning();
-  if (typeof renderDropsCollections === 'function') renderDropsCollections();
-  if (typeof renderCompta === 'function') renderCompta();
-  if (typeof renderMarketJournal === 'function') renderMarketJournal();
-  if (typeof renderSav === 'function') renderSav();
-  if (typeof renderHistory === 'function') renderHistory();
-  if (typeof renderPilotage === 'function') renderPilotage();
-  if (typeof renderClients === 'function') renderClients();
-  if (typeof renderBackups === 'function') renderBackups();
+  // Rend uniquement la page actuellement visible + dashboard (KPIs toujours à jour)
+  var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
+  if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
+  var fn = _renderMap[activePage];
+  if (fn) fn();
 }
 
 function refreshBusinessViews(message) {
