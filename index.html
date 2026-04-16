@@ -6999,33 +6999,27 @@ async function markOrderDeletedOnShopify(orderId, orderName) {
   try {
     showToast('⏳ Mise à jour...');
 
-    const { data, error } = await supabase
-      .from('shopify_orders')
-      .update({ deleted_on_shopify: true })
-      .eq('id', orderId)
-      .select('id, deleted_on_shopify');
+    const resp = await fetch('/api/shopify/check-materials', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: 'mark_deleted_on_shopify',
+        supabaseOrderId: orderId,
+        orderName: orderName
+      })
+    });
 
-    if (error) {
-      console.error(error);
-      showToast('❌ Erreur mise à jour : ' + error.message);
-      return;
+    let result = null;
+    try {
+      result = await resp.json();
+    } catch (e) {
+      result = null;
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
-      showToast('❌ Aucune ligne mise à jour. Vérifie l’ID ou les permissions Supabase.');
-      return;
-    }
-
-    const updatedRow = data[0];
-    const isUpdated =
-      updatedRow.deleted_on_shopify === true ||
-      updatedRow.deleted_on_shopify === 'true' ||
-      updatedRow.deleted_on_shopify === 1 ||
-      updatedRow.deleted_on_shopify === '1';
-
-    if (!isUpdated) {
-      console.error('Valeur retournée après update :', updatedRow.deleted_on_shopify);
-      showToast('❌ La valeur n’a pas été enregistrée correctement dans Supabase');
+    if (!resp.ok || !result || !result.ok) {
+      showToast('❌ ' + ((result && result.message) || ('Erreur serveur ' + resp.status)));
       return;
     }
 
