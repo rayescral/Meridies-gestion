@@ -6999,22 +6999,21 @@ async function markOrderDeletedOnShopify(orderId, orderName) {
   try {
     showToast('⏳ Mise à jour...');
 
-    var updateRes = await supabase
+    const { error } = await supabase
       .from('shopify_orders')
       .update({ deleted_on_shopify: true })
-      .eq('id', orderId)
-      .select('id, deleted_on_shopify')
-      .single();
+      .eq('id', orderId);
 
-    if (updateRes.error) {
-      console.error(updateRes.error);
-      showToast('❌ Erreur mise à jour : ' + updateRes.error.message);
+    if (error) {
+      console.error(error);
+      showToast('❌ Erreur mise à jour : ' + error.message);
       return;
     }
 
     if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
+
     var order = _shopifyAllOrders.find(function(o) {
-      return o.id === orderId;
+      return String(o.id) === String(orderId);
     });
 
     if (order) {
@@ -7037,7 +7036,7 @@ async function deleteShopifyOrder(orderId, orderName) {
   try {
     showToast('⏳ Vérification avant suppression...');
 
-    var resp = await fetch('/api/check-materials', {
+    const resp = await fetch('/api/check-materials', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -7049,14 +7048,18 @@ async function deleteShopifyOrder(orderId, orderName) {
       })
     });
 
-    var result;
+    const rawText = await resp.text();
+    let result = null;
+
     try {
-      result = await resp.json();
-    } catch (_) {
-      result = { ok: false, message: 'Réponse serveur invalide' };
+      result = rawText ? JSON.parse(rawText) : null;
+    } catch (parseError) {
+      console.error('Réponse non JSON :', rawText);
+      showToast('❌ Réponse serveur invalide : ' + (rawText || ('HTTP ' + resp.status)));
+      return;
     }
 
-    if (!resp.ok || !result.ok) {
+    if (!resp.ok || !result || !result.ok) {
       showToast('❌ ' + ((result && result.message) || ('Erreur serveur ' + resp.status)));
       return;
     }
@@ -7073,7 +7076,7 @@ async function deleteShopifyOrder(orderId, orderName) {
 
     if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
     _shopifyAllOrders = _shopifyAllOrders.filter(function(o) {
-      return o.id !== orderId;
+      return String(o.id) !== String(orderId);
     });
 
     renderShopifyOrdersTable(_shopifyAllOrders);
