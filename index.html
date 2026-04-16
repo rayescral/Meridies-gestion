@@ -6975,7 +6975,7 @@ async function deleteShopifyOrder(orderId, orderName) {
     });
 
     if (!order) {
-      showToast('❌ Commande introuvable dans le tableau');
+      showToast('❌ Commande introuvable dans la liste');
       return;
     }
 
@@ -6991,54 +6991,43 @@ async function deleteShopifyOrder(orderId, orderName) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'safe_delete_order',
-        supabaseOrderId: orderId,
+        supabaseOrderId: order.id,
         shopifyOrderId: order.shopify_order_id,
-        orderName: orderName || order.order_name || ''
+        orderName: order.order_name || orderName || ''
       })
     });
 
-    var rawText = await response.text();
+    var raw = await response.text();
     var data = {};
     try {
-      data = rawText ? JSON.parse(rawText) : {};
-    } catch (parseErr) {
-      console.error('Réponse backend non JSON:', rawText);
-      showToast('❌ Réponse serveur invalide');
-      return;
+      data = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      data = { ok: false, message: raw || 'Réponse invalide du serveur' };
     }
 
     if (!response.ok || !data.ok) {
-      console.error('safe_delete_order refusé:', data);
-      showToast('❌ ' + (data.message || 'Suppression refusée'));
+      console.error('safe_delete_order failed', response.status, data);
+      showToast('❌ ' + (data.message || ('Erreur ' + response.status)));
       return;
     }
 
-    var deletedLineIds = Array.isArray(data.deletedLineIds) ? data.deletedLineIds.map(String) : [];
+    var deletedLineIds = Array.isArray(data.deletedLineIds) ? data.deletedLineIds : [];
 
     if (!Array.isArray(DB.ventes)) DB.ventes = [];
     DB.ventes = DB.ventes.filter(function(v) {
       if (!v.shopifyLineId) return true;
-      return deletedLineIds.indexOf(String(v.shopifyLineId)) === -1;
+      return deletedLineIds.indexOf(v.shopifyLineId) === -1;
     });
 
     saveDB('Suppression sécurisée commande Shopify');
 
-    if (typeof loadShopifyOrders === 'function') {
-      await loadShopifyOrders();
-    } else {
-      _shopifyAllOrders = (_shopifyAllOrders || []).filter(function(o) {
-        return String(o.id) !== String(orderId);
-      });
-      renderShopifyOrdersTable(_shopifyAllOrders);
-    }
+    if (!Array.isArray(_shopifyAllOrders)) _shopifyAllOrders = [];
+    _shopifyAllOrders = _shopifyAllOrders.filter(function(o) {
+      return String(o.id) !== String(orderId);
+    });
 
-    if (typeof loadShopifyAlerts === 'function') {
-      await loadShopifyAlerts();
-    }
-
-    if (typeof renderAll === 'function') {
-      renderAll();
-    }
+    renderShopifyOrdersTable(_shopifyAllOrders);
+    renderAll();
 
     showToast('✅ Commande supprimée');
   } catch (e) {
