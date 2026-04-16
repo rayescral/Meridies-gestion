@@ -1202,11 +1202,6 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 <div class="content">
 
 <div class="page active" id="page-dashboard">
-  <!-- Bannière migration Web→Shopify -->
-  <div id="migration-banner" style="display:none;background:#FFF5E8;border:1px solid #E8C47A;border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    <div style="font-size:13px;font-weight:600;color:#7A5A1A;">⚠️ Des ventes sont encore étiquetées "Web" — clique pour les convertir définitivement en "Shopify"</div>
-    <button id="btn-migrate-web" class="btn btn-primary btn-sm" onclick="runWebToShopifyMigration()">🔄 Convertir maintenant</button>
-  </div>
   <!-- KPIs x6 -->
   <div class="kpi-grid-6" id="dash-kpis"></div>
 
@@ -1785,6 +1780,13 @@ function normalizeRestoredDB(data) {
     if(!f.typesProduits) f.typesProduits = f.produits || "T-shirt";
     if(!f.notes || typeof f.notes !== 'object') f.notes = { qualite: 3, prix: 3, delais: 3, com: 3 };
   });
+  // Web → Shopify partout
+  restored.ventes.forEach(function(v){ if(v.canal === 'Web') v.canal = 'Shopify'; });
+  if(restored.settings && Array.isArray(restored.settings.saleChannels)){
+    restored.settings.saleChannels = restored.settings.saleChannels
+      .map(function(c){ return c === 'Web' ? 'Shopify' : c; })
+      .filter(function(c,i,a){ return a.indexOf(c) === i; });
+  }
   return restored;
 }
 
@@ -3710,74 +3712,7 @@ goTo = function(page){
   if(page === 'history') renderHistory();
 };
 
-function migrateWebToShopify() {
-  // Juste vérifier si la bannière doit s'afficher — pas de push automatique
-  var hasWeb = (DB.ventes || []).some(function(v) { return v.canal === 'Web'; });
-  var banner = document.getElementById('migration-banner');
-  if (banner) banner.style.display = hasWeb ? 'flex' : 'none';
-}
-
-async function runWebToShopifyMigration() {
-  var btn = document.getElementById('btn-migrate-web');
-  if (btn) { btn.textContent = '⏳ Conversion...'; btn.disabled = true; }
-
-  // 1. Convertir en mémoire
-  var changed = 0;
-  (DB.ventes || []).forEach(function(v) {
-    if (v.canal === 'Web') { v.canal = 'Shopify'; changed++; }
-  });
-  if (DB.settings && Array.isArray(DB.settings.saleChannels)) {
-    DB.settings.saleChannels = DB.settings.saleChannels
-      .map(function(c) { return c === 'Web' ? 'Shopify' : c; })
-      .filter(function(c, i, arr) { return arr.indexOf(c) === i; });
-  }
-
-  // 2. localStorage immédiat
-  try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
-
-  // 3. Push Supabase avec retry (jusqu'à 3 tentatives)
-  var ok = false;
-  for (var attempt = 1; attempt <= 3; attempt++) {
-    try {
-      var ts = new Date().toISOString();
-      var compressed = dbCompress(DB);
-      var res = await fetch(SUPA_URL + '/rest/v1/app_state?id=eq.1', {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPA_KEY,
-          'Authorization': 'Bearer ' + SUPA_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ data: compressed, updated_at: ts })
-      });
-      if (res.ok) {
-        _syncState.lastKnownTs = ts;
-        ok = true;
-        break;
-      } else {
-        var txt = await res.text();
-        console.warn('[Migration] Tentative ' + attempt + ' échouée :', txt);
-      }
-    } catch(e) {
-      console.warn('[Migration] Tentative ' + attempt + ' erreur :', e.message);
-    }
-    // Attendre 3s avant retry
-    if (attempt < 3) await new Promise(function(r) { setTimeout(r, 3000); });
-  }
-
-  // 4. Feedback
-  var banner = document.getElementById('migration-banner');
-  if (ok) {
-    if (banner) banner.style.display = 'none';
-    setStatus(true);
-    renderDashboard();
-    toast('✅ ' + changed + ' ventes converties "Web" → "Shopify" et sauvegardées sur Supabase');
-  } else {
-    if (btn) { btn.textContent = '🔄 Réessayer'; btn.disabled = false; }
-    toast('❌ Impossible de sauvegarder sur Supabase — réessaie dans quelques secondes');
-  }
-}
+function migrateWebToShopify() {} // no-op — géré dans normalizeRestoredDB
 
 function enhanceLoadPostActions(){
   migrateWebToShopify();
