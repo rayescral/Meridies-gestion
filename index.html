@@ -1502,16 +1502,24 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <div style="position:relative;height:260px;"><canvas id="compta-chart"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">Compte de résultat simplifié</span></div>
+      <div class="card-header"><span class="card-title">Synthèse du compte de résultat</span></div>
       <div id="compta-pnl"></div>
     </div>
   </div>
   <div class="card">
     <div class="card-header">
-      <span class="card-title">Entrées / sorties manuelles</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddCashflow()">+ Ajouter</button>
+      <span class="card-title">Compte de résultat détaillé</span>
+      <button class="btn btn-primary btn-sm" onclick="openAddCashflow()">+ Ajouter une ligne</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Libellé</th><th class="r">Montant</th><th></th></tr></thead><tbody id="cashflow-body"></tbody></table></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Nature</th><th>Origine</th><th>Catégorie</th><th>Libellé</th><th class="r">Montant</th><th></th></tr>
+        </thead>
+        <tbody id="pnl-detailed-body"></tbody>
+        <tfoot id="pnl-detailed-foot"></tfoot>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -3121,6 +3129,76 @@ function deleteRecurringCharge(i){
     DB.recurringCharges.splice(i,1); saveDB(); renderCompta();
   }
 }
+function cashflowNatureLabel(type){
+  return normalizeCashflowType(type)==='entrée' ? 'Produit' : 'Charge';
+}
+function cashflowOriginLabel(f){
+  if (f.category === 'Vente' || f.category === 'Marché') return 'Automatique';
+  if (f.recurring === true || f.isRecurring === true) return 'Récurrent';
+  if (f.source) return f.source;
+  return 'Manuel';
+}
+function renderDetailedPnlTable(flows){
+  var tbody = document.getElementById('pnl-detailed-body');
+  var tfoot = document.getElementById('pnl-detailed-foot');
+  if(!tbody || !tfoot) return;
+
+  var rows = (flows || []).slice().sort(function(a,b){
+    return (b.date || '').localeCompare(a.date || '');
+  });
+
+  var totalProducts = rows
+    .filter(function(f){ return normalizeCashflowType(f.type)==='entrée'; })
+    .reduce(function(s,f){ return s + (Number(f.amount) || 0); }, 0);
+
+  var totalCharges = rows
+    .filter(function(f){ return normalizeCashflowType(f.type)==='sortie'; })
+    .reduce(function(s,f){ return s + (Number(f.amount) || 0); }, 0);
+
+  var result = totalProducts - totalCharges;
+
+  tbody.innerHTML = rows.length ? rows.map(function(f){
+    var isEntry = normalizeCashflowType(f.type)==='entrée';
+    var badgeClass = isEntry ? 'badge-ok' : 'badge-warn';
+    var amountDisplay = (isEntry ? '' : '-') + fmt(Number(f.amount) || 0);
+
+    var deleteBtn = '';
+    if ((DB.cashflows || []).some(function(x){ return String(x.id) === String(f.id); })) {
+      var manualIndex = (DB.cashflows || []).findIndex(function(x){ return String(x.id) === String(f.id); });
+      if (manualIndex > -1) {
+        deleteBtn = '<button class="btn-icon" onclick="deleteCashflow(' + manualIndex + ')">🗑</button>';
+      }
+    }
+
+    return '' +
+      '<tr>' +
+        '<td class="mono">' + formatDate(f.date || '') + '</td>' +
+        '<td><span class="badge ' + badgeClass + '">' + cashflowNatureLabel(f.type) + '</span></td>' +
+        '<td>' + escapeHtml(cashflowOriginLabel(f)) + '</td>' +
+        '<td>' + escapeHtml(f.category || '') + '</td>' +
+        '<td>' + escapeHtml(f.label || '') + '</td>' +
+        '<td class="r mono">' + amountDisplay + '</td>' +
+        '<td>' + deleteBtn + '</td>' +
+      '</tr>';
+  }).join('') : '<tr><td colspan="7" class="empty-state">Aucune ligne comptable</td></tr>';
+
+  tfoot.innerHTML =
+    '<tr>' +
+      '<th colspan="5" class="r">Total produits</th>' +
+      '<th class="r mono">' + fmt(totalProducts) + '</th>' +
+      '<th></th>' +
+    '</tr>' +
+    '<tr>' +
+      '<th colspan="5" class="r">Total charges</th>' +
+      '<th class="r mono">-' + fmt(totalCharges) + '</th>' +
+      '<th></th>' +
+    '</tr>' +
+    '<tr>' +
+      '<th colspan="5" class="r">Résultat net</th>' +
+      '<th class="r mono">' + fmt(result) + '</th>' +
+      '<th></th>' +
+    '</tr>';
+}
 function renderCompta(){
   var flows=allCashflows().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
   var entries=flows.filter(function(f){ return normalizeCashflowType(f.type)==='entrée'; }).reduce(function(s,f){ return s+(f.amount||0); },0);
@@ -3156,9 +3234,7 @@ function renderCompta(){
     '</div>';
   }
 
-  var tbody=document.getElementById('cashflow-body');
-  var manual=(DB.cashflows||[]).slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-  tbody.innerHTML = manual.length ? manual.map(function(f,i){ return '<tr><td>'+formatDate(f.date)+'</td><td><span class="badge '+(normalizeCashflowType(f.type)==='entrée'?'badge-ok':'badge-warn')+'">'+chargeTypeLabel(normalizeCashflowType(f.type))+'</span></td><td>'+escapeHtml(f.category||'')+'</td><td>'+escapeHtml(f.label||'')+'</td><td class="r mono">'+fmt(f.amount)+'</td><td><button class="btn-icon" onclick="deleteCashflow('+i+')">🗑</button></td></tr>'; }).join('') : '<tr><td colspan="6" class="empty-state">Aucun flux manuel</td></tr>';
+  renderDetailedPnlTable(flows);
   var months={}; flows.forEach(function(f){ var m=(f.date||'').slice(0,7); if(!m) return; months[m]=months[m]||0; months[m]+= (normalizeCashflowType(f.type)==='entrée'?1:-1)*(f.amount||0); });
   var labels=Object.keys(months).sort();
   var data=labels.map(function(m){ return months[m]; });
