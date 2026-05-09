@@ -1055,7 +1055,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 .nav-item .notif-dot{width:7px;height:7px;border-radius:50%;background:var(--danger);margin-left:auto;flex-shrink:0;animation:pulse-dot 2s infinite;}
 
 /* Mobile overlay */
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;backdrop-filter:blur(2px);}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);}
 .sidebar-overlay.open{display:block;}
 
 /* Dashboard alertes matière */
@@ -1097,187 +1097,258 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 .mobile-quickbar button .qb-icon{font-size:20px;}
 .mobile-quickbar button:hover,.mobile-quickbar button.active{background:rgba(199,165,122,0.18);color:var(--gold);}
 
-/* ===== MOBILE-FIRST OVERHAUL ===== */
+/* ===== MOBILE-FIRST OVERHAUL — iPhone Compatible ===== */
+
+/* iOS Safari: prevent auto-zoom on input focus (requires 16px min) */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* Safe area for notch iPhones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-quickbar { padding-bottom: calc(env(safe-area-inset-bottom) + 6px) !important; }
+  .modal { padding-bottom: calc(env(safe-area-inset-bottom) + 20px) !important; }
+  .content { padding-bottom: calc(env(safe-area-inset-bottom) + 90px) !important; }
+}
+
+/* All interactive elements need cursor:pointer for iOS tap */
+.nav-item, .btn, .btn-icon, .quick-tag, .badge, .switch, button { cursor: pointer; -webkit-tap-highlight-color: rgba(199,165,122,0.15); }
+
 @media(max-width:768px){
-  /* Base improvements */
-  body{font-size:14px;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;}
-  .content{padding:12px 10px 90px 10px !important;}
-  .topbar{padding:10px 12px 10px 52px !important;gap:8px;}
-  .topbar-title{font-size:14px;}
-  .topbar-actions{gap:4px;}
-  .topbar-actions .btn{padding:6px 10px;font-size:11px;}
-  .topbar-search{order:3;min-width:100% !important;max-width:none !important;margin-top:4px;}
-  .topbar-search input{font-size:16px !important;padding:10px 12px 10px 34px !important;}
+  /* ── Base ── */
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { font-size: 14px; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  body.sidebar-open { overflow: hidden; position: fixed; width: 100%; }
+  .content { padding: 14px 12px 100px 12px !important; }
 
-  /* Mobile toggle button */
-  .mobile-toggle{display:flex !important;width:40px;height:40px;font-size:20px;border-radius:12px;}
+  /* ── Topbar ── */
+  .topbar { padding: 12px 14px 12px 54px !important; gap: 6px; min-height: 52px; }
+  .topbar-title { font-size: 15px; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50vw; }
+  .topbar-actions { gap: 4px; flex-shrink: 0; }
+  .topbar-actions .btn { padding: 8px 10px !important; font-size: 11px !important; min-height: 36px; width: auto !important; }
+  .topbar-actions .btn-hide-mobile { display: none !important; }
+  .topbar-search { order: 3; min-width: 100% !important; max-width: none !important; margin-top: 6px; }
+  .topbar-search input { font-size: 16px !important; padding: 12px 14px 12px 36px !important; border-radius: 14px !important; }
 
-  /* Sidebar */
-  .sidebar{width:280px;z-index:300;}
-  .sidebar.open{box-shadow:8px 0 30px rgba(0,0,0,0.4);}
-  #sidebar-overlay.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:250;}
+  /* ── Mobile hamburger ── */
+  .mobile-toggle { display: flex !important; width: 42px; height: 42px; font-size: 20px; border-radius: 12px; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
 
-  /* KPI cards — 2 columns stacked */
-  .kpi-grid{grid-template-columns:1fr 1fr !important;gap:8px !important;margin-bottom:12px !important;}
-  .kpi{padding:12px 14px !important;border-radius:14px !important;}
-  .kpi-value{font-size:20px !important;}
-  .kpi-label{font-size:10px !important;}
-  .kpi-sub{font-size:10px !important;}
+  /* ── Sidebar ── */
+  .sidebar { width: 85vw; max-width: 320px; z-index: 500; transition: transform .28s cubic-bezier(.4,0,.2,1); will-change: transform; }
+  .sidebar.open { transform: translateX(0); box-shadow: 8px 0 40px rgba(0,0,0,0.5); }
 
-  /* Cards */
-  .card{padding:14px !important;margin-bottom:10px !important;border-radius:14px !important;}
-  .card-header{flex-direction:column;gap:10px;align-items:flex-start !important;padding-bottom:10px !important;margin-bottom:10px !important;}
-  .card-header .section-actions{width:100%;justify-content:flex-start;}
-  .card-title{font-size:11px !important;}
+  /* ── Sidebar overlay ── */
+  #sidebar-overlay { z-index: 400 !important; }
+  #sidebar-overlay.open { display: block !important; }
 
-  /* Grid layouts — all single column on mobile */
-  .grid2,.grid3,.grid4{grid-template-columns:1fr !important;gap:10px !important;}
-  .vente-details-grid{grid-template-columns:1fr 1fr !important;}
-  .vente-prix-grid{grid-template-columns:1fr 1fr !important;}
-  .vente-prix-grid > .field:last-child{grid-column:1 / -1;}
+  /* ── Nav items — big touch targets ── */
+  .nav-item { padding: 13px 14px !important; font-size: 14px !important; margin-bottom: 2px; border-radius: 12px; min-height: 46px; display: flex; align-items: center; }
+  .nav-item .icon { font-size: 18px; width: 24px; }
+  .nav-section { padding: 16px 14px 6px; font-size: 10px; }
 
-  /* Form fields — bigger touch targets */
-  .field label{font-size:11px !important;margin-bottom:2px;}
-  .input,.select{font-size:16px !important;padding:12px 14px !important;border-radius:12px !important;min-height:46px;}
-  .input:focus,.select:focus{box-shadow:0 0 0 3px var(--gold-dim) !important;}
-  .input-sm{font-size:14px !important;padding:8px 10px !important;min-height:38px !important;height:auto !important;}
-  .input-yellow{background:#FFFEF5 !important;border:2px solid #E8D88C !important;}
+  /* ── KPI ── */
+  .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
+  .kpi { padding: 14px !important; border-radius: 16px !important; }
+  .kpi-value { font-size: 20px !important; }
+  .kpi-label { font-size: 10px !important; }
+  .kpi-sub { font-size: 10px !important; }
 
-  /* Buttons — bigger touch targets */
-  .btn{padding:12px 18px !important;font-size:14px !important;border-radius:12px !important;min-height:44px;justify-content:center;width:100%;}
-  .btn-sm{padding:10px 14px !important;font-size:12px !important;min-height:40px !important;}
-  .btn-xs{padding:8px 12px !important;font-size:11px !important;}
-  .btn-icon{width:40px !important;height:40px !important;min-width:40px;border-radius:10px !important;font-size:16px !important;}
-  .card-header .btn{width:auto;}
+  /* ── Cards ── */
+  .card { padding: 14px !important; margin-bottom: 10px !important; border-radius: 16px !important; }
+  .card-header { flex-direction: column; gap: 10px; align-items: stretch !important; padding-bottom: 10px !important; margin-bottom: 10px !important; }
+  .card-header .section-actions { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .card-header .section-actions .btn { flex: 1; min-width: 0; }
+  .card-header .section-actions .select { width: 100% !important; }
+  .card-title { font-size: 11px !important; }
 
-  /* Vente page — action buttons */
-  #page-saisie-vente > .card:first-child > div:nth-child(5){
-    display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px !important;
+  /* ── Grid layouts ── */
+  .grid2, .grid3, .grid4 { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .vente-details-grid { grid-template-columns: 1fr 1fr !important; }
+  .vente-prix-grid { grid-template-columns: 1fr 1fr !important; }
+  .vente-prix-grid > .field:last-child { grid-column: 1 / -1; }
+
+  /* ── Form fields — iOS-friendly ── */
+  .field label { font-size: 11px !important; margin-bottom: 3px; }
+  .input, .select {
+    font-size: 16px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    min-height: 48px;
+    -webkit-appearance: none;
+    appearance: none;
   }
-  #page-saisie-vente > .card:first-child > div:nth-child(5) .btn{width:100%;}
+  .select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237A6E63' d='M2 4l4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px !important; }
+  .input:focus, .select:focus { box-shadow: 0 0 0 3px var(--gold-dim) !important; }
+  .input-sm { font-size: 14px !important; padding: 8px 10px !important; min-height: 40px !important; height: auto !important; }
+  .input-yellow { background: #FFFEF5 !important; border: 2px solid #E8D88C !important; }
+  input[type="date"] { -webkit-appearance: none; }
 
-  /* Quick tags on mobile */
-  .quick-tags{gap:6px !important;}
-  .quick-tag{padding:8px 12px !important;font-size:12px !important;min-height:36px;display:flex;align-items:center;}
-  #remise-quick-tags{margin-top:6px;}
-  #remise-quick-tags .quick-tag{padding:6px 10px !important;font-size:11px !important;}
+  /* ── Buttons — big touch targets ── */
+  .btn { padding: 13px 18px !important; font-size: 14px !important; border-radius: 14px !important; min-height: 48px; justify-content: center; width: 100%; -webkit-tap-highlight-color: transparent; }
+  .btn-sm { padding: 10px 14px !important; font-size: 13px !important; min-height: 44px !important; }
+  .btn-xs { padding: 8px 12px !important; font-size: 12px !important; min-height: 38px !important; }
+  .btn-icon { width: 44px !important; height: 44px !important; min-width: 44px; border-radius: 12px !important; font-size: 18px !important; }
+  .card-header .btn, .card-header .btn-sm { width: auto; }
 
-  /* Tables — horizontal scroll with shadow hints */
-  .table-wrap{margin:0 -14px;padding:0 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;}
-  table{min-width:580px;}
-  th{padding:8px 10px !important;font-size:9px !important;position:sticky;top:0;z-index:2;}
-  td{padding:8px 10px !important;font-size:12px !important;}
-  td .btn-icon{width:34px !important;height:34px !important;min-width:34px;font-size:14px !important;}
-
-  /* Stock tables — narrower on mobile */
-  #page-stock-vierge table,#page-stock-dtf table,#page-stock-fini table{min-width:900px !important;}
-  #page-stock-vierge .input-sm,#page-stock-dtf .input-sm,#page-stock-fini .input-sm{
-    width:44px !important;min-width:44px !important;height:34px !important;font-size:13px !important;
+  /* Vente action buttons: 2x2 grid */
+  #page-saisie-vente > .card:first-child > div[style*="justify-content:flex-end"] {
+    display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 8px !important;
   }
 
-  /* Badges */
-  .badge{font-size:10px !important;padding:4px 8px !important;}
+  /* ── Quick tags ── */
+  .quick-tags { gap: 6px !important; flex-wrap: wrap; }
+  .quick-tag { padding: 10px 14px !important; font-size: 13px !important; min-height: 40px; display: flex; align-items: center; }
+  #remise-quick-tags { margin-top: 6px; }
+  #remise-quick-tags .quick-tag { padding: 8px 12px !important; font-size: 12px !important; min-height: 36px; }
 
-  /* Sale cart on mobile */
-  .card-sm{padding:10px !important;}
-  #vente-cart-body .input-sm{width:48px !important;}
+  /* ── Tables — horizontal scroll ── */
+  .table-wrap { margin: 0 -14px; padding: 0 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap::-webkit-scrollbar { display: none; }
+  .table-wrap { -ms-overflow-style: none; scrollbar-width: none; }
+  table { min-width: 600px; }
+  th { padding: 10px !important; font-size: 9px !important; position: sticky; top: 0; z-index: 2; }
+  td { padding: 10px !important; font-size: 12px !important; }
+  td .btn-icon { width: 38px !important; height: 38px !important; min-width: 38px; font-size: 16px !important; }
 
-  /* Vente cart total bar */
-  #vente-cart-qty,#vente-cart-total{font-size:14px !important;}
+  /* Stock tables */
+  #page-stock-vierge table, #page-stock-dtf table, #page-stock-fini table { min-width: 920px !important; }
+  #page-stock-vierge .input-sm, #page-stock-dtf .input-sm, #page-stock-fini .input-sm {
+    width: 48px !important; min-width: 48px !important; height: 36px !important; font-size: 14px !important;
+    min-height: 36px !important; padding: 4px !important;
+  }
 
-  /* Prix final display */
-  #vente-prix-final{font-size:18px !important;padding:10px 14px !important;text-align:center;}
+  /* ── Badges ── */
+  .badge { font-size: 11px !important; padding: 5px 10px !important; }
 
-  /* Modal — full screen on mobile */
-  .modal-overlay{align-items:flex-end !important;padding:0 !important;}
-  .modal{width:100% !important;max-width:100% !important;max-height:92vh !important;border-radius:20px 20px 0 0 !important;padding:20px 16px 24px !important;animation:modalSlideUp .3s ease;}
-  .modal-title{font-size:18px !important;}
-  .modal-sub{font-size:12px !important;}
-  .modal .grid2,.modal .grid3,.modal .grid4{grid-template-columns:1fr !important;}
-  .modal .btn{width:100%;min-height:48px;}
-  @keyframes modalSlideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  /* ── Sale cart ── */
+  .card-sm { padding: 10px !important; }
+  #vente-cart-body .input-sm { width: 52px !important; }
+  #vente-cart-qty, #vente-cart-total { font-size: 15px !important; }
+  #vente-prix-final { font-size: 20px !important; padding: 12px 16px !important; text-align: center; }
 
-  /* Quickbar at bottom — bigger */
-  .mobile-quickbar{bottom:0 !important;left:0 !important;right:0 !important;border-radius:0 !important;padding:6px 4px calc(env(safe-area-inset-bottom, 0px) + 6px) !important;border-top:1px solid var(--border);border-left:none;border-right:none;border-bottom:none;box-shadow:0 -4px 20px rgba(0,0,0,0.08) !important;}
-  .mobile-quickbar button{font-size:10px !important;padding:6px 4px !important;flex:1;}
-  .mobile-quickbar button .qb-icon{font-size:22px !important;}
-
-  /* Calendar on mobile */
-  .calendar-grid{grid-template-columns:1fr !important;gap:6px !important;}
-  .calendar-day{min-height:auto !important;padding:8px !important;}
-
-  /* Kanban on mobile */
-  .kanban-board{grid-template-columns:1fr !important;gap:10px !important;}
-  .kanban-col{min-height:auto !important;padding:8px !important;}
-
-  /* Pilot grid */
-  .pilot-grid{grid-template-columns:1fr !important;gap:10px !important;}
-  .metric-row{grid-template-columns:1fr 1fr !important;gap:8px !important;}
-  .metric-box .value{font-size:18px !important;}
-
-  /* Toast */
-  .toast{left:12px !important;right:12px !important;bottom:80px !important;text-align:center;border-radius:12px !important;font-size:14px !important;padding:14px 16px !important;}
-
-  /* History/reco items */
-  .history-item,.reco-item{padding:10px !important;font-size:13px !important;}
-
-  /* Compta page */
-  #page-compta .grid2{grid-template-columns:1fr !important;}
-
-  /* Backup items */
-  .backup-item{grid-template-columns:1fr !important;gap:8px !important;}
-  .backup-item > div:last-child{justify-content:flex-start;}
-
-  /* BC form improvements */
-  #page-commandes .grid3{grid-template-columns:1fr !important;}
-
-  /* Lock screen */
-  .lock-shell{width:100% !important;max-width:100% !important;border-radius:0 !important;min-height:100vh;}
-  .lock-visual{padding:28px 20px !important;}
-  .lock-panel{padding:28px 20px !important;}
-  .lock-brand{font-size:26px !important;}
-  .lock-field{font-size:16px !important;}
-
-  /* Section actions — wrap nicely */
-  .section-actions{flex-wrap:wrap !important;gap:6px !important;}
-  .section-actions .btn{flex:1;min-width:0;}
-  .section-actions .select{width:100% !important;}
-
-  /* Scroll snap for horizontal tables */
-  .table-wrap::-webkit-scrollbar{display:none;}
-  .table-wrap{-ms-overflow-style:none;scrollbar-width:none;}
-
-  /* Print hide */
-  .no-print-mobile{display:none !important;}
-
-  /* Smooth scrolling */
-  html{scroll-behavior:smooth;}
-
-  /* Empty states */
-  .empty-state{padding:24px 16px !important;font-size:12px !important;}
+  /* ── Modal — bottom sheet style for iOS ── */
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal-overlay.open { display: flex !important; }
+  .modal {
+    width: 100% !important; max-width: 100% !important; max-height: 88vh !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding: 20px 16px calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
+    animation: modalSlideUp .3s cubic-bezier(.4,0,.2,1);
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal::before {
+    content: ''; display: block; width: 40px; height: 4px; background: var(--border2);
+    border-radius: 2px; margin: 0 auto 16px;
+  }
+  .modal-title { font-size: 18px !important; }
+  .modal-sub { font-size: 13px !important; }
+  .modal .grid2, .modal .grid3, .modal .grid4 { grid-template-columns: 1fr !important; }
+  .modal .btn { width: 100%; min-height: 48px; }
+  @keyframes modalSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
   /* Edit vente modal lines */
-  .ev-line{grid-template-columns:1fr !important;gap:6px !important;}
-  .modal .ev-line{display:flex !important;flex-wrap:wrap;gap:8px;align-items:center;}
-  .modal .ev-line > div:first-child{flex:1 1 100%;}
-  .modal .ev-line .field{flex:1;}
+  .modal .ev-line, .ev-line {
+    display: flex !important; flex-wrap: wrap; gap: 8px; align-items: center;
+    grid-template-columns: 1fr !important;
+  }
+  .modal .ev-line > div:first-child { flex: 1 1 100%; }
+  .modal .ev-line .field { flex: 1; min-width: 60px; }
 
-  /* Stock bar */
-  .stock-bar{height:8px !important;}
+  /* ── Mobile Quickbar — iOS safe ── */
+  .mobile-quickbar {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important; left: 0 !important; right: 0 !important;
+    border-radius: 0 !important;
+    padding: 6px 4px calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+    border-top: 1px solid var(--border) !important;
+    border-left: none; border-right: none; border-bottom: none;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.08) !important;
+    z-index: 90 !important;
+    background: var(--surface) !important;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  .mobile-quickbar button {
+    font-size: 10px !important; padding: 6px 2px !important; flex: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    border: none; background: none;
+    -webkit-tap-highlight-color: transparent;
+    border-radius: 10px; min-height: 52px; justify-content: center;
+  }
+  .mobile-quickbar button .qb-icon { font-size: 24px !important; }
+  .mobile-quickbar button.active { background: rgba(199,165,122,0.18); color: var(--gold); }
 
-  /* Client card */
-  .client-card{padding:10px !important;}
+  /* ── Calendar ── */
+  .calendar-grid { grid-template-columns: 1fr !important; gap: 6px !important; }
+  .calendar-day { min-height: auto !important; padding: 10px !important; }
 
-  /* Alert summary */
-  .alert-summary{gap:6px !important;}
-  .alert-pill{padding:8px 10px !important;font-size:11px !important;}
+  /* ── Kanban ── */
+  .kanban-board { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .kanban-col { min-height: auto !important; }
 
-  /* Rec charge card */
-  .rec-charge-card{grid-template-columns:1fr !important;gap:8px !important;}
+  /* ── Pilot ── */
+  .pilot-grid { grid-template-columns: 1fr !important; }
+  .metric-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .metric-box .value { font-size: 18px !important; }
 
-  /* PDF preview */
-  .pdf-doc{font-size:10px !important;}
-  .pdf-grid{grid-template-columns:1fr !important;}
+  /* ── Toast — above quickbar ── */
+  .toast {
+    left: 12px !important; right: 12px !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 80px) !important;
+    text-align: center; border-radius: 14px !important;
+    font-size: 14px !important; padding: 14px 18px !important;
+  }
+
+  /* ── Compta page ── */
+  #page-compta .grid2 { grid-template-columns: 1fr !important; }
+  .backup-item { grid-template-columns: 1fr !important; gap: 8px !important; }
+  .backup-item > div:last-child { justify-content: flex-start; }
+
+  /* ── BC form ── */
+  #page-commandes .grid3 { grid-template-columns: 1fr !important; }
+
+  /* ── Lock screen — full mobile ── */
+  .lock-shell { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; min-height: 100vh; min-height: 100dvh; grid-template-columns: 1fr !important; }
+  .lock-visual { padding: 28px 20px !important; }
+  .lock-panel { padding: 28px 20px !important; }
+  .lock-brand { font-size: 28px !important; }
+  .lock-title { font-size: 24px !important; }
+  .lock-field { font-size: 16px !important; height: 52px !important; }
+  .lock-btn { height: 52px !important; font-size: 16px !important; }
+
+  /* ── Section actions ── */
+  .section-actions { flex-wrap: wrap !important; gap: 6px !important; width: 100%; }
+
+  /* ── Empty states ── */
+  .empty-state { padding: 24px 16px !important; font-size: 13px !important; }
+
+  /* ── Misc ── */
+  .stock-bar { height: 8px !important; }
+  .history-item, .reco-item { padding: 12px !important; font-size: 13px !important; }
+  .rec-charge-card { grid-template-columns: 1fr !important; }
+  .client-card { padding: 12px !important; }
+  .alert-summary { gap: 6px !important; }
+  .alert-pill { padding: 10px 14px !important; font-size: 12px !important; }
+  .pdf-doc { font-size: 10px !important; }
+  .pdf-grid { grid-template-columns: 1fr !important; }
+
+  /* ── Role select in sidebar ── */
+  .role-select { font-size: 14px !important; padding: 10px 12px !important; min-height: 44px; }
+
+  /* ── Switch toggle ── */
+  .sidebar-toggle-wrap { padding: 14px !important; }
+  .toggle-row { font-size: 14px !important; }
+  .switch { width: 50px; height: 28px; }
+  .switch-slider:before { height: 22px; width: 22px; }
+  .switch input:checked + .switch-slider:before { transform: translateX(22px); }
+
+  /* ── Sidebar footer ── */
+  .sidebar-footer { padding: 14px !important; font-size: 11px; }
+
+  /* ── Search results dropdown ── */
+  .search-results { border-radius: 14px !important; }
+  .search-result-item { padding: 12px !important; min-height: 44px; display: flex; align-items: center; }
 }</style>
 
 </head>
@@ -1888,11 +1959,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 <!-- ===== FIN PAGE SHOPIFY ===== -->
 
 <div class="mobile-quickbar no-print" id="mobile-quickbar">
-  <button onclick="goTo('dashboard')" id="qb-dashboard"><span class="qb-icon">📊</span>Dashboard</button>
-  <button onclick="goTo('shopify')" id="qb-shopify"><span class="qb-icon">🛍️</span>Shopify</button>
+  <button onclick="goTo('dashboard')" id="qb-dashboard"><span class="qb-icon">📊</span>Accueil</button>
   <button onclick="goTo('saisie-vente')" id="qb-saisie-vente"><span class="qb-icon">🛒</span>Ventes</button>
+  <button onclick="goTo('stock-fini')" id="qb-stock-fini"><span class="qb-icon">📦</span>Stock</button>
   <button onclick="goTo('journal')" id="qb-journal"><span class="qb-icon">🧭</span>Marchés</button>
-  <button onclick="goTo('todo')" id="qb-todo"><span class="qb-icon">✏️</span>Tâches</button>
+  <button onclick="toggleSidebar()" id="qb-menu"><span class="qb-icon">☰</span>Plus</button>
 </div>
 
 </div></div></div><div class="toast" id="toast"></div>
@@ -2518,8 +2589,31 @@ function statusBadge(stock, seuil) {
   if(stock <= seuil) return '<span class="badge badge-warn">ALERTE</span>';
   return '<span class="badge badge-ok">OK</span>';
 }
-function openModal(html){document.getElementById('modal-content').innerHTML=html;document.getElementById('modal').classList.add('open');}
-function closeModal(){document.getElementById('modal').classList.remove('open');}
+function openModal(html){
+  document.getElementById('modal-content').innerHTML=html;
+  document.getElementById('modal').classList.add('open');
+  // iOS: prevent background scroll
+  if(window.innerWidth <= 768){
+    document.body.style.overflow='hidden';
+    document.body.style.position='fixed';
+    document.body.style.width='100%';
+    document.body.style.top='-'+window.scrollY+'px';
+    document.body.dataset.modalScrollY=window.scrollY;
+  }
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('open');
+  // iOS: restore scroll
+  if(document.body.dataset.modalScrollY !== undefined){
+    var scrollY = parseInt(document.body.dataset.modalScrollY||'0');
+    document.body.style.overflow='';
+    document.body.style.position='';
+    document.body.style.width='';
+    document.body.style.top='';
+    window.scrollTo(0, scrollY);
+    delete document.body.dataset.modalScrollY;
+  }
+}
 function getVendusByRef(ref) { return DB.ventes.filter(function(v){ return v.code && v.code.indexOf(ref) === 0; }).reduce(function(s,v){return s+(v.qte||1);}, 0); }
 
 // ============================================================
@@ -7761,18 +7855,103 @@ function toggleSidebar() {
   var isOpen = s.classList.contains('open');
   s.classList.toggle('open', !isOpen);
   if (o) o.classList.toggle('open', !isOpen);
+  // iOS: prevent body scroll when sidebar open
+  document.body.classList.toggle('sidebar-open', !isOpen);
+  if (!isOpen) {
+    document.body.style.top = '-' + window.scrollY + 'px';
+    document.body.dataset.scrollY = window.scrollY;
+  } else {
+    var scrollY = parseInt(document.body.dataset.scrollY || '0');
+    document.body.style.top = '';
+    window.scrollTo(0, scrollY);
+  }
 }
 function closeSidebar() {
   var s = document.querySelector('.sidebar');
   var o = document.getElementById('sidebar-overlay');
-  if (s) s.classList.remove('open');
-  if (o) o.classList.remove('open');
+  if (s && s.classList.contains('open')) {
+    s.classList.remove('open');
+    if (o) o.classList.remove('open');
+    document.body.classList.remove('sidebar-open');
+    var scrollY = parseInt(document.body.dataset.scrollY || '0');
+    document.body.style.top = '';
+    window.scrollTo(0, scrollY);
+  } else {
+    if (s) s.classList.remove('open');
+    if (o) o.classList.remove('open');
+  }
 }
 
 function shopifyAlertTypeBadge(t) {
   var labels = { material_missing: 'Matière manquante', bom_missing: 'BOM manquante', mapping_missing: 'Mapping manquant' };
   return '<span class="badge badge-neutral">' + escapeHtml(labels[t] || t || '—') + '</span>';
 }
+</script>
+
+<script>
+// ── iOS Touch Gestures & Fixes ──────────────────────────────
+(function(){
+  // Swipe-to-open sidebar (from left edge) & swipe-to-close
+  var touchStartX = 0, touchStartY = 0, swiping = false;
+  document.addEventListener('touchstart', function(e){
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    swiping = false;
+  }, {passive:true});
+  document.addEventListener('touchmove', function(e){
+    if(swiping) return;
+    var dx = e.touches[0].clientX - touchStartX;
+    var dy = Math.abs(e.touches[0].clientY - touchStartY);
+    if(dy > 30) return; // vertical scroll, ignore
+    // Open sidebar: swipe right from left 30px edge
+    if(touchStartX < 30 && dx > 60){
+      swiping = true;
+      var s = document.querySelector('.sidebar');
+      if(s && !s.classList.contains('open')) toggleSidebar();
+    }
+    // Close sidebar: swipe left when sidebar open
+    var sidebar = document.querySelector('.sidebar');
+    if(sidebar && sidebar.classList.contains('open') && dx < -60){
+      swiping = true;
+      closeSidebar();
+    }
+  }, {passive:true});
+
+  // Tap outside modal to close
+  document.addEventListener('click', function(e){
+    var modal = document.getElementById('modal');
+    if(modal && modal.classList.contains('open') && e.target === modal){
+      closeModal();
+    }
+  });
+
+  // iOS: scroll to top of page on nav
+  var origGoTo = window.goTo;
+  if(origGoTo){
+    window.goTo = function(page){
+      origGoTo(page);
+      window.scrollTo({top:0, behavior:'smooth'});
+    };
+  }
+
+  // Fix iOS 100vh issue
+  function setVh(){
+    var vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', vh + 'px');
+  }
+  setVh();
+  window.addEventListener('resize', setVh);
+
+  // Prevent iOS rubber-band bounce when sidebar open
+  document.addEventListener('touchmove', function(e){
+    if(document.body.classList.contains('sidebar-open')){
+      var sidebar = document.querySelector('.sidebar');
+      if(sidebar && !sidebar.contains(e.target)){
+        e.preventDefault();
+      }
+    }
+  }, {passive:false});
+})();
 </script>
 
 <script>
