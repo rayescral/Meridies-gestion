@@ -59,6 +59,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#F0F1F5;color:var(--t
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;}
 .topbar-title{font-size:16px;font-weight:700;color:var(--text);}
 .topbar-actions{display:flex;gap:8px;align-items:center;}
+.search-toggle-btn{display:none;}
 .content{padding:24px 28px;}
 
 /* ===== CARDS ===== */
@@ -1400,6 +1401,150 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   .card-sm { border-radius: 16px !important; }
 }
 
+/* ===== PORTRAIT MODE — iPhone vertical (< 480px) ===== */
+@media(max-width:480px){
+  /* ── Tighter base padding ── */
+  .content { padding: 10px 8px 100px 8px !important; }
+
+  /* ── Topbar: stack vertically ── */
+  .topbar {
+    flex-wrap: wrap; padding: 10px 10px 10px 50px !important;
+    gap: 4px; min-height: auto;
+  }
+  .topbar-title { font-size: 15px !important; max-width: calc(100vw - 130px); }
+  .topbar-actions { order: 2; }
+  .topbar-actions .btn { padding: 6px 8px !important; font-size: 10px !important; min-height: 32px; }
+  .topbar-search { margin-top: 4px; display: none; }
+  .topbar-search.portrait-visible { display: block; }
+  .topbar .search-toggle-btn {
+    order: 1; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border2);
+    background: var(--surface2); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+  }
+  .topbar-search input { font-size: 15px !important; padding: 10px 12px 10px 32px !important; }
+
+  /* ── Hamburger ── */
+  .mobile-toggle { width: 38px; height: 38px; top: 10px; left: 8px; font-size: 18px; }
+  .search-toggle-btn { display: flex !important; }
+
+  /* ── KPIs: still 2 columns but smaller ── */
+  .kpi-grid, .kpi-grid-6 { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+  .kpi { padding: 10px 12px !important; border-radius: 12px !important; }
+  .kpi-value { font-size: 18px !important; }
+  .kpi-label { font-size: 9px !important; }
+  .kpi-sub { font-size: 9px !important; }
+
+  /* ── Cards: less padding ── */
+  .card { padding: 12px 10px !important; margin-bottom: 8px !important; border-radius: 14px !important; }
+  .card-header { gap: 8px; padding-bottom: 8px !important; margin-bottom: 8px !important; }
+  .card-title { font-size: 10px !important; }
+
+  /* ── ALL form grids go single column in portrait ── */
+  .grid2, .grid3, .grid4,
+  .vente-details-grid,
+  .vente-prix-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
+  .vente-prix-grid > .field:last-child { grid-column: auto; }
+
+  /* ── Form fields: slightly smaller but still tappable ── */
+  .input, .select { font-size: 16px !important; padding: 10px 12px !important; min-height: 44px; border-radius: 12px !important; }
+  .field label { font-size: 11px !important; margin-bottom: 2px !important; }
+
+  /* ── Buttons: full width stacked ── */
+  .btn { padding: 12px 14px !important; font-size: 13px !important; min-height: 44px; border-radius: 12px !important; }
+  .btn-sm { padding: 10px 12px !important; font-size: 12px !important; min-height: 40px !important; }
+  .btn-icon { width: 40px !important; height: 40px !important; min-width: 40px; }
+  .section-actions .btn { font-size: 11px !important; padding: 8px 10px !important; }
+
+  /* ── Vente: action row stacked ── */
+  #page-saisie-vente > .card:first-child > div[style*="justify-content:flex-end"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Prix final: centered, prominent ── */
+  #vente-prix-final { font-size: 22px !important; padding: 14px !important; border-radius: 14px !important; text-align: center; }
+
+  /* ── Quick tags ── */
+  .quick-tag { padding: 8px 10px !important; font-size: 12px !important; min-height: 34px; }
+  #remise-quick-tags .quick-tag { padding: 6px 10px !important; font-size: 11px !important; }
+
+  /* ── Tables ── */
+  .table-wrap { margin: 0 -10px; padding: 0 10px; }
+  table { min-width: 520px; }
+  th { padding: 8px 6px !important; font-size: 8px !important; }
+  td { padding: 8px 6px !important; font-size: 11px !important; }
+  td .btn-icon { width: 34px !important; height: 34px !important; min-width: 34px; font-size: 14px !important; }
+
+  /* ── Sale cart on portrait ── */
+  #vente-cart-body .input-sm { width: 44px !important; font-size: 13px !important; }
+  #vente-cart-badge { font-size: 13px !important; }
+  #vente-cart-total { font-size: 16px !important; }
+  #vente-cart-qty { font-size: 12px !important; }
+
+  /* ── Badges: compact ── */
+  .badge { font-size: 10px !important; padding: 3px 8px !important; }
+
+  /* ── Modal: tighter ── */
+  .modal { padding: 16px 12px calc(env(safe-area-inset-bottom, 0px) + 20px) !important; max-height: 90vh !important; }
+  .modal-title { font-size: 16px !important; }
+  .modal .btn { min-height: 44px; font-size: 13px !important; }
+
+  /* ── Quickbar: narrower labels ── */
+  .mobile-quickbar button { font-size: 9px !important; min-height: 48px; gap: 1px; }
+  .mobile-quickbar button .qb-icon { font-size: 22px !important; }
+
+  /* ── Lock screen portrait ── */
+  .lock-visual { padding: 24px 16px !important; }
+  .lock-panel { padding: 24px 16px !important; }
+  .lock-brand { font-size: 24px !important; }
+  .lock-title { font-size: 20px !important; }
+  .lock-copy { font-size: 12px !important; }
+  .lock-text { font-size: 13px !important; }
+
+  /* ── Compta / journal entries ── */
+  .history-item, .reco-item { padding: 10px 8px !important; font-size: 12px !important; }
+  .alert-pill { padding: 8px 10px !important; font-size: 11px !important; }
+
+  /* ── Scroll hint for tables ── */
+  .table-wrap { position: relative; }
+  .table-wrap::after {
+    content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 24px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.8));
+    pointer-events: none; z-index: 1;
+    border-radius: 0 14px 14px 0;
+  }
+
+  /* ── Mobile picker items: compact ── */
+  .mobile-picker-item { padding: 12px 14px; gap: 8px; margin-bottom: 4px; }
+  .mobile-picker-item .pi-name { font-size: 13px; }
+  .mobile-picker-item .pi-code { font-size: 10px; min-width: 50px; }
+  .mobile-picker-header input { padding: 10px 14px; font-size: 15px; }
+  .mobile-picker-header .close-picker { width: 40px; height: 40px; }
+
+  /* ── Dropdown sheet: compact ── */
+  .mobile-dropdown-item { padding: 14px; font-size: 14px; }
+
+  /* ── Pilot / metrics ── */
+  .metric-row { grid-template-columns: 1fr !important; }
+  .metric-box .value { font-size: 16px !important; }
+
+  /* ── Inline select in table cells: keep small ── */
+  td .select.input-sm { font-size: 11px !important; min-height: 30px !important; padding: 4px 20px 4px 6px !important; }
+}
+
+/* ===== VERY SMALL SCREENS (iPhone SE, 5s) ===== */
+@media(max-width:360px){
+  .kpi-grid, .kpi-grid-6 { grid-template-columns: 1fr !important; }
+  .kpi { padding: 10px !important; }
+  .kpi-value { font-size: 20px !important; }
+  .topbar-title { font-size: 13px !important; }
+  .card { padding: 10px 8px !important; }
+  .field label { font-size: 10px !important; }
+  table { min-width: 450px; }
+  .mobile-quickbar button { font-size: 8px !important; }
+  .mobile-quickbar button .qb-icon { font-size: 20px !important; }
+}
+
 /* ===== MOBILE FULL-SCREEN PICKER ===== */
 .mobile-picker-overlay {
   display: none; position: fixed; inset: 0; z-index: 2000;
@@ -1588,8 +1733,9 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 <div class="main">
 <div class="topbar">
   <div class="topbar-title" id="page-title">Tableau de bord</div>
-  <div class="topbar-search">
-    <input type="text" class="input input-sm" id="global-search" placeholder="Recherche globale : articles, BC, fournisseurs, tâches..." oninput="runGlobalSearch(this.value)" onfocus="runGlobalSearch(this.value)">
+  <button class="search-toggle-btn" onclick="togglePortraitSearch()" id="portrait-search-btn">🔍</button>
+  <div class="topbar-search" id="topbar-search">
+    <input type="text" class="input input-sm" id="global-search" placeholder="Recherche globale..." oninput="runGlobalSearch(this.value)" onfocus="runGlobalSearch(this.value)">
     <div class="search-results" id="global-search-results"></div>
   </div>
   <div class="topbar-actions">
@@ -8102,6 +8248,18 @@ function shopifyAlertTypeBadge(t) {
     }
   }, {passive:false});
 })();
+
+// ── Portrait search toggle ──────────────────────────────────
+function togglePortraitSearch(){
+  var search = document.getElementById('topbar-search');
+  if(!search) return;
+  var isVisible = search.classList.contains('portrait-visible');
+  search.classList.toggle('portrait-visible', !isVisible);
+  if(!isVisible){
+    var input = document.getElementById('global-search');
+    if(input) setTimeout(function(){ input.focus(); }, 100);
+  }
+}
 
 // ── Mobile Product Picker ───────────────────────────────────
 var _mobilePickerData = [];
