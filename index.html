@@ -218,6 +218,68 @@ tr:hover td{background:var(--surface2);}
 .calendar-event.market{border-left-color:var(--success);}
 .calendar-event.drop{border-left-color:#7C3AED;}
 .inline-stat{font-size:11px;color:var(--muted);}
+
+/* ===== CALENDAR MOBILE STYLES ===== */
+.cal-weekday-cell{text-align:center;font-weight:700;}
+.cal-nav-actions{display:flex;align-items:center;gap:8px;}
+.cal-month-label{min-width:140px;text-align:center;font-size:14px;font-weight:700;text-transform:capitalize;}
+.cal-today-btn{white-space:nowrap;}
+
+/* Mobile strip (horizontal date scroller) */
+.cal-mobile-strip{
+  display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 4px 12px;margin:0 -10px;scroll-snap-type:x mandatory;
+}
+.cal-mobile-strip::-webkit-scrollbar{display:none;}
+.cal-strip-day{
+  flex:0 0 48px;scroll-snap-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 4px 6px;border-radius:14px;
+  background:var(--surface2);border:1px solid transparent;
+  cursor:pointer;-webkit-tap-highlight-color:rgba(199,165,122,0.15);
+  transition:all .15s;position:relative;
+}
+.cal-strip-day.today{
+  background:var(--gold);border-color:var(--gold);
+}
+.cal-strip-day.today .cal-strip-name,
+.cal-strip-day.today .cal-strip-num{color:var(--noir) !important;font-weight:800;}
+.cal-strip-day.has-events{border-color:var(--gold);}
+.cal-strip-name{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.cal-strip-num{font-size:16px;font-weight:700;color:var(--text);}
+.cal-strip-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--gold);
+  position:absolute;bottom:4px;
+}
+.cal-strip-day.today .cal-strip-dot{background:var(--noir);}
+
+/* Mobile event list */
+.cal-mobile-events{padding-top:4px;}
+.cal-day-group{margin-bottom:16px;}
+.cal-day-label{
+  font-size:13px;font-weight:700;color:var(--muted);
+  padding:8px 4px 6px;text-transform:capitalize;
+  border-bottom:1px solid var(--border);margin-bottom:8px;
+  position:sticky;top:0;background:var(--surface);z-index:1;
+}
+.cal-day-label.today{color:var(--gold);border-bottom-color:var(--gold);}
+
+.cal-mobile-event{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:12px 14px;border-radius:14px;margin-bottom:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  cursor:pointer;-webkit-tap-highlight-color:rgba(199,165,122,0.15);
+}
+.cal-mobile-event.todo{border-left:4px solid var(--warning);}
+.cal-mobile-event.bc{border-left:4px solid var(--info);}
+.cal-mobile-event.market{border-left:4px solid var(--success);}
+.cal-mobile-event.drop{border-left:4px solid #7C3AED;}
+.cal-mobile-event.charge{border-left:4px solid var(--danger);}
+.cal-ev-emoji{font-size:20px;flex-shrink:0;margin-top:2px;}
+.cal-ev-content{flex:1;min-width:0;}
+.cal-ev-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.3;}
+.cal-ev-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.cal-mobile-empty{font-size:12px;color:var(--hint);padding:4px 4px;}
 .progress-lite{height:8px;background:var(--surface3);border-radius:999px;overflow:hidden;}
 .progress-lite > div{height:100%;background:var(--gold);}
 .tag{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--surface3);color:var(--muted);}
@@ -1281,8 +1343,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   .mobile-quickbar button.active { background: rgba(199,165,122,0.18); color: var(--gold); }
 
   /* ── Calendar ── */
-  .calendar-grid { grid-template-columns: 1fr !important; gap: 6px !important; }
-  .calendar-day { min-height: auto !important; padding: 10px !important; }
+  .calendar-weekdays-header { display: none !important; }
+  .cal-nav-actions { width: 100%; justify-content: space-between !important; }
+  .cal-nav-actions .btn { flex: 0 0 auto; padding: 10px 16px !important; min-height: 40px; width: auto; }
+  .cal-month-label { flex: 1; font-size: 15px !important; }
+  .cal-today-btn { font-size: 12px !important; }
 
   /* ── Kanban ── */
   .kanban-board { grid-template-columns: 1fr !important; gap: 10px !important; }
@@ -2003,20 +2068,21 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header">
       <span class="card-title">Calendrier / Planning</span>
-      <div class="section-actions">
-        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(-1)">← Mois précédent</button>
-        <div class="mono" id="calendar-label">—</div>
-        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(1)">Mois suivant →</button>
+      <div class="section-actions cal-nav-actions">
+        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(-1)">←</button>
+        <div class="mono cal-month-label" id="calendar-label">—</div>
+        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(1)">→</button>
+        <button class="btn btn-secondary btn-sm cal-today-btn" onclick="goCalendarToday()">Aujourd'hui</button>
       </div>
     </div>
-    <div class="calendar-grid" style="margin-bottom:8px;">
-      <div class="card-sm" style="text-align:center;font-weight:700;">Lun</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Mar</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Mer</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Jeu</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Ven</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Sam</div>
-      <div class="card-sm" style="text-align:center;font-weight:700;">Dim</div>
+    <div class="calendar-grid calendar-weekdays-header" id="calendar-weekdays" style="margin-bottom:8px;">
+      <div class="card-sm cal-weekday-cell">Lun</div>
+      <div class="card-sm cal-weekday-cell">Mar</div>
+      <div class="card-sm cal-weekday-cell">Mer</div>
+      <div class="card-sm cal-weekday-cell">Jeu</div>
+      <div class="card-sm cal-weekday-cell">Ven</div>
+      <div class="card-sm cal-weekday-cell">Sam</div>
+      <div class="card-sm cal-weekday-cell">Dim</div>
     </div>
     <div id="calendar-grid"></div>
   </div>
@@ -3586,10 +3652,28 @@ function getCalendarEvents(){
   return events.sort(function(a,b){ return a.date.localeCompare(b.date); });
 }
 function changeCalendarMonth(delta){ calendarCursor.setMonth(calendarCursor.getMonth()+delta); renderCalendarPlanning(); }
+function goCalendarToday(){ calendarCursor = new Date(); calendarCursor.setDate(1); renderCalendarPlanning(); }
+
+function isMobileCalendar(){ return window.innerWidth <= 600; }
+
 function renderCalendarPlanning(){
   var label=document.getElementById('calendar-label'); if(!label) return;
   label.textContent = calendarMonthLabel(calendarCursor);
   var grid=document.getElementById('calendar-grid');
+  var weekdaysHeader = document.getElementById('calendar-weekdays');
+
+  if(isMobileCalendar()){
+    // ── MOBILE: list view ──
+    if(weekdaysHeader) weekdaysHeader.style.display='none';
+    renderCalendarMobileList(grid);
+  } else {
+    // ── DESKTOP: classic grid ──
+    if(weekdaysHeader) weekdaysHeader.style.display='';
+    renderCalendarDesktopGrid(grid);
+  }
+}
+
+function renderCalendarDesktopGrid(grid){
   var year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
   var first=new Date(year,month,1), last=new Date(year,month+1,0);
   var startDay=(first.getDay()+6)%7;
@@ -3612,6 +3696,81 @@ function renderCalendarPlanning(){
   }
   html += '</div>';
   grid.innerHTML=html;
+}
+
+function renderCalendarMobileList(grid){
+  var year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
+  var daysInMonth=new Date(year,month+1,0).getDate();
+  var todayKey = new Date().toISOString().slice(0,10);
+  var joursSemaine = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+
+  var eventsByDate={};
+  getCalendarEvents().forEach(function(ev){ (eventsByDate[ev.date]=eventsByDate[ev.date]||[]).push(ev); });
+
+  // Mini month strip (like iPhone calendar)
+  var html = '<div class="cal-mobile-strip">';
+  for(var d=1; d<=daysInMonth; d++){
+    var dt = new Date(year, month, d);
+    var key = dt.toISOString().slice(0,10);
+    var isToday = key === todayKey;
+    var hasEvents = (eventsByDate[key]||[]).length > 0;
+    var dayName = joursSemaine[dt.getDay()];
+    html += '<div class="cal-strip-day'+(isToday?' today':'')+(hasEvents?' has-events':'')+'" onclick="scrollToCalDay(\''+key+'\')">';
+    html += '<span class="cal-strip-name">'+dayName+'</span>';
+    html += '<span class="cal-strip-num">'+d+'</span>';
+    if(hasEvents) html += '<span class="cal-strip-dot"></span>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Event list grouped by day
+  html += '<div class="cal-mobile-events">';
+  var hasAnyEvent = false;
+  for(var d=1; d<=daysInMonth; d++){
+    var dt = new Date(year, month, d);
+    var key = dt.toISOString().slice(0,10);
+    var evs = eventsByDate[key] || [];
+    var isToday = key === todayKey;
+    var dayLabel = dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'});
+
+    if(evs.length || isToday){
+      hasAnyEvent = true;
+      html += '<div class="cal-day-group" id="cal-day-'+key+'">';
+      html += '<div class="cal-day-label'+(isToday?' today':'')+'">'+dayLabel+(isToday?' — aujourd\'hui':'')+'</div>';
+      if(evs.length){
+        evs.forEach(function(ev){
+          var typeEmoji = ev.type==='todo'?'✏️':ev.type==='bc'?'📋':ev.type==='market'?'🧭':ev.type==='drop'?'🚀':ev.type==='charge'?'💶':'📌';
+          html += '<div class="cal-mobile-event '+ev.type+'">';
+          html += '<span class="cal-ev-emoji">'+typeEmoji+'</span>';
+          html += '<div class="cal-ev-content">';
+          html += '<div class="cal-ev-title">'+escapeHtml(ev.title)+'</div>';
+          html += '<div class="cal-ev-meta">'+escapeHtml(ev.meta||'')+'</div>';
+          html += '</div></div>';
+        });
+      } else {
+        html += '<div class="cal-mobile-empty">Aucun événement</div>';
+      }
+      html += '</div>';
+    }
+  }
+  if(!hasAnyEvent){
+    html += '<div class="empty-state"><div class="icon">📅</div>Aucun événement ce mois-ci</div>';
+  }
+  html += '</div>';
+  grid.innerHTML=html;
+
+  // Auto-scroll to today
+  setTimeout(function(){
+    var todayEl = document.getElementById('cal-day-'+todayKey);
+    if(todayEl) todayEl.scrollIntoView({behavior:'smooth', block:'start'});
+    var stripToday = document.querySelector('.cal-strip-day.today');
+    if(stripToday) stripToday.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+  }, 100);
+}
+
+function scrollToCalDay(key){
+  var el = document.getElementById('cal-day-'+key);
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // ============================================================
