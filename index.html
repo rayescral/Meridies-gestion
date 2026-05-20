@@ -1349,7 +1349,154 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   /* ── Search results dropdown ── */
   .search-results { border-radius: 14px !important; }
   .search-result-item { padding: 12px !important; min-height: 44px; display: flex; align-items: center; }
-}</style>
+
+  /* ── Mobile select wrap ── */
+  .mobile-select-wrap { position: relative; }
+  .mobile-select-wrap .input, .mobile-select-wrap .select { padding-right: 52px !important; }
+  .mobile-picker-btn {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 42px; height: 42px; border-radius: 10px; border: none;
+    background: var(--gold); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Select dropdown improvements ── */
+  .select {
+    font-size: 16px !important; min-height: 48px; padding: 12px 40px 12px 14px !important;
+    border-radius: 14px !important; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%237A6E63' d='M2 5l5 5 5-5'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important; background-position: right 14px center !important;
+    background-size: 14px !important;
+  }
+
+  /* ── Enhanced text visibility ── */
+  td { font-size: 13px !important; line-height: 1.5; }
+  th { font-size: 10px !important; letter-spacing: .06em; }
+  .kpi-value { letter-spacing: -.02em; font-size: 22px !important; }
+  .kpi-label { font-size: 11px !important; font-weight: 700; }
+  .card-title { font-size: 12px !important; letter-spacing: .08em; }
+  .mono { font-size: 12px !important; }
+  .field label { font-size: 12px !important; color: #555 !important; font-weight: 700; letter-spacing: .04em; margin-bottom: 4px !important; }
+
+  /* ── Better contrast for muted text ── */
+  .muted-mobile { color: #555 !important; }
+  td.mono { color: #555 !important; font-size: 11px !important; }
+
+  /* ── Improved readability for long pages ── */
+  .card + .card { margin-top: 4px !important; }
+  p, .text { line-height: 1.6; }
+  h1, h2, h3 { line-height: 1.3; }
+
+  /* ── Topbar page title bigger ── */
+  .topbar-title { font-size: 16px !important; font-weight: 800; }
+
+  /* ── Better card header on mobile ── */
+  .card-header { border-bottom: 2px solid var(--border) !important; }
+
+  /* ── Vente: améliorer la lisibilité du récap ── */
+  #vente-cart-badge { font-size: 14px !important; font-weight: 700; }
+  #vente-cart-total { font-size: 18px !important; font-weight: 800; }
+  .card-sm { border-radius: 16px !important; }
+}
+
+/* ===== MOBILE FULL-SCREEN PICKER ===== */
+.mobile-picker-overlay {
+  display: none; position: fixed; inset: 0; z-index: 2000;
+  background: var(--surface); flex-direction: column;
+  animation: pickerSlideUp .25s cubic-bezier(.4,0,.2,1);
+}
+.mobile-picker-overlay.open { display: flex; }
+@keyframes pickerSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.mobile-picker-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px calc(4px + env(safe-area-inset-top, 0px)); 
+  border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 2;
+}
+.mobile-picker-header .close-picker {
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface2); font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-picker-header input {
+  flex: 1; font-size: 16px; padding: 12px 16px; border-radius: 14px;
+  border: 2px solid var(--border2); background: var(--surface2);
+  font-family: 'DM Sans', sans-serif; outline: none;
+}
+.mobile-picker-header input:focus { border-color: var(--gold); background: var(--surface); }
+
+.mobile-picker-list {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+.mobile-picker-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 14px;
+  border: 1px solid var(--border); margin-bottom: 6px;
+  background: var(--surface); cursor: pointer;
+  -webkit-tap-highlight-color: rgba(199,165,122,0.15);
+  transition: background .1s;
+}
+.mobile-picker-item:active { background: var(--gold-dim); }
+.mobile-picker-item .pi-code { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); min-width: 60px; }
+.mobile-picker-item .pi-name { font-weight: 600; font-size: 14px; flex: 1; }
+.mobile-picker-item .pi-detail { font-size: 12px; color: var(--muted); }
+.mobile-picker-item .pi-stock { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+.mobile-picker-item .pi-stock.ok { background: var(--success-bg); color: var(--success); }
+.mobile-picker-item .pi-stock.warn { background: var(--warning-bg); color: var(--warning); }
+.mobile-picker-item .pi-stock.danger { background: var(--danger-bg); color: var(--danger); }
+.mobile-picker-empty { text-align: center; padding: 40px 20px; color: var(--hint); font-size: 14px; }
+
+/* ===== MOBILE DROPDOWN MENU (replaces native selects) ===== */
+.mobile-dropdown-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1500;
+  background: rgba(0,0,0,0.4); align-items: flex-end; justify-content: center;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.mobile-dropdown-overlay.open { display: flex; }
+.mobile-dropdown-sheet {
+  width: 100%; max-height: 65vh; background: var(--surface);
+  border-radius: 24px 24px 0 0; padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  animation: modalSlideUp .25s cubic-bezier(.4,0,.2,1);
+}
+.mobile-dropdown-sheet::before {
+  content: ''; display: block; width: 40px; height: 4px; background: var(--border2);
+  border-radius: 2px; margin: 0 auto 14px;
+}
+.mobile-dropdown-title {
+  font-size: 15px; font-weight: 700; color: var(--text); text-align: center; margin-bottom: 12px;
+}
+.mobile-dropdown-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; border-radius: 14px; margin-bottom: 4px;
+  cursor: pointer; -webkit-tap-highlight-color: rgba(199,165,122,0.15);
+  font-size: 15px; font-weight: 500;
+}
+.mobile-dropdown-item:active { background: var(--gold-dim); }
+.mobile-dropdown-item.selected { background: var(--gold-dim); font-weight: 700; color: var(--gold); }
+.mobile-dropdown-item.selected::after { content: '✓'; font-weight: 700; color: var(--gold); }
+</style>
+
+<!-- Mobile picker overlay HTML -->
+<div class="mobile-picker-overlay" id="mobile-product-picker">
+  <div class="mobile-picker-header">
+    <button class="close-picker" onclick="closeMobileProductPicker()">✕</button>
+    <input type="text" id="mobile-picker-search" placeholder="Rechercher un article..." oninput="filterMobileProductPicker(this.value)">
+  </div>
+  <div class="mobile-picker-list" id="mobile-picker-list"></div>
+</div>
+
+<!-- Mobile dropdown overlay HTML -->
+<div class="mobile-dropdown-overlay" id="mobile-dropdown" onclick="if(event.target===this)closeMobileDropdown()">
+  <div class="mobile-dropdown-sheet">
+    <div class="mobile-dropdown-title" id="mobile-dropdown-title"></div>
+    <div id="mobile-dropdown-items"></div>
+  </div>
+</div>
 
 </head>
 <body>
@@ -1565,8 +1712,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="grid3" style="margin-bottom:16px;">
       <div class="field"><label>Canal de vente</label><select class="select" id="vente-canal"></select></div>
       <div class="field"><label>Rechercher un Article</label>
-        <input type="text" class="input" id="vente-code" list="vente-code-list" oninput="onVenteCodeChange()" placeholder="Taper pour chercher...">
-        <datalist id="vente-code-list"></datalist>
+        <div class="mobile-select-wrap">
+          <input type="text" class="input" id="vente-code" list="vente-code-list" oninput="onVenteCodeChange()" placeholder="Taper pour chercher...">
+          <datalist id="vente-code-list"></datalist>
+          <button type="button" class="mobile-picker-btn" onclick="openMobileProductPicker()" title="Parcourir les articles">📋</button>
+        </div>
       </div>
       <div class="field"><label>Date</label><input type="date" class="input" id="vente-date"></div>
     </div>
@@ -7951,6 +8101,140 @@ function shopifyAlertTypeBadge(t) {
       }
     }
   }, {passive:false});
+})();
+
+// ── Mobile Product Picker ───────────────────────────────────
+var _mobilePickerData = [];
+function openMobileProductPicker(){
+  var overlay = document.getElementById('mobile-product-picker');
+  var list = document.getElementById('mobile-picker-list');
+  var searchInput = document.getElementById('mobile-picker-search');
+  if(!overlay) return;
+
+  // Build product list from stockFini + catalogue
+  _mobilePickerData = [];
+  (DB.catalogue||[]).forEach(function(p){
+    var sf = (DB.stockFini||[]).find(function(f){return f.code===p.code;});
+    var stock = sf ? (sf.stock||0) : 0;
+    _mobilePickerData.push({
+      code: p.code, designation: p.designation, taille: p.taille,
+      pv: p.pv, stock: stock, design: p.design||''
+    });
+  });
+
+  renderMobilePickerList('');
+  overlay.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(function(){ searchInput.focus(); }, 300);
+}
+
+function closeMobileProductPicker(){
+  var overlay = document.getElementById('mobile-product-picker');
+  if(overlay) overlay.classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function filterMobileProductPicker(query){
+  renderMobilePickerList(query);
+}
+
+function renderMobilePickerList(query){
+  var list = document.getElementById('mobile-picker-list');
+  if(!list) return;
+  var q = (query||'').toLowerCase().trim();
+  var items = _mobilePickerData.filter(function(p){
+    if(!q) return true;
+    return (p.code||'').toLowerCase().indexOf(q)>-1 ||
+           (p.designation||'').toLowerCase().indexOf(q)>-1 ||
+           (p.design||'').toLowerCase().indexOf(q)>-1 ||
+           (p.taille||'').toLowerCase().indexOf(q)>-1;
+  });
+  if(!items.length){
+    list.innerHTML = '<div class="mobile-picker-empty">Aucun article trouvé</div>';
+    return;
+  }
+  // Group by design
+  var groups = {};
+  items.forEach(function(p){
+    var key = p.design || p.designation || p.code;
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  });
+  var html = '';
+  Object.keys(groups).forEach(function(design){
+    html += '<div style="font-size:11px;font-weight:700;color:var(--muted);padding:10px 6px 4px;text-transform:uppercase;letter-spacing:.06em;">'+escapeHtml(design)+'</div>';
+    groups[design].forEach(function(p){
+      var stockClass = p.stock <= 0 ? 'danger' : p.stock <= 3 ? 'warn' : 'ok';
+      html += '<div class="mobile-picker-item" onclick="selectMobileProduct(\''+p.code.replace(/'/g,"\\'")+'\')">' +
+        '<span class="pi-code">'+escapeHtml(p.code)+'</span>' +
+        '<span class="pi-name">'+escapeHtml(p.designation)+'</span>' +
+        '<span class="pi-detail">'+escapeHtml(p.taille||'')+'</span>' +
+        '<span class="pi-stock '+stockClass+'">'+p.stock+'</span>' +
+      '</div>';
+    });
+  });
+  list.innerHTML = html;
+}
+
+function selectMobileProduct(code){
+  var input = document.getElementById('vente-code');
+  if(input){ input.value = code; onVenteCodeChange(); }
+  closeMobileProductPicker();
+  toast('Article sélectionné');
+}
+
+// ── Mobile Dropdown for <select> ────────────────────────────
+var _mobileDropdownTarget = null;
+function openMobileDropdown(selectEl, title){
+  if(window.innerWidth > 768) return; // desktop: use native
+  var overlay = document.getElementById('mobile-dropdown');
+  var titleEl = document.getElementById('mobile-dropdown-title');
+  var itemsEl = document.getElementById('mobile-dropdown-items');
+  if(!overlay || !selectEl) return;
+
+  _mobileDropdownTarget = selectEl;
+  titleEl.textContent = title || 'Choisir';
+  var html = '';
+  Array.from(selectEl.options).forEach(function(opt, i){
+    if(!opt.value && opt.textContent.indexOf('Choisir')>-1) return; // skip placeholder
+    var selected = selectEl.selectedIndex === i;
+    html += '<div class="mobile-dropdown-item'+(selected?' selected':'')+'" onclick="selectMobileDropdown('+i+')">' +
+      escapeHtml(opt.textContent) + '</div>';
+  });
+  itemsEl.innerHTML = html;
+  overlay.classList.add('open');
+}
+
+function closeMobileDropdown(){
+  var overlay = document.getElementById('mobile-dropdown');
+  if(overlay) overlay.classList.remove('open');
+  _mobileDropdownTarget = null;
+}
+
+function selectMobileDropdown(index){
+  if(_mobileDropdownTarget){
+    _mobileDropdownTarget.selectedIndex = index;
+    // Fire change event
+    var evt = new Event('change', {bubbles:true});
+    _mobileDropdownTarget.dispatchEvent(evt);
+  }
+  closeMobileDropdown();
+}
+
+// ── Auto-convert selects on mobile ──────────────────────────
+(function(){
+  if(window.innerWidth > 768) return;
+  document.addEventListener('mousedown', function(e){
+    var sel = e.target.closest('select');
+    if(!sel) return;
+    // Skip selects that are tiny inline controls (like table inline edits)
+    if(sel.classList.contains('input-sm') && sel.closest('td')) return;
+    // Get the label
+    var field = sel.closest('.field');
+    var label = field ? (field.querySelector('label')||{}).textContent : '';
+    e.preventDefault();
+    openMobileDropdown(sel, label || 'Sélectionner');
+  }, {capture:true});
 })();
 </script>
 
