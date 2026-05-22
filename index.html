@@ -280,6 +280,23 @@ tr:hover td{background:var(--surface2);}
 .cal-ev-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.3;}
 .cal-ev-meta{font-size:12px;color:var(--muted);margin-top:2px;}
 .cal-mobile-empty{font-size:12px;color:var(--hint);padding:4px 4px;}
+
+/* ===== PAYMENT METHOD SELECTOR ===== */
+.payment-method-selector{display:flex;gap:6px;flex-wrap:wrap;}
+.pm-option{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pm-option input[type="radio"]{display:none;}
+.pm-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:10px 14px;border-radius:12px;
+  border:2px solid var(--border2);background:var(--surface2);
+  font-size:13px;font-weight:600;color:var(--text);
+  transition:all .15s;white-space:nowrap;
+}
+.pm-option input[type="radio"]:checked + .pm-chip{
+  border-color:var(--gold);background:rgba(199,165,122,0.12);color:var(--gold);
+  box-shadow:0 0 0 1px var(--gold);
+}
+.pm-icon{font-size:16px;}
 .progress-lite{height:8px;background:var(--surface3);border-radius:999px;overflow:hidden;}
 .progress-lite > div{height:100%;background:var(--gold);}
 .tag{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--surface3);color:var(--muted);}
@@ -1952,9 +1969,17 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
       <div class="field"><label>💶 Prix final (€)</label><div class="mono" id="vente-prix-final" style="padding:8px 12px;background:var(--success-bg);border:1px solid var(--success);border-radius:var(--r);font-weight:700;font-size:16px;color:var(--success);">—</div></div>
     </div>
-    <div class="grid2" style="margin-bottom:16px;">
+    <div class="grid3" style="margin-bottom:16px;">
       <div class="field"><label>N° Commande / vente</label><input type="text" class="input" id="vente-numcde" placeholder="Ex: #1080"></div>
       <div class="field"><label>Email client</label><input type="email" class="input" id="vente-email" placeholder="client@email.com"></div>
+      <div class="field"><label>💳 Moyen de paiement</label>
+        <div class="payment-method-selector" id="payment-method-selector">
+          <label class="pm-option"><input type="radio" name="vente-paiement" value="Espèces" checked><span class="pm-chip"><span class="pm-icon">💵</span>Espèces</span></label>
+          <label class="pm-option"><input type="radio" name="vente-paiement" value="Carte"><span class="pm-chip"><span class="pm-icon">💳</span>Carte</span></label>
+          <label class="pm-option"><input type="radio" name="vente-paiement" value="Virement"><span class="pm-chip"><span class="pm-icon">🏦</span>Virement</span></label>
+          <label class="pm-option"><input type="radio" name="vente-paiement" value="Autre"><span class="pm-chip"><span class="pm-icon">📝</span>Autre</span></label>
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-bottom:14px;">
       <button class="btn btn-secondary" onclick="clearVenteLineFields()">Effacer la ligne</button>
@@ -1981,7 +2006,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <button class="btn btn-secondary btn-sm" onclick="exportVentesCSV()">⬇ Export CSV</button>
       </div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Canal</th><th>Code Article</th><th>Désignation</th><th>Taille</th><th class="r">Qté</th><th class="r">PV (€)</th><th class="r">Total</th><th>N° Cde</th><th></th></tr></thead><tbody id="ventes-body"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Canal</th><th>Code Article</th><th>Désignation</th><th>Taille</th><th class="r">Qté</th><th class="r">PV (€)</th><th class="r">Total</th><th>Paiement</th><th>N° Cde</th><th></th></tr></thead><tbody id="ventes-body"></tbody></table></div>
   </div>
 </div>
 
@@ -3347,6 +3372,8 @@ function clearVenteForm() {
   document.getElementById('vente-taille').value=''; document.getElementById('vente-pv').value='';
   document.getElementById('vente-qte').value='1'; document.getElementById('vente-numcde').value='';
   document.getElementById('vente-email').value='';
+  var firstPm = document.querySelector('input[name="vente-paiement"][value="Espèces"]');
+  if(firstPm) firstPm.checked = true;
 }
 function renderVentes() {
   var canal = document.getElementById('ventes-filter-canal') ? document.getElementById('ventes-filter-canal').value : '';
@@ -5539,6 +5566,8 @@ function enregistrerVente() {
   var canal = document.getElementById('vente-canal').value || getAvailableSaleChannels()[0];
   var numCde = document.getElementById('vente-numcde').value || '';
   var email = document.getElementById('vente-email').value || '';
+  var paiementRadio = document.querySelector('input[name="vente-paiement"]:checked');
+  var paiement = paiementRadio ? paiementRadio.value : 'Espèces';
   var venteId = 'VT-' + Date.now();
 
   for(var i=0;i<currentSaleItems.length;i++){
@@ -5566,7 +5595,8 @@ function enregistrerVente() {
       remise: line.remise || 0,
       qte: line.qte,
       numCde: numCde,
-      email: email
+      email: email,
+      paiement: paiement
     });
     var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
     if(sf) sf.stock = Math.max(0, (sf.stock||0) - (line.qte||0));
@@ -5611,7 +5641,7 @@ renderVentes = function() {
   var items = getGroupedSales(canal);
   var tbody = document.getElementById('ventes-body');
   if(!tbody) return;
-  if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Aucune vente</td></tr>'; return; }
+  if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Aucune vente</td></tr>'; return; }
   tbody.innerHTML = items.slice(0, 100).map(function(v){
     var grouped = v.lines.length > 1;
     return v.lines.map(function(line, lineIdx){
@@ -5622,6 +5652,9 @@ renderVentes = function() {
           ? ' <span class="badge badge-info" style="margin-left:6px;vertical-align:middle;">Commande groupée</span>'
           : '<div style="font-size:10px;color:var(--hint);margin-top:3px;">↳ même commande</div>';
       }
+      var paiementEmoji = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Autre':'📝'};
+      var pm = line.paiement || '—';
+      var pmBadge = pm !== '—' ? '<span class="badge badge-neutral" style="font-size:10px;">'+(paiementEmoji[pm]||'')+ ' ' +escapeHtml(pm)+'</span>' : '—';
       return '<tr'+(grouped && firstLine ? ' style="background:rgba(0,0,0,0.015);"' : '')+'>'+
         '<td>'+formatDate(v.date)+'</td>'+
         '<td><span class="badge badge-neutral">'+escapeHtml(v.canal||'—')+'</span></td>'+
@@ -5631,6 +5664,7 @@ renderVentes = function() {
         '<td class="r">'+(line.qte||0)+'</td>'+
         '<td class="r mono">'+fmt(line.pv||0)+(line.remise && line.remise > 0 ? ' <span class="badge badge-warn" style="font-size:9px;padding:2px 5px;">-'+line.remise+'%</span>' : '')+'</td>'+
         '<td class="r mono" style="font-weight:700;">'+fmt((line.pv||0) * (line.qte||0))+'</td>'+
+        '<td>'+pmBadge+'</td>'+
         '<td class="mono" style="color:var(--muted);">'+numCdeLabel+'</td>'+
         '<td>'+(firstLine ? '<div style="display:flex;gap:4px;"><button class="btn-icon" onclick="editVenteGroup(\''+String(v.id).replace(/'/g,"\'")+'\')" title="Modifier">✏️</button><button class="btn-icon" onclick="deleteVente(\''+String(v.id).replace(/'/g,"\'")+'\')" title="Supprimer">🗑</button></div>' : '<span style="opacity:.25;">—</span>')+'</td>'+
       '</tr>';
@@ -5653,6 +5687,13 @@ function editVenteGroup(venteKey) {
       '<div class="field"><label>N° Commande</label><input class="input" id="ev-numcde" value="'+escapeHtml(first.numCde||'')+'"></div>' +
     '</div>' +
     '<div class="field" style="margin-bottom:12px;"><label>Email client</label><input class="input" id="ev-email" value="'+escapeHtml(first.email||'')+'"></div>' +
+    '<div class="field" style="margin-bottom:12px;"><label>💳 Moyen de paiement</label><div class="payment-method-selector">' +
+      ['Espèces','Carte','Virement','Autre'].map(function(pm){
+        var emojis = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Autre':'📝'};
+        var checked = (first.paiement||'Espèces') === pm ? ' checked' : '';
+        return '<label class="pm-option"><input type="radio" name="ev-paiement" value="'+pm+'"'+checked+'><span class="pm-chip"><span class="pm-icon">'+emojis[pm]+'</span>'+pm+'</span></label>';
+      }).join('') +
+    '</div></div>' +
     '<div style="margin-bottom:8px;font-weight:700;font-size:13px;">Lignes de la vente</div>';
   lines.forEach(function(entry, li){
     var v = entry.v;
@@ -5675,6 +5716,8 @@ function saveEditedVente(venteKey, lineCount){
   var canal = document.getElementById('ev-canal').value;
   var numCde = document.getElementById('ev-numcde').value;
   var email = document.getElementById('ev-email').value;
+  var paiementRadio = document.querySelector('input[name="ev-paiement"]:checked');
+  var paiement = paiementRadio ? paiementRadio.value : 'Espèces';
   var li = 0;
   DB.ventes.forEach(function(v, idx){
     if(saleTransactionKey(v, idx) === venteKey && li < lineCount){
@@ -5690,6 +5733,7 @@ function saveEditedVente(venteKey, lineCount){
       v.canal = canal;
       v.numCde = numCde;
       v.email = email;
+      v.paiement = paiement;
       v.pv = newPv;
       v.qte = newQte;
       li++;
