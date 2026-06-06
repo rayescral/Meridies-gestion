@@ -1777,6 +1777,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="nav-item" onclick="goTo('stock-vierge')"><span class="icon">👕</span>Produits vierges</div>
     <div class="nav-item" onclick="goTo('stock-dtf')"><span class="icon">🎨</span>Stock Designs</div>
     <div class="nav-item" onclick="goTo('stock-fini')"><span class="icon">✅</span>Produits finis</div>
+    <div class="nav-item" onclick="goTo('nomenclature')"><span class="icon">🔗</span>Nomenclature</div>
     
     <div class="nav-section">Ventes</div>
     <div class="nav-item" onclick="goTo('saisie-vente')"><span class="icon">🛒</span>Saisie vente</div>
@@ -1909,7 +1910,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <span class="card-title">Stock Produits vierges</span>
       <button class="btn btn-primary btn-sm" onclick="openAddStockVierge()">+ Entrée de stock</button>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Référence</th><th>Couleur</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>XXL</th><th class="r">Total</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sv-body"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Référence</th><th>Couleur</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th class="r">Total</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sv-body"></tbody></table></div>
   </div>
 </div>
 
@@ -1932,6 +1933,35 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <button class="btn btn-primary btn-sm" onclick="openAddStockFini()">+ Assembler un produit</button>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Code Article</th><th>Désignation</th><th>Taille</th><th>Stock</th><th class="r">PV (€)</th><th class="r">Valeur PV</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sf-body"></tbody></table></div>
+  </div>
+</div>
+
+<div class="page" id="page-nomenclature">
+  <div class="card" style="margin-bottom:14px;">
+    <div style="padding:14px 16px 0;">
+      <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
+        🔗 La nomenclature définit quels composants (produit vierge + design) constituent chaque produit fini. 
+        Lors d'une vente, le site décrémentera automatiquement les bons stocks.
+      </div>
+    </div>
+    <div class="card-header" style="padding:0 16px 14px;">
+      <span class="card-title">Nomenclature des produits</span>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="autoGenerateNomenclature()">⚡ Générer automatiquement</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAllNomenclatures()">🗑 Tout supprimer</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddNomenclature()">+ Ajouter une règle</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Réf produit</th><th>Désignation</th>
+        <th>Codes articles concernés</th>
+        <th>Produit vierge → couleur</th>
+        <th>Design appliqué</th>
+        <th>Stock vierge</th><th>Stock design</th>
+        <th></th>
+      </tr></thead><tbody id="nom-body"></tbody></table>
+    </div>
   </div>
 </div>
 
@@ -2375,6 +2405,7 @@ var DB = {
   stockVierge: [],
   stockDTF: [],
   stockFini: [],
+  nomenclatures: [],
   ventes: [],
   fournisseurs: [],
   bonsCommande: [],
@@ -2394,7 +2425,7 @@ var DB = {
 // ============================================================
 // RESTAURATION DIRECTE DEPUIS BACKUP INTÉGRÉ
 // ============================================================
-var EMBEDDED_BACKUP = {"catalogue":[{"code":"LP-0100-001-XS","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-S","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-M","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-L","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-XL","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-XS","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-S","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-M","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-L","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-XL","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-XS","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-S","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-M","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-L","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-XL","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-XS","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-S","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-M","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-L","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-XL","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-XS","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-S","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-M","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-L","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-XL","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-XS","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-S","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-M","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-L","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-XL","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LI-0500-002-XS","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-S","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-M","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-L","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-XL","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-XS","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-S","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-M","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-L","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-XL","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-XS","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-S","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-M","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-L","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-XL","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-XS","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-S","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-M","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-L","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-XL","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-XS","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-S","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-M","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-L","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-XL","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-XS","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-S","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-M","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-L","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-XL","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-XS","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-S","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-M","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-L","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-XL","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"ML-1300-004-XS","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-S","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-M","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-L","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-XL","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-XS","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-S","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-M","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-L","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-XL","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-XS","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-S","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-M","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-L","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-XL","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-XS","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-S","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-M","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-L","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-XL","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"CP-0200-005-U","ref":"CP-0200","design":"Capèu","couleur":"Bleu","designation":"Capèu Bleu","taille":"U","pv":30.0,"pa":0,"saison":""},{"code":"CP-0300-005-U","ref":"CP-0300","design":"Capèu","couleur":"Vert","designation":"Capèu Vert","taille":"U","pv":30.0,"pa":0,"saison":""},{"code":"CP-1200-005-U","ref":"CP-1200","design":"Capèu","couleur":"Beige","designation":"Capèu Beige","taille":"U","pv":30.0,"pa":0,"saison":""},{"code":"LM-1600-006-XS","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-S","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-M","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-L","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-XL","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-XS","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-S","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-M","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-L","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-XL","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-XS","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-S","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-M","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-L","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-XL","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-XS","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-S","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-M","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-L","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-XL","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-XS","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-S","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-M","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-L","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-XL","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LS-0700-007-XS","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"XS","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-S","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"S","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-M","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"M","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-L","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"L","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-XL","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"XL","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-XS","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"XS","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-S","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"S","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-M","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"M","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-L","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"L","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-XL","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"XL","pv":50.0,"pa":0,"saison":""},{"code":"LC-1600-008-XS","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-S","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-M","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-L","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-XL","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-XS","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-S","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-M","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-L","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-XL","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-XS","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-S","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-M","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-L","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-XL","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-XS","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-S","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-M","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-L","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-XL","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-XS","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-S","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-M","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-L","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-XL","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-XS","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-S","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-M","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-L","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-XL","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-XS","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-S","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-M","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-L","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-XL","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LB-0100-010-XS","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"XS","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-S","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"S","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-M","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"M","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-L","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"L","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-XL","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"XL","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-XS","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"XS","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-S","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"S","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-M","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"M","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-L","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"L","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-XL","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"XL","pv":30.0,"pa":0,"saison":""},{"code":"LR-0700-011-XS","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"XS","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-S","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"S","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-M","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"M","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-L","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"L","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-XL","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"XL","pv":0,"pa":0,"saison":""},{"code":"LR-0700-012-U","ref":"LR-0700","design":"Le Roy d'ys C","couleur":"Noir","designation":"Le Roy d'ys C Noir","taille":"U","pv":0,"pa":0,"saison":""},{"code":"LP-1200-013-U","ref":"LP-1200","design":"La Paiola","couleur":"Beige","designation":"La Paiola Beige","taille":"U","pv":30,"pa":17.2,"saison":"S26"},{"code":"LV-0700-014-U","ref":"LV-0700","design":"Lou Velout","couleur":"Noir","designation":"Lou Velout Noir","taille":"U","pv":30,"pa":9.4,"saison":"S26"},{"code":"TL-1200-015-U","ref":"TL-1200","design":"Tote Bag La Ciotat","couleur":"Beige","designation":"Tote Bag La Ciotat Beige","taille":"U","pv":5,"pa":2.28,"saison":"S26"},{"code":"TC-1200-015-U","ref":"TC-1200","design":"Tote Bag Cassis","couleur":"Beige","designation":"Tote Bag Cassis Beige","taille":"U","pv":5,"pa":2.28,"saison":"S26"},{"code":"LL-2300-016-U","ref":"LL-2300","design":"Lou Limounadié","couleur":"Bordeau","designation":"Lou Limounadié Bordeau","taille":"U","pv":8,"pa":4.08,"saison":"S26"}],"stockVierge":[{"ref":"E220","couleur":"Blanc","xs":22,"s":35,"m":60,"l":25,"xl":10,"xxl":0,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"E220","couleur":"Noir","xs":6,"s":10,"m":16,"l":10,"xl":5,"xxl":0,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"E220","couleur":"Bleu marine","xs":8,"s":12,"m":20,"l":12,"xl":8,"xxl":0,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"E220","couleur":"Sand","xs":4,"s":8,"m":10,"l":6,"xl":2,"xxl":0,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"NM003","couleur":"Powder blue","xs":4,"s":8,"m":12,"l":8,"xl":4,"xxl":0,"pa":8.8,"seuil":10,"enCommande":0},{"ref":"KP359","couleur":"Noir","xs":0,"s":0,"m":0,"l":0,"xl":0,"xxl":0,"u":20,"pa":6.0,"seuil":8,"enCommande":0},{"ref":"FL9303","couleur":"Natural","xs":0,"s":0,"m":0,"l":0,"xl":0,"xxl":0,"u":20,"pa":12.5,"seuil":20,"enCommande":0},{"ref":"TK101","couleur":"Rose","xs":4,"s":8,"m":8,"l":6,"xl":4,"xxl":0,"pa":5.73,"seuil":7,"enCommande":0},{"ref":"TK102","couleur":"Bleu","xs":4,"s":8,"m":8,"l":6,"xl":4,"xxl":0,"pa":5.73,"seuil":7,"enCommande":0}],"stockDTF":[],"stockFini":[],"ventes":[{"id":1776112143447,"pv":35,"qte":20,"ref":"LP-0300","code":"LP-0300-001-XS","date":"2026-04-13","canal":"Shopify","email":"","design":"Lou Pescadou","numCde":"1000","taille":"XS","designation":"Lou Pescadou Vert"}],"fournisseurs":[{"nom":"Influence 13","notes":{"com":3,"prix":3,"delais":3,"qualite":4},"contact":"contact@influence13.fr","notes_txt":"","typesProduits":"T-shirt"},{"nom":"CDP13","rdv":true,"devis":false,"notes":{"com":3,"prix":3,"delais":3,"qualite":3},"contact":"","produits":"T-shirt","typesProduits":"T-shirt"},{"nom":"Cottonmade","rdv":false,"devis":false,"notes":{"com":3,"prix":3,"delais":3,"qualite":3},"contact":"","produits":"T-shirt","typesProduits":"T-shirt"},{"nom":"Alibaba","rdv":false,"devis":false,"notes":"Plusieurs fournisseurs","contact":"","produits":"Chemise","typesProduits":"Chemise"}],"bonsCommande":[{"id":"BC-20260413-001","date":"2026-04-13","email":"contact@influence13.fr","total":1140,"statut":"EN ATTENTE","articles":[{"qte":60,"ref":"CASQ-BE","prix":19,"taille":"U","couleur":"Beige","montant":1140,"qteRecue":0,"designation":"Casquette Beige"}],"paiement":"Comptant","totalQte":60,"createdAt":"2026-04-13T20:26:30.907Z","livraison":"2026-04-27","receptions":[],"commentaire":"","fournisseur":"Influence 13","totalQteRecue":0}],"todos":[{"due":"2026-03-31","prio":"A","task":"S'inscrire marché La Ciotat 2026","owner":"Quentin","status":"TERMINER"},{"due":"","prio":"A","task":"S'occuper des fournisseurs","owner":"Eliott","status":"EN COURS"},{"due":"","prio":"B","task":"Faire la matrice automatisée pour le stock","owner":"Quentin","status":"TERMINER"},{"due":"2026-04-09","prio":"B","task":"Plan d'action TikTok + planning","owner":"Seb","status":"A TRAITER"},{"due":"","prio":"A","task":"Calculer coûts de revient 2026","owner":"Quentin / Eliott","status":"EN ATTENTE"},{"due":"2026-04-09","prio":"A","task":"Stratégie de com + support lancement drop","owner":"Seb","status":"A TRAITER"},{"due":"","prio":"A","task":"Stock + prévisions 2026 (~300 pièces)","owner":"Quentin / Eliott","status":"A TRAITER"},{"due":"","prio":"A","task":"Devis Alibaba (sur mesure + échantillons)","owner":"Quentin","status":"A TRAITER"},{"due":"2026-04-07","prio":"A","task":"Créer modèle bon de commande fournisseur","owner":"Seb","status":"TERMINER"}]};
+var EMBEDDED_BACKUP = {"catalogue":[{"code":"LP-0100-001-XS","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-S","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-M","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-L","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0100-001-XL","ref":"LP-0100","design":"Lou Pescadou","couleur":"Rose","designation":"Lou Pescadou Rose","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-XS","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-S","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-M","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-L","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0200-001-XL","ref":"LP-0200","design":"Lou Pescadou","couleur":"Bleu","designation":"Lou Pescadou Bleu","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-XS","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-S","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-M","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-L","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0300-001-XL","ref":"LP-0300","design":"Lou Pescadou","couleur":"Vert","designation":"Lou Pescadou Vert","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-XS","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-S","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-M","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-L","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0400-001-XL","ref":"LP-0400","design":"Lou Pescadou","couleur":"Violet","designation":"Lou Pescadou Violet","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-XS","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-S","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-M","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-L","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0500-001-XL","ref":"LP-0500","design":"Lou Pescadou","couleur":"Blanc","designation":"Lou Pescadou Blanc","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-XS","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"XS","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-S","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"S","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-M","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"M","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-L","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"L","pv":35.0,"pa":9.6,"saison":""},{"code":"LP-0600-001-XL","ref":"LP-0600","design":"Lou Pescadou","couleur":"Marron","designation":"Lou Pescadou Marron","taille":"XL","pv":35.0,"pa":9.6,"saison":""},{"code":"LI-0500-002-XS","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-S","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-M","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-L","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0500-002-XL","ref":"LI-0500","design":"Li d’elo dóu Sud","couleur":"Blanc","designation":"Li d’elo dóu Sud Blanc","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-XS","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-S","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-M","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-L","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0700-002-XL","ref":"LI-0700","design":"Li d’elo dóu Sud","couleur":"Noir","designation":"Li d’elo dóu Sud Noir","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-XS","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-S","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-M","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-L","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0300-002-XL","ref":"LI-0300","design":"Li d’elo dóu Sud","couleur":"Vert","designation":"Li d’elo dóu Sud Vert","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-XS","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-S","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-M","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-L","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"LI-0900-002-XL","ref":"LI-0900","design":"Li d’elo dóu Sud","couleur":"Jaune","designation":"Li d’elo dóu Sud Jaune","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-XS","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-S","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-M","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-L","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0200-003-XL","ref":"MT-0200","design":"Mercatus","couleur":"Bleu","designation":"Mercatus Bleu","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-XS","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-S","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-M","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-L","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0700-003-XL","ref":"MT-0700","design":"Mercatus","couleur":"Noir","designation":"Mercatus Noir","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-XS","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"XS","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-S","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"S","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-M","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"M","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-L","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"L","pv":35.0,"pa":10.3,"saison":""},{"code":"MT-0500-003-XL","ref":"MT-0500","design":"Mercatus","couleur":"Blanc","designation":"Mercatus Blanc","taille":"XL","pv":35.0,"pa":10.3,"saison":""},{"code":"ML-1300-004-XS","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-S","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-M","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-L","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1300-004-XL","ref":"ML-1300","design":"Massilia","couleur":"Bleu ciel / Blanc","designation":"Massilia Bleu ciel / Blanc","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-XS","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-S","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-M","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-L","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-2100-004-XL","ref":"ML-2100","design":"Massilia","couleur":"Bleu ciel / Bleu","designation":"Massilia Bleu ciel / Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-XS","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-S","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-M","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-L","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1400-004-XL","ref":"ML-1400","design":"Massilia","couleur":"Blanc / Bleu","designation":"Massilia Blanc / Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-XS","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-S","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-M","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-L","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"ML-1500-004-XL","ref":"ML-1500","design":"Massilia","couleur":"Bleu marine / Blanc","designation":"Massilia Bleu marine / Blanc","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"CP-0200-005-U","ref":"CP-0200","design":"Capèu","couleur":"Bleu","designation":"Capèu Bleu","taille":"U","pv":30.0,"pa":0,"saison":""},{"code":"CP-0300-005-U","ref":"CP-0300","design":"Capèu","couleur":"Vert","designation":"Capèu Vert","taille":"U","pv":30.0,"pa":0,"saison":""},{"code":"CP-1200-005-U","ref":"CP-1200","design":"Capèu","couleur":"Beige","designation":"Capèu Beige","taille":"U","pv":30.0,"pa":0,"saison":""},{"code":"LM-1600-006-XS","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-S","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-M","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-L","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1600-006-XL","ref":"LM-1600","design":"Lou Mistrau","couleur":"Blanc / Rose","designation":"Lou Mistrau Blanc / Rose","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-XS","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-S","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-M","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-L","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1400-006-XL","ref":"LM-1400","design":"Lou Mistrau","couleur":"Blanc / Bleu","designation":"Lou Mistrau Blanc / Bleu","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-XS","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-S","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-M","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-L","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1800-006-XL","ref":"LM-1800","design":"Lou Mistrau","couleur":"Blanc / Vert","designation":"Lou Mistrau Blanc / Vert","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-XS","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-S","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-M","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-L","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-1900-006-XL","ref":"LM-1900","design":"Lou Mistrau","couleur":"Noir / Blanc","designation":"Lou Mistrau Noir / Blanc","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-XS","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"XS","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-S","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"S","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-M","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"M","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-L","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"L","pv":55.0,"pa":0,"saison":""},{"code":"LM-2000-006-XL","ref":"LM-2000","design":"Lou Mistrau","couleur":"Noir / Rose","designation":"Lou Mistrau Noir / Rose","taille":"XL","pv":55.0,"pa":0,"saison":""},{"code":"LS-0700-007-XS","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"XS","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-S","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"S","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-M","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"M","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-L","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"L","pv":50.0,"pa":0,"saison":""},{"code":"LS-0700-007-XL","ref":"LS-0700","design":"Lou Serein","couleur":"Noir","designation":"Lou Serein Noir","taille":"XL","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-XS","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"XS","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-S","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"S","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-M","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"M","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-L","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"L","pv":50.0,"pa":0,"saison":""},{"code":"LS-0500-007-XL","ref":"LS-0500","design":"Lou Serein","couleur":"Blanc","designation":"Lou Serein Blanc","taille":"XL","pv":50.0,"pa":0,"saison":""},{"code":"LC-1600-008-XS","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-S","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-M","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-L","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1600-008-XL","ref":"LC-1600","design":"Lou Cap Canaio","couleur":"Blanc / Rose","designation":"Lou Cap Canaio Blanc / Rose","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-XS","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-S","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-M","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-L","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2000-008-XL","ref":"LC-2000","design":"Lou Cap Canaio","couleur":"Noir / Rose","designation":"Lou Cap Canaio Noir / Rose","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-XS","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-S","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-M","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-L","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-1400-008-XL","ref":"LC-1400","design":"Lou Cap Canaio","couleur":"Blanc / Bleu","designation":"Lou Cap Canaio Blanc / Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-XS","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-S","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-M","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-L","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-2200-008-XL","ref":"LC-2200","design":"Lou Cap Canaio","couleur":"Bleu / Beige","designation":"Lou Cap Canaio Bleu / Beige","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-XS","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-S","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-M","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-L","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LC-0700-008-XL","ref":"LC-0700","design":"Lou Cap Canaio","couleur":"Noir","designation":"Lou Cap Canaio Noir","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-XS","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-S","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-M","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-L","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0700-009-XL","ref":"LV-0700","design":"Lou Santavél","couleur":"Noir","designation":"Lou Santavél Noir","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-XS","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"XS","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-S","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"S","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-M","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"M","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-L","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"L","pv":35.0,"pa":10.86,"saison":""},{"code":"LV-0200-009-XL","ref":"LV-0200","design":"Lou Santavél","couleur":"Bleu","designation":"Lou Santavél Bleu","taille":"XL","pv":35.0,"pa":10.86,"saison":""},{"code":"LB-0100-010-XS","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"XS","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-S","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"S","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-M","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"M","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-L","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"L","pv":30.0,"pa":0,"saison":""},{"code":"LB-0100-010-XL","ref":"LB-0100","design":"Lou Bagnadou","couleur":"Rose","designation":"Lou Bagnadou Rose","taille":"XL","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-XS","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"XS","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-S","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"S","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-M","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"M","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-L","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"L","pv":30.0,"pa":0,"saison":""},{"code":"LB-0200-010-XL","ref":"LB-0200","design":"Lou Bagnadou","couleur":"Bleu","designation":"Lou Bagnadou Bleu","taille":"XL","pv":30.0,"pa":0,"saison":""},{"code":"LR-0700-011-XS","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"XS","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-S","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"S","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-M","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"M","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-L","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"L","pv":0,"pa":0,"saison":""},{"code":"LR-0700-011-XL","ref":"LR-0700","design":"Le Roy d'ys T","couleur":"Noir","designation":"Le Roy d'ys T Noir","taille":"XL","pv":0,"pa":0,"saison":""},{"code":"LR-0700-012-U","ref":"LR-0700","design":"Le Roy d'ys C","couleur":"Noir","designation":"Le Roy d'ys C Noir","taille":"U","pv":0,"pa":0,"saison":""},{"code":"LP-1200-013-U","ref":"LP-1200","design":"La Paiola","couleur":"Beige","designation":"La Paiola Beige","taille":"U","pv":30,"pa":17.2,"saison":"S26"},{"code":"LV-0700-014-U","ref":"LV-0700","design":"Lou Velout","couleur":"Noir","designation":"Lou Velout Noir","taille":"U","pv":30,"pa":9.4,"saison":"S26"},{"code":"TL-1200-015-U","ref":"TL-1200","design":"Tote Bag La Ciotat","couleur":"Beige","designation":"Tote Bag La Ciotat Beige","taille":"U","pv":5,"pa":2.28,"saison":"S26"},{"code":"TC-1200-015-U","ref":"TC-1200","design":"Tote Bag Cassis","couleur":"Beige","designation":"Tote Bag Cassis Beige","taille":"U","pv":5,"pa":2.28,"saison":"S26"},{"code":"LL-2300-016-U","ref":"LL-2300","design":"Lou Limounadié","couleur":"Bordeau","designation":"Lou Limounadié Bordeau","taille":"U","pv":8,"pa":4.08,"saison":"S26"}],"stockVierge":[{"ref":"E220","couleur":"Blanc","xs":22,"s":35,"m":60,"l":25,"xl":10,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"E220","couleur":"Noir","xs":6,"s":10,"m":16,"l":10,"xl":5,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"E220","couleur":"Bleu marine","xs":8,"s":12,"m":20,"l":12,"xl":8,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"E220","couleur":"Sand","xs":4,"s":8,"m":10,"l":6,"xl":2,"pa":6.25,"seuil":20,"enCommande":0},{"ref":"NM003","couleur":"Powder blue","xs":4,"s":8,"m":12,"l":8,"xl":4,"pa":8.8,"seuil":10,"enCommande":0},{"ref":"KP359","couleur":"Noir","xs":0,"s":0,"m":0,"l":0,"xl":0,"u":20,"pa":6.0,"seuil":8,"enCommande":0},{"ref":"FL9303","couleur":"Natural","xs":0,"s":0,"m":0,"l":0,"xl":0,"u":20,"pa":12.5,"seuil":20,"enCommande":0},{"ref":"TK101","couleur":"Rose","xs":4,"s":8,"m":8,"l":6,"xl":4,"pa":5.73,"seuil":7,"enCommande":0},{"ref":"TK102","couleur":"Bleu","xs":4,"s":8,"m":8,"l":6,"xl":4,"pa":5.73,"seuil":7,"enCommande":0}],"stockDTF":[],"stockFini":[],"ventes":[{"id":1776112143447,"pv":35,"qte":20,"ref":"LP-0300","code":"LP-0300-001-XS","date":"2026-04-13","canal":"Shopify","email":"","design":"Lou Pescadou","numCde":"1000","taille":"XS","designation":"Lou Pescadou Vert"}],"fournisseurs":[{"nom":"Influence 13","notes":{"com":3,"prix":3,"delais":3,"qualite":4},"contact":"contact@influence13.fr","notes_txt":"","typesProduits":"T-shirt"},{"nom":"CDP13","rdv":true,"devis":false,"notes":{"com":3,"prix":3,"delais":3,"qualite":3},"contact":"","produits":"T-shirt","typesProduits":"T-shirt"},{"nom":"Cottonmade","rdv":false,"devis":false,"notes":{"com":3,"prix":3,"delais":3,"qualite":3},"contact":"","produits":"T-shirt","typesProduits":"T-shirt"},{"nom":"Alibaba","rdv":false,"devis":false,"notes":"Plusieurs fournisseurs","contact":"","produits":"Chemise","typesProduits":"Chemise"}],"bonsCommande":[{"id":"BC-20260413-001","date":"2026-04-13","email":"contact@influence13.fr","total":1140,"statut":"EN ATTENTE","articles":[{"qte":60,"ref":"CASQ-BE","prix":19,"taille":"U","couleur":"Beige","montant":1140,"qteRecue":0,"designation":"Casquette Beige"}],"paiement":"Comptant","totalQte":60,"createdAt":"2026-04-13T20:26:30.907Z","livraison":"2026-04-27","receptions":[],"commentaire":"","fournisseur":"Influence 13","totalQteRecue":0}],"todos":[{"due":"2026-03-31","prio":"A","task":"S'inscrire marché La Ciotat 2026","owner":"Quentin","status":"TERMINER"},{"due":"","prio":"A","task":"S'occuper des fournisseurs","owner":"Eliott","status":"EN COURS"},{"due":"","prio":"B","task":"Faire la matrice automatisée pour le stock","owner":"Quentin","status":"TERMINER"},{"due":"2026-04-09","prio":"B","task":"Plan d'action TikTok + planning","owner":"Seb","status":"A TRAITER"},{"due":"","prio":"A","task":"Calculer coûts de revient 2026","owner":"Quentin / Eliott","status":"EN ATTENTE"},{"due":"2026-04-09","prio":"A","task":"Stratégie de com + support lancement drop","owner":"Seb","status":"A TRAITER"},{"due":"","prio":"A","task":"Stock + prévisions 2026 (~300 pièces)","owner":"Quentin / Eliott","status":"A TRAITER"},{"due":"","prio":"A","task":"Devis Alibaba (sur mesure + échantillons)","owner":"Quentin","status":"A TRAITER"},{"due":"2026-04-07","prio":"A","task":"Créer modèle bon de commande fournisseur","owner":"Seb","status":"TERMINER"}]};
 
 function buildMergeMap(arr, keyFn) {
   var map = {};
@@ -2425,21 +2456,25 @@ function mergeMissingItems(targetArr, seedArr, keyFn) {
 
 function ensureBaseSeedData() {
   var changed = 0;
+
+  // ── One-time migrations ─────────────────────────────────
+  if(!DB.preferences) DB.preferences = {};
+  if(!DB.preferences.migrations) DB.preferences.migrations = {};
+
+  // Migration v3 : vider stockFini (auto-créé par erreur) + supprimer XXL dans stockVierge
+  if(!DB.preferences.migrations.v3_sfCleared){
+    DB.stockFini = [];
+    // Remove xxl from all stockVierge entries
+    (DB.stockVierge||[]).forEach(function(v){ delete v.xxl; });
+    DB.preferences.migrations.v3_sfCleared = true;
+    changed++;
+  }
+
   changed += mergeMissingItems(DB.catalogue, EMBEDDED_BACKUP.catalogue, function(i){ return i && i.code; });
   // Note: stockVierge and stockDTF are NOT merged from backup — user manages them manually
   changed += mergeMissingItems(DB.fournisseurs, EMBEDDED_BACKUP.fournisseurs, function(i){ return i && i.nom; });
   changed += mergeMissingItems(DB.todos, EMBEDDED_BACKUP.todos, function(i){ return i && [i.task, i.owner].join('|'); });
-  // Ensure stockFini has entries for all catalogue items
-  if(DB.catalogue && DB.stockFini){
-    var sfCodes = {};
-    DB.stockFini.forEach(function(sf){ sfCodes[sf.code]=true; });
-    DB.catalogue.forEach(function(p){
-      if(!sfCodes[p.code]){
-        DB.stockFini.push({code:p.code, ref:p.ref, designation:p.designation, design:p.design, taille:p.taille, pv:p.pv, stock:0, seuil:2});
-        changed++;
-      }
-    });
-  }
+  // Note: stockFini is managed manually — no auto-creation from catalogue
   if(changed>0) {
     initDatalists();
     try { localStorage.setItem('meridies_db', JSON.stringify(DB)); } catch(e) {}
@@ -2466,6 +2501,7 @@ function normalizeRestoredDB(data) {
     stockVierge: Array.isArray(data.stockVierge) ? data.stockVierge : [],
     stockDTF: Array.isArray(data.stockDTF) ? data.stockDTF : [],
     stockFini: Array.isArray(data.stockFini) ? data.stockFini : [],
+    nomenclatures: Array.isArray(data.nomenclatures) ? data.nomenclatures : [],
     ventes: Array.isArray(data.ventes) ? data.ventes : [],
     fournisseurs: Array.isArray(data.fournisseurs) ? data.fournisseurs : [],
     bonsCommande: Array.isArray(data.bonsCommande) ? data.bonsCommande : [],
@@ -2958,6 +2994,7 @@ function goTo(page) {
   var titles = {
     'dashboard':'Tableau de bord','catalogue':'Catalogue produits','stock-vierge':'Stock Produits vierges',
     'stock-dtf':'Stock Designs','stock-fini':'Stock Produits finis','saisie-vente':'Saisie des ventes',
+    'nomenclature':'Nomenclature — Liens composants',
     'fournisseurs':'Fournisseurs','commandes':'Bons de commande','todo':'Tâches',
     'calendar':'Calendrier / Planning','drops':'Drops & Collections','compta':'Comptabilité simplifiée',
     'journal':'Journal de bord marchés','sav':'Gestion des retours / SAV','shopify':'Shopify — E-commerce'
@@ -2966,6 +3003,7 @@ function goTo(page) {
   var renderers = {
     'dashboard':renderDashboard,'catalogue':renderCatalogue,'stock-vierge':renderStockVierge,
     'stock-dtf':renderStockDTF,'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
+    'nomenclature':renderNomenclature,
     'fournisseurs':renderFournisseurs,'commandes':renderCommandes,'todo':renderTodos,
     'calendar':renderCalendarPlanning,'drops':renderDropsCollections,'compta':renderCompta,
     'journal':renderMarketJournal,'sav':renderSav,'shopify':loadShopifyPage
@@ -3205,7 +3243,7 @@ function saveProduct(idx) {
 }
 function renderStockVierge() {
   var totalPcs=0,totalVal=0,totalCmd=0;
-  DB.stockVierge.forEach(function(v){var t=(v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0)+(v.u||0);totalPcs+=t;totalVal+=t*(v.pa||0);totalCmd+=(v.enCommande||0);});
+  DB.stockVierge.forEach(function(v){var t=(v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.u||0);totalPcs+=t;totalVal+=t*(v.pa||0);totalCmd+=(v.enCommande||0);});
   document.getElementById('sv-kpis').innerHTML =
     '<div class="kpi"><div class="kpi-label">Pièces en stock</div><div class="kpi-value">'+totalPcs+'</div></div>'+
     '<div class="kpi kpi-accent"><div class="kpi-label">En commande</div><div class="kpi-value">'+totalCmd+'</div><div class="kpi-sub">projeté: '+(totalPcs+totalCmd)+'</div></div>'+
@@ -3213,18 +3251,17 @@ function renderStockVierge() {
   
   var tbody = document.getElementById('sv-body');
   tbody.innerHTML = DB.stockVierge.map(function(v,i){
-    var total = (v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0)+(v.u||0);
+    var total = (v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.u||0);
     var val = total * (v.pa||0);
-    var hasU = (v.u !== undefined && v.u !== null && (v.u > 0 || ((v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0)) === 0));
+    var hasU = (v.u !== undefined && v.u !== null && (v.u > 0 || ((v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)) === 0));
     return '<tr><td class="mono">'+v.ref+'</td><td>'+v.couleur+'</td>'+
       (hasU ?
-        '<td colspan="6" class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+(v.u||0)+'" onchange="updateSV('+i+',\'u\',this.value)"> <span style="font-size:10px;color:var(--muted);">Taille unique</span></td>' :
+        '<td colspan="5" class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+(v.u||0)+'" onchange="updateSV('+i+',\'u\',this.value)"> <span style="font-size:10px;color:var(--muted);">Taille unique</span></td>' :
         '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.xs||0)+'" onchange="updateSV('+i+',\'xs\',this.value)"></td>'+
         '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.s||0)+'" onchange="updateSV('+i+',\'s\',this.value)"></td>'+
         '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.m||0)+'" onchange="updateSV('+i+',\'m\',this.value)"></td>'+
         '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.l||0)+'" onchange="updateSV('+i+',\'l\',this.value)"></td>'+
-        '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.xl||0)+'" onchange="updateSV('+i+',\'xl\',this.value)"></td>'+
-        '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.xxl||0)+'" onchange="updateSV('+i+',\'xxl\',this.value)"></td>'
+        '<td class="c"><input type="number" class="input-sm" style="width:45px;text-align:center;" value="'+(v.xl||0)+'" onchange="updateSV('+i+',\'xl\',this.value)"></td>'
       )+
       '<td class="r mono" style="font-weight:700;">'+total+'</td>'+
       '<td class="r mono" style="color:var(--info);">'+(v.enCommande||0)+'</td>'+
@@ -3314,6 +3351,241 @@ function deleteSF(i) {
     saveDB();
     refreshBusinessViews();
   }
+}
+
+// ============================================================
+// NOMENCLATURE
+// ============================================================
+function renderNomenclature(){
+  if(!DB.nomenclatures) DB.nomenclatures = [];
+  var tbody = document.getElementById('nom-body');
+  if(!tbody) return;
+  if(!DB.nomenclatures.length){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">🔗</div>Aucune règle.<br><small>Clique sur <strong>⚡ Générer automatiquement</strong> — une règle par ref produit sera créée.</small></td></tr>';
+    return;
+  }
+  tbody.innerHTML = DB.nomenclatures.map(function(n, i){
+    // Codes affectés
+    var codes = (DB.catalogue||[]).filter(function(p){ return p.ref === n.refProduit; }).map(function(p){ return p.code; });
+    var codesHtml = codes.slice(0,4).map(function(c){ return '<span class="badge badge-neutral" style="font-size:9px;margin:1px;">'+escapeHtml(c)+'</span>'; }).join('');
+    if(codes.length > 4) codesHtml += '<span style="font-size:10px;color:var(--muted);"> +' +(codes.length-4)+ '</span>';
+
+    // Stock vierge
+    var vierge = (DB.stockVierge||[]).find(function(v){ return v.ref===n.viergeRef && v.couleur===n.viergeColor; });
+    var totalVierge = vierge ? (vierge.xs||0)+(vierge.s||0)+(vierge.m||0)+(vierge.l||0)+(vierge.xl||0)+(vierge.u||0) : -1;
+    var viergeStatus = totalVierge < 0
+      ? '<span class="badge badge-warn">⚠ introuvable</span>'
+      : totalVierge === 0
+        ? '<span class="badge" style="background:var(--danger-bg);color:var(--danger);">rupture</span>'
+        : '<span class="badge badge-ok">'+totalVierge+' pcs</span>';
+
+    // Stock design
+    var dtf = n.designRef ? (DB.stockDTF||[]).find(function(d){ return d.ref===n.designRef; }) : null;
+    var designStatus = !n.designRef
+      ? '<span class="badge badge-neutral">sans design</span>'
+      : !dtf
+        ? '<span class="badge badge-warn">⚠ introuvable</span>'
+        : dtf.stock <= 0
+          ? '<span class="badge" style="background:var(--danger-bg);color:var(--danger);">rupture</span>'
+          : '<span class="badge badge-ok">'+dtf.stock+' pcs</span>';
+
+    return '<tr>'+
+      '<td class="mono" style="font-weight:700;">'+escapeHtml(n.refProduit)+'</td>'+
+      '<td style="font-weight:600;">'+escapeHtml(n.designation||'')+'</td>'+
+      '<td style="max-width:260px;line-height:1.6;">'+codesHtml+'</td>'+
+      '<td><div style="font-size:12px;font-weight:700;">'+escapeHtml(n.viergeRef)+' — '+escapeHtml(n.viergeColor)+'</div></td>'+
+      '<td class="mono">'+(n.designRef?'<span style="font-weight:700;">'+escapeHtml(n.designRef)+'</span>':'<span style="color:var(--hint)">—</span>')+'</td>'+
+      '<td>'+viergeStatus+'</td>'+
+      '<td>'+designStatus+'</td>'+
+      '<td><div style="display:flex;gap:4px;">'+
+        '<button class="btn-icon" onclick="editNomenclature('+i+')" title="Modifier">✏️</button>'+
+        '<button class="btn-icon" onclick="deleteNomenclature('+i+')" title="Supprimer">🗑</button>'+
+      '</div></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function openAddNomenclature(prefill){
+  if(!DB.nomenclatures) DB.nomenclatures = [];
+  var p = prefill || {};
+
+  // Ref produit grouped from catalogue
+  var refMap = {};
+  (DB.catalogue||[]).forEach(function(c){
+    if(!refMap[c.ref]) refMap[c.ref] = {ref:c.ref, designation: c.design+' '+c.couleur, design:c.design, couleur:c.couleur};
+  });
+  var refOpts = Object.values(refMap).map(function(r){
+    return '<option value="'+escapeHtml(r.ref)+'"'+(p.refProduit===r.ref?' selected':'')+'>'+escapeHtml(r.ref)+' — '+escapeHtml(r.designation)+'</option>';
+  }).join('');
+
+  // Vierge options
+  var viergeOpts = '<option value="">— Choisir —</option>'+(DB.stockVierge||[]).map(function(v){
+    var total = (v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.u||0);
+    var selected = (p.viergeRef===v.ref && p.viergeColor===v.couleur) ? ' selected' : '';
+    return '<option value="'+escapeHtml(v.ref)+'||'+escapeHtml(v.couleur)+'"'+selected+'>'+escapeHtml(v.ref)+' — '+escapeHtml(v.couleur)+' ('+total+' en stock)</option>';
+  }).join('');
+
+  // DTF options
+  var dtfOpts = '<option value="">— Pas de design (accessoire, tote bag…) —</option>'+(DB.stockDTF||[]).map(function(d){
+    return '<option value="'+escapeHtml(d.ref)+'"'+(p.designRef===d.ref?' selected':'')+'>'+escapeHtml(d.ref)+' — '+escapeHtml(d.nom||d.ref)+' ('+d.stock+' en stock)</option>';
+  }).join('');
+
+  openModal(
+    '<div class="modal-title">'+(prefill&&prefill._idx!==undefined?'Modifier':'Ajouter')+' une règle de nomenclature</div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Sélectionne la ref produit fini, puis ses composants (vierge + design).</div>'+
+
+    '<div class="field" style="margin-bottom:14px;">'+
+      '<label>Référence du produit fini</label>'+
+      '<select class="select input-yellow" id="nom-ref" onchange="onNomRefChange()">'+refOpts+'</select>'+
+      '<div id="nom-ref-preview" style="margin-top:6px;font-size:11px;color:var(--muted);min-height:18px;"></div>'+
+    '</div>'+
+
+    '<div style="font-weight:700;font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;padding:8px 12px;background:rgba(199,165,122,0.08);border-radius:8px;">⬇ Composants utilisés pour fabriquer ce produit</div>'+
+
+    '<div class="grid2" style="margin-bottom:12px;">'+
+      '<div class="field">'+
+        '<label>Produit vierge</label>'+
+        '<select class="select input-yellow" id="nom-vierge">'+viergeOpts+'</select>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">La taille sera automatiquement déduite de la vente (XS, S, M…)</div>'+
+      '</div>'+
+      '<div class="field">'+
+        '<label>Design appliqué (DTF / broderie)</label>'+
+        '<select class="select input-yellow" id="nom-dtf">'+dtfOpts+'</select>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Laisser vide pour les accessoires sans impression</div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+      '<button class="btn btn-primary" onclick="saveNomenclature('+(prefill&&prefill._idx!==undefined?prefill._idx:'null')+')">Enregistrer</button>'+
+    '</div>'
+  );
+
+  // Trigger preview
+  setTimeout(function(){ if(document.getElementById('nom-ref')) onNomRefChange(); }, 100);
+}
+
+function onNomRefChange(){
+  var ref = document.getElementById('nom-ref').value;
+  var preview = document.getElementById('nom-ref-preview');
+  if(!preview || !ref) return;
+  var codes = (DB.catalogue||[]).filter(function(p){ return p.ref === ref; });
+  if(!codes.length){ preview.textContent = ''; return; }
+  preview.innerHTML = 'Codes affectés : '+codes.map(function(c){
+    return '<span class="badge badge-neutral" style="font-size:9px;margin:1px;">'+escapeHtml(c.code)+'</span>';
+  }).join('');
+}
+
+function saveNomenclature(idx){
+  var ref = document.getElementById('nom-ref').value;
+  var viergeVal = document.getElementById('nom-vierge').value;
+  var designRef = document.getElementById('nom-dtf').value;
+  if(!ref || !viergeVal){ toast('Ref produit et produit vierge obligatoires'); return; }
+  var parts = viergeVal.split('||');
+  var viergeRef = parts[0], viergeColor = parts[1]||'';
+  var catItem = (DB.catalogue||[]).find(function(p){ return p.ref === ref; });
+  var designation = catItem ? catItem.design+' '+catItem.couleur : ref;
+  var rule = { refProduit:ref, designation:designation, viergeRef:viergeRef, viergeColor:viergeColor, designRef:designRef||'' };
+  if(idx !== null && idx !== undefined && !isNaN(idx)){
+    DB.nomenclatures[idx] = rule;
+    toast('Règle mise à jour ✓');
+  } else {
+    var exists = DB.nomenclatures.find(function(n){ return n.refProduit === ref; });
+    if(exists){ toast('Une règle existe déjà pour cette ref — modifie-la à la place'); return; }
+    DB.nomenclatures.push(rule);
+    toast('Règle ajoutée ✓');
+  }
+  saveDB(); closeModal(); renderNomenclature();
+}
+
+function editNomenclature(i){
+  var n = JSON.parse(JSON.stringify(DB.nomenclatures[i]));
+  n._idx = i;
+  openAddNomenclature(n);
+}
+
+function deleteNomenclature(i){
+  if(confirm('Supprimer cette règle ?')){
+    DB.nomenclatures.splice(i,1);
+    saveDB(); renderNomenclature();
+  }
+}
+
+function deleteAllNomenclatures(){
+  if(!DB.nomenclatures || !DB.nomenclatures.length){ toast('Aucune règle à supprimer'); return; }
+  if(confirm('Supprimer les '+DB.nomenclatures.length+' règles ? Cette action est irréversible.')){
+    DB.nomenclatures = [];
+    saveDB(); renderNomenclature();
+    toast('Toutes les règles supprimées');
+  }
+}
+
+function autoGenerateNomenclature(){
+  if(!DB.nomenclatures) DB.nomenclatures = [];
+  if(DB.nomenclatures.length && !confirm('Des règles existent déjà. Ajouter les règles manquantes ?')) return;
+
+  var existingRefs = {};
+  DB.nomenclatures.forEach(function(n){ existingRefs[n.refProduit] = true; });
+
+  // One rule per unique ref in catalogue
+  var refs = {};
+  (DB.catalogue||[]).forEach(function(p){
+    if(!refs[p.ref]) refs[p.ref] = {ref:p.ref, design:p.design, couleur:p.couleur};
+  });
+
+  var added = 0, skipped = 0;
+  Object.values(refs).forEach(function(r){
+    if(existingRefs[r.ref]) return;
+    var vierge = findBestVierge(r.couleur);
+    if(!vierge){ skipped++; return; }
+    var dtfRef = findBestDesign(r.ref);
+    DB.nomenclatures.push({
+      refProduit: r.ref,
+      designation: r.design+' '+r.couleur,
+      viergeRef: vierge.ref,
+      viergeColor: vierge.couleur,
+      designRef: dtfRef || ''
+    });
+    added++;
+  });
+
+  saveDB(); renderNomenclature();
+  if(added > 0){
+    toast(added+' règle(s) générée(s) ✓'+(skipped?' — '+skipped+' sans vierge trouvé':''));
+  } else {
+    toast('Toutes les règles existent déjà');
+  }
+}
+
+function findBestVierge(couleurProduit){
+  if(!DB.stockVierge || !DB.stockVierge.length) return null;
+  var c = (couleurProduit||'').toLowerCase();
+  var keywords = {
+    'rose':['rose','pink'],'bleu':['bleu','blue','marine','ciel','powder'],'vert':['vert','green'],
+    'noir':['noir','black'],'blanc':['blanc','white'],'jaune':['jaune','yellow'],
+    'violet':['violet','purple'],'beige':['beige','sand','natural'],
+    'marron':['marron','brown'],'rouge':['rouge','red'],'orange':['orange']
+  };
+  var matchWords = [];
+  Object.keys(keywords).forEach(function(k){ if(c.indexOf(k)>-1) matchWords = matchWords.concat(keywords[k]); });
+  if(!matchWords.length) matchWords = [c.split('/')[0].trim()];
+  return DB.stockVierge.find(function(v){
+    var vc = v.couleur.toLowerCase();
+    return matchWords.some(function(w){ return vc.indexOf(w)>-1; });
+  }) || null;
+}
+
+function findBestDesign(prodRef){
+  if(!DB.stockDTF || !DB.stockDTF.length) return '';
+  var prefix = (prodRef||'').split('-').slice(0,2).join('-');
+  var match = DB.stockDTF.find(function(d){ return d.ref && d.ref.indexOf(prefix)>-1; });
+  return match ? match.ref : '';
+}
+
+// Match nomenclature by ref produit
+function getNomenclatureForProduct(catalogueItem){
+  if(!DB.nomenclatures || !DB.nomenclatures.length || !catalogueItem) return null;
+  return DB.nomenclatures.find(function(n){ return n.refProduit === catalogueItem.ref; }) || null;
 }
 
 // ============================================================
@@ -4320,22 +4592,34 @@ function addProduct(){
 
 function openAddStockVierge(){
   openModal(
-    '<div class="modal-title">Entrée de stock vierge</div>' +
+    '<div class="modal-title">Entrée de stock produit vierge</div>' +
     '<div class="grid2" style="margin-bottom:14px;">' +
-      '<div class="field"><label>Référence</label><input type="text" class="input" id="nsv-ref" placeholder="Ex: BY102"></div>' +
-      '<div class="field"><label>Couleur</label><input type="text" class="input" id="nsv-couleur" placeholder="Ex: Blanc"></div>' +
+      '<div class="field"><label>Référence</label><input type="text" class="input" id="nsv-ref" placeholder="Ex: E220, KP359…"></div>' +
+      '<div class="field"><label>Couleur</label><input type="text" class="input" id="nsv-couleur" placeholder="Ex: Blanc, Rose…"></div>' +
     '</div>' +
-    '<div class="grid4" style="margin-bottom:14px;">' +
-      '<div class="field"><label>XS</label><input type="number" class="input" id="nsv-xs" value="0"></div>' +
-      '<div class="field"><label>S</label><input type="number" class="input" id="nsv-s" value="0"></div>' +
-      '<div class="field"><label>M</label><input type="number" class="input" id="nsv-m" value="0"></div>' +
-      '<div class="field"><label>L</label><input type="number" class="input" id="nsv-l" value="0"></div>' +
+    '<div style="margin-bottom:12px;">' +
+      '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;">' +
+        '<input type="checkbox" id="nsv-mode-u" onchange="toggleSVModeU(this.checked)" style="width:18px;height:18px;accent-color:var(--gold);">' +
+        '<span>Taille Unique (U) — casquettes, sacs, accessoires</span>' +
+      '</label>' +
     '</div>' +
-    '<div class="grid4" style="margin-bottom:14px;">' +
-      '<div class="field"><label>XL</label><input type="number" class="input" id="nsv-xl" value="0"></div>' +
-      '<div class="field"><label>XXL</label><input type="number" class="input" id="nsv-xxl" value="0"></div>' +
-      '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="nsv-pa" step="0.01" value="0"></div>' +
-      '<div class="field"><label>Seuil</label><input type="number" class="input" id="nsv-seuil" value="3"></div>' +
+    '<div id="nsv-sizes-normal" class="grid4" style="margin-bottom:14px;">' +
+      '<div class="field"><label>XS</label><input type="number" class="input" id="nsv-xs" value="0" min="0"></div>' +
+      '<div class="field"><label>S</label><input type="number" class="input" id="nsv-s" value="0" min="0"></div>' +
+      '<div class="field"><label>M</label><input type="number" class="input" id="nsv-m" value="0" min="0"></div>' +
+      '<div class="field"><label>L</label><input type="number" class="input" id="nsv-l" value="0" min="0"></div>' +
+    '</div>' +
+    '<div id="nsv-sizes-normal2" class="grid3" style="margin-bottom:14px;">' +
+      '<div class="field"><label>XL</label><input type="number" class="input" id="nsv-xl" value="0" min="0"></div>' +
+      '<div class="field"><label>PA HT (€)</label><input type="number" class="input input-yellow" id="nsv-pa" step="0.01" value="0"></div>' +
+      '<div class="field"><label>Seuil alerte</label><input type="number" class="input" id="nsv-seuil" value="3"></div>' +
+    '</div>' +
+    '<div id="nsv-sizes-u" style="display:none;margin-bottom:14px;">' +
+      '<div class="grid3">' +
+        '<div class="field"><label>Quantité (U)</label><input type="number" class="input input-yellow" id="nsv-u" value="0" min="0" style="font-size:20px;font-weight:700;"></div>' +
+        '<div class="field"><label>PA HT (€)</label><input type="number" class="input input-yellow" id="nsv-pa-u" step="0.01" value="0"></div>' +
+        '<div class="field"><label>Seuil alerte</label><input type="number" class="input" id="nsv-seuil-u" value="3"></div>' +
+      '</div>' +
     '</div>' +
     '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
       '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
@@ -4343,22 +4627,33 @@ function openAddStockVierge(){
     '</div>'
   );
 }
+function toggleSVModeU(isU){
+  document.getElementById('nsv-sizes-normal').style.display = isU ? 'none' : '';
+  document.getElementById('nsv-sizes-normal2').style.display = isU ? 'none' : '';
+  document.getElementById('nsv-sizes-u').style.display = isU ? '' : 'none';
+}
 function addSV(){
-  var ref = document.getElementById('nsv-ref').value.trim();
-  var couleur = document.getElementById('nsv-couleur').value.trim();
+  var ref = (document.getElementById('nsv-ref').value||'').trim();
+  var couleur = (document.getElementById('nsv-couleur').value||'').trim();
   if(!ref || !couleur){ toast('Référence et couleur requises'); return; }
-  DB.stockVierge.push({
-    ref: ref, couleur: couleur,
-    xs: parseInt(document.getElementById('nsv-xs').value)||0,
-    s: parseInt(document.getElementById('nsv-s').value)||0,
-    m: parseInt(document.getElementById('nsv-m').value)||0,
-    l: parseInt(document.getElementById('nsv-l').value)||0,
-    xl: parseInt(document.getElementById('nsv-xl').value)||0,
-    xxl: parseInt(document.getElementById('nsv-xxl').value)||0,
-    enCommande: 0,
-    pa: parseFloat(document.getElementById('nsv-pa').value)||0,
-    seuil: parseInt(document.getElementById('nsv-seuil').value)||3
-  });
+  var isU = document.getElementById('nsv-mode-u').checked;
+  var entry = { ref:ref, couleur:couleur, enCommande:0 };
+  if(isU){
+    entry.u  = parseInt(document.getElementById('nsv-u').value)||0;
+    entry.xs = 0; entry.s=0; entry.m=0; entry.l=0; entry.xl=0;
+    entry.pa = parseFloat(document.getElementById('nsv-pa-u').value)||0;
+    entry.seuil = parseInt(document.getElementById('nsv-seuil-u').value)||3;
+  } else {
+    entry.xs  = parseInt(document.getElementById('nsv-xs').value)||0;
+    entry.s   = parseInt(document.getElementById('nsv-s').value)||0;
+    entry.m   = parseInt(document.getElementById('nsv-m').value)||0;
+    entry.l   = parseInt(document.getElementById('nsv-l').value)||0;
+    entry.xl  = parseInt(document.getElementById('nsv-xl').value)||0;
+    entry.u   = 0;
+    entry.pa  = parseFloat(document.getElementById('nsv-pa').value)||0;
+    entry.seuil = parseInt(document.getElementById('nsv-seuil').value)||3;
+  }
+  DB.stockVierge.push(entry);
   saveDB(); closeModal(); renderStockVierge(); toast('Stock vierge ajouté');
 }
 
@@ -4392,33 +4687,101 @@ function addSD() {
 
 function openAddStockFini(){
   var opts = DB.catalogue.map(function(p){
-    return '<option value="'+p.code+'">'+p.code+' - '+p.designation+' '+p.taille+'</option>';
-  }).join('');
-  var vopts = DB.stockVierge.map(function(v,i){
-    var t=(v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0);
-    return '<option value="'+i+'">'+v.ref+' '+v.couleur+' (stock:'+t+')</option>';
+    return '<option value="'+p.code+'">'+p.code+' — '+p.designation+(p.taille?' ('+p.taille+')':'')+'</option>';
   }).join('');
   openModal(
-    '<div class="modal-title">Assembler un produit fini</div><div class="modal-sub">Consomme 1 produit vierge + 1 design</div>'+
-    '<div style="background:var(--info-bg);color:var(--info);padding:10px 12px;border-radius:var(--r);margin-bottom:14px;font-size:12px;">Le produit vierge et le design seront retirés des stocks correspondants.</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Produit fini</label><select class="select" id="nsf-code" onchange="onAssemblageChange()"><option value="">Choisir</option>'+opts+'</select></div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Produit vierge</label><select class="select" id="nsf-vierge"><option value="">Choisir</option>'+vopts+'</select></div>'+
-      '<div class="field"><label>Design (auto)</label><input type="text" class="input" id="nsf-dtf" readonly style="background:var(--surface2);"></div>'+
-    '</div>'+
-    '<div class="field" style="margin-bottom:14px;"><label>Quantité</label><input type="number" class="input input-yellow" id="nsf-qty" value="1" min="1"></div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addSF()">Assembler</button>'+
+    '<div class="modal-title">Ajouter au stock fini</div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
+      '<button class="btn btn-secondary btn-sm sf-mode-btn active" id="sf-mode-direct-btn" onclick="setSFMode(\'direct\')">📥 Ajout direct</button>' +
+      '<button class="btn btn-secondary btn-sm sf-mode-btn" id="sf-mode-assemble-btn" onclick="setSFMode(\'assemble\')">🔧 Assembler</button>' +
+    '</div>' +
+
+    /* ── Mode direct ── */
+    '<div id="sf-mode-direct">' +
+      '<div class="field" style="margin-bottom:12px;"><label>Article (catalogue)</label>' +
+        '<select class="select" id="nsf-code-d"><option value="">— Choisir —</option>'+opts+'</select>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Quantité à ajouter</label><input type="number" class="input input-yellow" id="nsf-qty-d" value="1" min="1"></div>' +
+        '<div class="field"><label>Seuil alerte</label><input type="number" class="input" id="nsf-seuil-d" value="2" min="0"></div>' +
+      '</div>' +
+      '<div style="background:var(--info-bg);color:var(--info);padding:10px 12px;border-radius:10px;font-size:12px;margin-bottom:12px;">Le stock sera ajouté directement sans consommer de produit vierge ni de design.</div>' +
+    '</div>' +
+
+    /* ── Mode assemblage ── */
+    '<div id="sf-mode-assemble" style="display:none;">' +
+      '<div class="field" style="margin-bottom:12px;"><label>Produit fini (catalogue)</label>' +
+        '<select class="select" id="nsf-code" onchange="onAssemblageChange()"><option value="">— Choisir —</option>'+opts+'</select>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Produit vierge</label><select class="select" id="nsf-vierge"><option value="">— Choisir —</option>'+
+          DB.stockVierge.map(function(v,i){
+            var t=(v.xs||0)+(v.s||0)+(v.m||0)+(v.l||0)+(v.xl||0)+(v.xxl||0)+(v.u||0);
+            return '<option value="'+i+'">'+v.ref+' '+v.couleur+' ('+t+' en stock)</option>';
+          }).join('')+
+        '</select></div>' +
+        '<div class="field"><label>Design (auto)</label><input type="text" class="input" id="nsf-dtf" readonly style="background:var(--surface2);"></div>' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:12px;"><label>Quantité</label><input type="number" class="input input-yellow" id="nsf-qty" value="1" min="1"></div>' +
+      '<div style="background:var(--info-bg);color:var(--info);padding:10px 12px;border-radius:10px;font-size:12px;margin-bottom:12px;">Consomme 1 produit vierge + 1 design par pièce assemblée.</div>' +
+    '</div>' +
+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
+      '<button class="btn btn-primary" id="sf-add-btn" onclick="addSFAuto()">Ajouter</button>' +
     '</div>'
   );
+}
+function setSFMode(mode){
+  document.getElementById('sf-mode-direct').style.display = mode==='direct' ? '' : 'none';
+  document.getElementById('sf-mode-assemble').style.display = mode==='assemble' ? '' : 'none';
+  document.getElementById('sf-add-btn').textContent = mode==='assemble' ? 'Assembler' : 'Ajouter';
+  document.querySelectorAll('.sf-mode-btn').forEach(function(b){ b.classList.remove('active','btn-primary'); b.classList.add('btn-secondary'); });
+  var activeBtn = document.getElementById('sf-mode-'+mode+'-btn');
+  if(activeBtn){ activeBtn.classList.add('active','btn-primary'); activeBtn.classList.remove('btn-secondary'); }
+  window._sfCurrentMode = mode;
+}
+function addSFAuto(){
+  var mode = window._sfCurrentMode || 'direct';
+  if(mode === 'direct'){
+    var code = document.getElementById('nsf-code-d').value;
+    var qty  = parseInt(document.getElementById('nsf-qty-d').value)||0;
+    var seuil= parseInt(document.getElementById('nsf-seuil-d').value)||2;
+    if(!code || qty<=0){ toast('Choisissez un article et une quantité'); return; }
+    var prod = DB.catalogue.find(function(p){ return p.code===code; });
+    if(!prod){ toast('Article introuvable'); return; }
+    var sf = DB.stockFini.find(function(f){ return f.code===code; });
+    if(sf){ sf.stock += qty; }
+    else { DB.stockFini.push({code:prod.code, ref:prod.ref, designation:prod.designation, design:prod.design, taille:prod.taille, pv:prod.pv, stock:qty, seuil:seuil}); }
+    saveDB(); closeModal(); renderStockFini(); toast(qty+' pièce(s) ajoutée(s) au stock fini ✓');
+  } else {
+    addSF();
+  }
 }
 function onAssemblageChange(){
   var code = document.getElementById('nsf-code').value;
   var prod = DB.catalogue.find(function(p){ return p.code===code; });
   if(!prod){ document.getElementById('nsf-dtf').value=''; return; }
-  var dtf = DB.stockDTF.find(function(d){ return d.ref===prod.ref; });
-  document.getElementById('nsf-dtf').value = dtf ? (dtf.nom + ' (dispo:' + (dtf.stock||0) + ')') : prod.ref;
+  // Auto-fill from nomenclature
+  var nom = getNomenclatureForProduct(prod);
+  if(nom){
+    // Auto-select the right vierge
+    var viergeSelect = document.getElementById('nsf-vierge');
+    if(viergeSelect){
+      var idx = DB.stockVierge.findIndex(function(v){ return v.ref===nom.viergeRef && v.couleur===nom.viergeColor; });
+      if(idx > -1) viergeSelect.value = String(idx);
+    }
+    // Auto-fill design
+    if(nom.designRef){
+      var dtf = DB.stockDTF.find(function(d){ return d.ref===nom.designRef; });
+      document.getElementById('nsf-dtf').value = dtf ? dtf.nom+' (dispo:'+dtf.stock+')' : nom.designRef;
+    } else {
+      document.getElementById('nsf-dtf').value = '(non requis)';
+    }
+  } else {
+    var dtf = DB.stockDTF.find(function(d){ return d.ref===prod.ref; });
+    document.getElementById('nsf-dtf').value = dtf ? (dtf.nom + ' (dispo:' + (dtf.stock||0) + ')') : '(non requis)';
+  }
 }
 function addSF(){
   var code = document.getElementById('nsf-code').value;
@@ -4430,18 +4793,17 @@ function addSF(){
   if(isNaN(vi) || !DB.stockVierge[vi]){ toast('Choisissez un produit vierge'); return; }
   var vierge = DB.stockVierge[vi];
   var tailleKey = String(prod.taille || '').toLowerCase();
-  if(!(tailleKey in vierge)){ toast('Taille non gérée sur ce stock vierge'); return; }
-  if((vierge[tailleKey]||0) < qty){ toast('Stock vierge insuffisant'); return; }
+  // U = taille unique
+  if(tailleKey === 'u' || tailleKey === '') tailleKey = 'u';
+  if((vierge[tailleKey]||0) < qty){ toast('Stock vierge insuffisant ('+tailleKey+': '+(vierge[tailleKey]||0)+')'); return; }
   var dtf = DB.stockDTF.find(function(d){ return d.ref===prod.ref; });
-  if(!dtf || (dtf.stock||0) < qty){ toast('Stock design insuffisant'); return; }
+  if(dtf && (dtf.stock||0) < qty){ toast('Stock design insuffisant'); return; }
   vierge[tailleKey] -= qty;
-  dtf.stock -= qty;
+  if(dtf) dtf.stock -= qty;
   var sf = DB.stockFini.find(function(f){ return f.code===prod.code; });
   if(sf){ sf.stock += qty; }
-  else {
-    DB.stockFini.push({code: prod.code, ref: prod.ref, designation: prod.designation, design: prod.design, taille: prod.taille, pv: prod.pv, stock: qty, seuil: 2});
-  }
-  saveDB(); closeModal(); renderStockVierge(); renderStockDTF(); renderStockFini(); toast('Produit fini assemblé');
+  else { DB.stockFini.push({code:prod.code, ref:prod.ref, designation:prod.designation, design:prod.design, taille:prod.taille, pv:prod.pv, stock:qty, seuil:2}); }
+  saveDB(); closeModal(); renderStockVierge(); renderStockDTF(); renderStockFini(); toast('Produit fini assemblé ✓');
 }
 
 function ouvrirReception(id){
@@ -5623,6 +5985,26 @@ function enregistrerVente() {
     });
     var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
     if(sf) sf.stock = Math.max(0, (sf.stock||0) - (line.qte||0));
+
+    // Auto-decrement composants via nomenclature
+    var catItem = (DB.catalogue||[]).find(function(p){ return p.code === line.code; });
+    var nom = catItem ? getNomenclatureForProduct(catItem) : null;
+    if(nom){
+      // Decrement stockVierge
+      var vierge = (DB.stockVierge||[]).find(function(v){ return v.ref===nom.viergeRef && v.couleur===nom.viergeColor; });
+      if(vierge){
+        var tailleKey = (line.taille||'').toLowerCase();
+        if(tailleKey === 'u' || tailleKey === '') tailleKey = 'u';
+        if(vierge[tailleKey] !== undefined){
+          vierge[tailleKey] = Math.max(0, (vierge[tailleKey]||0) - (line.qte||0));
+        }
+      }
+      // Decrement stockDTF design
+      if(nom.designRef){
+        var dtf = (DB.stockDTF||[]).find(function(d){ return d.ref === nom.designRef; });
+        if(dtf) dtf.stock = Math.max(0, (dtf.stock||0) - (line.qte||0));
+      }
+    }
   });
 
   // Save invoice data before clearing
