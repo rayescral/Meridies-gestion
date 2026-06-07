@@ -2461,12 +2461,16 @@ function ensureBaseSeedData() {
   if(!DB.preferences) DB.preferences = {};
   if(!DB.preferences.migrations) DB.preferences.migrations = {};
 
-  // Migration v3 : vider stockFini (auto-créé par erreur) + supprimer XXL dans stockVierge
+  // Migration v3 : supprimer XXL dans stockVierge
   if(!DB.preferences.migrations.v3_sfCleared){
-    DB.stockFini = [];
-    // Remove xxl from all stockVierge entries
     (DB.stockVierge||[]).forEach(function(v){ delete v.xxl; });
     DB.preferences.migrations.v3_sfCleared = true;
+    changed++;
+  }
+  // Migration v4 : vider stockFini définitivement
+  if(!DB.preferences.migrations.v4_sfEmpty){
+    DB.stockFini = [];
+    DB.preferences.migrations.v4_sfEmpty = true;
     changed++;
   }
 
@@ -3384,7 +3388,7 @@ function renderNomenclature(){
     var designStatus = !n.designRef
       ? '<span class="badge badge-neutral">sans design</span>'
       : !dtf
-        ? '<span class="badge badge-warn">⚠ introuvable</span>'
+        ? '<span class="badge badge-neutral" style="background:var(--info-bg);color:var(--info);">réf: '+escapeHtml(n.designRef)+'</span>'
         : dtf.stock <= 0
           ? '<span class="badge" style="background:var(--danger-bg);color:var(--danger);">rupture</span>'
           : '<span class="badge badge-ok">'+dtf.stock+' pcs</span>';
@@ -3425,9 +3429,12 @@ function openAddNomenclature(prefill){
     return '<option value="'+escapeHtml(v.ref)+'||'+escapeHtml(v.couleur)+'"'+selected+'>'+escapeHtml(v.ref)+' — '+escapeHtml(v.couleur)+' ('+total+' en stock)</option>';
   }).join('');
 
-  // DTF options
-  var dtfOpts = '<option value="">— Pas de design (accessoire, tote bag…) —</option>'+(DB.stockDTF||[]).map(function(d){
-    return '<option value="'+escapeHtml(d.ref)+'"'+(p.designRef===d.ref?' selected':'')+'>'+escapeHtml(d.ref)+' — '+escapeHtml(d.nom||d.ref)+' ('+d.stock+' en stock)</option>';
+  // DTF options: all unique refs from catalogue + existing stockDTF entries
+  var allDesignRefs = {};
+  (DB.catalogue||[]).forEach(function(c){ if(c.ref) allDesignRefs[c.ref] = c.design+' '+c.couleur; });
+  (DB.stockDTF||[]).forEach(function(d){ allDesignRefs[d.ref] = (allDesignRefs[d.ref]||d.nom||d.ref)+(d.stock?' ✓ '+d.stock+' en stock':''); });
+  var dtfDatalistOpts = Object.keys(allDesignRefs).sort().map(function(ref){
+    return '<option value="'+escapeHtml(ref)+'">'+escapeHtml(ref)+' — '+escapeHtml(allDesignRefs[ref])+'</option>';
   }).join('');
 
   openModal(
@@ -3436,7 +3443,7 @@ function openAddNomenclature(prefill){
 
     '<div class="field" style="margin-bottom:14px;">'+
       '<label>Référence du produit fini</label>'+
-      '<select class="select input-yellow" id="nom-ref" onchange="onNomRefChange()">'+refOpts+'</select>'+
+      '<select class="select input-yellow" id="nom-ref" onchange="onNomRefChange()"><option value="">— Choisir —</option>'+refOpts+'</select>'+
       '<div id="nom-ref-preview" style="margin-top:6px;font-size:11px;color:var(--muted);min-height:18px;"></div>'+
     '</div>'+
 
@@ -3446,12 +3453,13 @@ function openAddNomenclature(prefill){
       '<div class="field">'+
         '<label>Produit vierge</label>'+
         '<select class="select input-yellow" id="nom-vierge">'+viergeOpts+'</select>'+
-        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">La taille sera automatiquement déduite de la vente (XS, S, M…)</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">La taille est déduite automatiquement (XS, S, M…)</div>'+
       '</div>'+
       '<div class="field">'+
-        '<label>Design appliqué (DTF / broderie)</label>'+
-        '<select class="select input-yellow" id="nom-dtf">'+dtfOpts+'</select>'+
-        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Laisser vide pour les accessoires sans impression</div>'+
+        '<label>Design appliqué (réf DTF / broderie)</label>'+
+        '<datalist id="nom-dtf-list">'+dtfDatalistOpts+'</datalist>'+
+        '<input type="text" class="input input-yellow" id="nom-dtf" list="nom-dtf-list" placeholder="Ex: LP-0100, MT-0200…" value="'+escapeHtml(p.designRef||'')+'">'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Tape la ref du design. Laisser vide pour les accessoires sans impression.</div>'+
       '</div>'+
     '</div>'+
 
@@ -3479,7 +3487,7 @@ function onNomRefChange(){
 function saveNomenclature(idx){
   var ref = document.getElementById('nom-ref').value;
   var viergeVal = document.getElementById('nom-vierge').value;
-  var designRef = document.getElementById('nom-dtf').value;
+  var designRef = (document.getElementById('nom-dtf').value||'').trim();
   if(!ref || !viergeVal){ toast('Ref produit et produit vierge obligatoires'); return; }
   var parts = viergeVal.split('||');
   var viergeRef = parts[0], viergeColor = parts[1]||'';
@@ -3576,10 +3584,14 @@ function findBestVierge(couleurProduit){
 }
 
 function findBestDesign(prodRef){
-  if(!DB.stockDTF || !DB.stockDTF.length) return '';
-  var prefix = (prodRef||'').split('-').slice(0,2).join('-');
-  var match = DB.stockDTF.find(function(d){ return d.ref && d.ref.indexOf(prefix)>-1; });
-  return match ? match.ref : '';
+  // First try stockDTF
+  if(DB.stockDTF && DB.stockDTF.length){
+    var prefix = (prodRef||'').split('-').slice(0,2).join('-');
+    var match = DB.stockDTF.find(function(d){ return d.ref && d.ref.indexOf(prefix)>-1; });
+    if(match) return match.ref;
+  }
+  // Fallback: use the prodRef itself (the design ref = the product ref)
+  return prodRef || '';
 }
 
 // Match nomenclature by ref produit
@@ -4658,31 +4670,85 @@ function addSV(){
 }
 
 function openAddStockDTF() {
+  // Build datalist from all unique refs in catalogue
+  var refMap = {};
+  (DB.catalogue||[]).forEach(function(c){
+    if(c.ref && !refMap[c.ref]) refMap[c.ref] = c.design + ' ' + c.couleur;
+  });
+  // Also add existing stockDTF refs (for reference)
+  (DB.stockDTF||[]).forEach(function(d){
+    if(d.ref && !refMap[d.ref]) refMap[d.ref] = d.nom || d.ref;
+  });
+  var datalistOpts = Object.keys(refMap).sort().map(function(ref){
+    return '<option value="'+escapeHtml(ref)+'">'+escapeHtml(ref)+' — '+escapeHtml(refMap[ref])+'</option>';
+  }).join('');
+
   openModal(
-    '<div class="modal-title">Ajouter un design</div>'+
-    '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Réf. Design</label><input type="text" class="input" id="nsd-ref" placeholder="Ex: LP-0100"></div>'+
-      '<div class="field"><label>Nom</label><input type="text" class="input" id="nsd-nom" placeholder="Ex: Lou Pescadou Rose"></div>'+
+    '<div class="modal-title">Ajouter un design en stock</div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Sélectionne la référence depuis le catalogue puis entre la quantité reçue.</div>'+
+    '<datalist id="nsd-ref-list">'+datalistOpts+'</datalist>'+
+    '<div class="field" style="margin-bottom:12px;">'+
+      '<label>Réf. Design</label>'+
+      '<input type="text" class="input input-yellow" id="nsd-ref" list="nsd-ref-list" placeholder="Tape ou sélectionne — ex: LP-0100" oninput="onSDRefChange()">'+
+      '<div id="nsd-preview" style="min-height:16px;margin-top:4px;"></div>'+
+    '</div>'+
+    '<div class="field" style="margin-bottom:12px;">'+
+      '<label>Nom (auto-rempli)</label>'+
+      '<input type="text" class="input" id="nsd-nom" placeholder="Ex: Lou Pescadou Rose">'+
     '</div>'+
     '<div class="grid2" style="margin-bottom:14px;">'+
-      '<div class="field"><label>Stock initial</label><input type="number" class="input" id="nsd-stock" value="0"></div>'+
-      '<div class="field"><label>PA (€)</label><input type="number" class="input input-yellow" id="nsd-pa" step="0.01"></div>'+
+      '<div class="field"><label>Quantité reçue</label><input type="number" class="input input-yellow" id="nsd-stock" value="0" min="0"></div>'+
+      '<div class="field"><label>PA HT (€)</label><input type="number" class="input" id="nsd-pa" step="0.01" value="0" placeholder="0.00"></div>'+
     '</div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
       '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
-      '<button class="btn btn-primary" onclick="addSD()">Ajouter</button></div>'
+      '<button class="btn btn-primary" onclick="addSD()">Ajouter</button>'+
+    '</div>'
   );
 }
+
+function onSDRefChange(){
+  var ref = (document.getElementById('nsd-ref').value||'').trim();
+  var nomEl = document.getElementById('nsd-nom');
+  if(!nomEl) return;
+  // Auto-fill nom from catalogue
+  var catItem = (DB.catalogue||[]).find(function(c){ return c.ref === ref; });
+  if(catItem && !nomEl.value){
+    nomEl.value = catItem.design + ' ' + catItem.couleur;
+  }
+  // Check if already in stockDTF
+  var existing = (DB.stockDTF||[]).find(function(d){ return d.ref === ref; });
+  var preview = document.getElementById('nsd-preview');
+  if(preview){
+    if(existing){
+      preview.innerHTML = '<span style="color:var(--warning);font-size:11px;">⚠ Cette réf existe déjà en stock ('+existing.stock+' pcs). L\'ajout incrémentera le stock existant.</span>';
+      if(!nomEl.value) nomEl.value = existing.nom || '';
+    } else {
+      preview.innerHTML = '';
+    }
+  }
+}
+
 function addSD() {
-  DB.stockDTF.push({
-    ref: document.getElementById('nsd-ref').value,
-    nom: document.getElementById('nsd-nom').value,
-    stock: parseInt(document.getElementById('nsd-stock').value)||0,
-    pa: parseFloat(document.getElementById('nsd-pa').value)||0,
-    seuil: 3,
-    enCommande: 0
-  });
-  saveDB(); closeModal(); renderStockDTF(); toast('Design ajouté');
+  var ref = (document.getElementById('nsd-ref').value||'').trim();
+  var nom = (document.getElementById('nsd-nom').value||'').trim();
+  var stock = parseInt(document.getElementById('nsd-stock').value)||0;
+  var pa = parseFloat(document.getElementById('nsd-pa').value)||0;
+  if(!ref){ toast('La référence est obligatoire'); return; }
+  if(!nom){
+    var catItem = (DB.catalogue||[]).find(function(c){ return c.ref === ref; });
+    nom = catItem ? catItem.design+' '+catItem.couleur : ref;
+  }
+  // If ref already exists, increment stock
+  var existing = (DB.stockDTF||[]).find(function(d){ return d.ref === ref; });
+  if(existing){
+    existing.stock = (existing.stock||0) + stock;
+    if(pa > 0) existing.pa = pa;
+    saveDB(); closeModal(); renderStockDTF(); toast('Stock design mis à jour (+'+stock+')');
+  } else {
+    DB.stockDTF.push({ ref:ref, nom:nom, stock:stock, pa:pa, seuil:3, enCommande:0 });
+    saveDB(); closeModal(); renderStockDTF(); toast('Design ajouté ✓');
+  }
 }
 
 function openAddStockFini(){
@@ -6089,7 +6155,13 @@ renderVentes = function() {
         '<td class="r mono" style="font-weight:700;">'+fmt((line.pv||0) * (line.qte||0))+'</td>'+
         '<td>'+pmBadge+'</td>'+
         '<td class="mono" style="color:var(--muted);">'+numCdeLabel+'</td>'+
-        '<td>'+(firstLine ? '<div style="display:flex;gap:4px;"><button class="btn-icon" onclick="editVenteGroup(\''+String(v.id).replace(/'/g,"\'")+'\')" title="Modifier">✏️</button><button class="btn-icon" onclick="deleteVente(\''+String(v.id).replace(/'/g,"\'")+'\')" title="Supprimer">🗑</button></div>' : '<span style="opacity:.25;">—</span>')+'</td>'+
+        '<td>'+(firstLine ?
+          '<div style="display:flex;gap:4px;">'+
+            '<button class="btn-icon" onclick="cancelVente(\''+String(v.id).replace(/'/g,"\\'")+'\''+')" title="Annuler (remet en stock)" style="color:var(--warning);">↩️</button>'+
+            '<button class="btn-icon" onclick="editVenteGroup(\''+String(v.id).replace(/'/g,"\\'")+'\''+')" title="Modifier">✏️</button>'+
+            '<button class="btn-icon" onclick="deleteVente(\''+String(v.id).replace(/'/g,"\\'")+'\''+')" title="Supprimer (sans remettre en stock)">🗑</button>'+
+          '</div>'
+          : '<span style="opacity:.25;">—</span>')+'</td>'+
       '</tr>';
     }).join('');
   }).join('');
@@ -6170,19 +6242,80 @@ function saveEditedVente(venteKey, lineCount){
 }
 
 function deleteVente(id) {
-  if(!confirm('Supprimer cette vente complète ?')) return;
-  var removed = [];
-  DB.ventes = (DB.ventes || []).filter(function(v, idx){
-    var keep = saleTransactionKey(v, idx) !== id;
-    if(!keep) removed.push(v);
-    return keep;
-  });
-  removed.forEach(function(v){
-    var sf = (DB.stockFini||[]).find(function(f){ return f.code===v.code; });
-    if(sf) sf.stock = (sf.stock||0) + (v.qte||1);
+  if(!confirm('Supprimer cette vente ?\n\nAttention : le stock ne sera PAS modifié (utiliser "Annuler la vente" pour remettre en stock).')) return;
+  DB.ventes = (DB.ventes||[]).filter(function(v, idx){
+    return saleTransactionKey(v, idx) !== id;
   });
   saveDB({ reason:'Vente supprimée', immediate:true });
   refreshBusinessViews('Vente supprimée');
+}
+
+function cancelVente(id) {
+  // Collect all lines of this transaction
+  var lines = [];
+  DB.ventes.forEach(function(v, idx){
+    if(saleTransactionKey(v, idx) === id) lines.push(v);
+  });
+  if(!lines.length){ toast('Vente introuvable'); return; }
+
+  var date = lines[0].date || '?';
+  var total = lines.reduce(function(s,v){ return s + (v.pv||0)*(v.qte||0); }, 0);
+  var recap = lines.map(function(v){ return '• '+v.designation+' '+v.taille+' x'+v.qte; }).join('\n');
+
+  openModal(
+    '<div class="modal-title">↩️ Annuler la vente</div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Date : '+formatDate(date)+' — Total : '+fmt(total)+'</div>'+
+    '<div style="background:var(--surface2);padding:12px;border-radius:10px;margin-bottom:14px;font-size:13px;white-space:pre-line;">'+escapeHtml(recap)+'</div>'+
+    '<div style="background:var(--info-bg);color:var(--info);padding:12px;border-radius:10px;font-size:12px;margin-bottom:14px;">'+
+      '✅ Les stocks suivants seront restaurés :<br>'+
+      '— Stock produits finis (quantités remises)<br>'+
+      '— Stock produit vierge (via nomenclature)<br>'+
+      '— Stock design (via nomenclature)'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Garder la vente</button>'+
+      '<button class="btn btn-danger" onclick="confirmCancelVente(\''+id.replace(/'/g,"\\'")+'\')">↩️ Confirmer l\'annulation</button>'+
+    '</div>'
+  );
+}
+
+function confirmCancelVente(id){
+  var lines = [];
+  DB.ventes.forEach(function(v, idx){
+    if(saleTransactionKey(v, idx) === id) lines.push(v);
+  });
+
+  lines.forEach(function(v){
+    // 1. Restore stockFini
+    var sf = (DB.stockFini||[]).find(function(f){ return f.code === v.code; });
+    if(sf){ sf.stock = (sf.stock||0) + (v.qte||0); }
+
+    // 2. Restore stockVierge + stockDTF via nomenclature
+    var catItem = (DB.catalogue||[]).find(function(p){ return p.code === v.code; });
+    var nom = catItem ? getNomenclatureForProduct(catItem) : null;
+    if(nom){
+      var vierge = (DB.stockVierge||[]).find(function(sv){ return sv.ref===nom.viergeRef && sv.couleur===nom.viergeColor; });
+      if(vierge){
+        var tk = (v.taille||'').toLowerCase();
+        if(tk === 'u' || tk === '') tk = 'u';
+        if(vierge[tk] !== undefined) vierge[tk] = (vierge[tk]||0) + (v.qte||0);
+      }
+      if(nom.designRef){
+        var dtf = (DB.stockDTF||[]).find(function(d){ return d.ref === nom.designRef; });
+        if(dtf) dtf.stock = (dtf.stock||0) + (v.qte||0);
+      }
+    }
+  });
+
+  // Remove lines from ventes
+  DB.ventes = DB.ventes.filter(function(v, idx){
+    return saleTransactionKey(v, idx) !== id;
+  });
+
+  saveDB({ reason:'Vente annulée', immediate:true });
+  closeModal();
+  refreshBusinessViews('Vente annulée — stocks restaurés ✓');
+  toast('Vente annulée, stocks restaurés ✓');
 }
 
 openRecurringChargeForm = function(i){
