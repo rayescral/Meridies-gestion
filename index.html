@@ -7634,6 +7634,26 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
         '<div class="social-stat"><div class="label">Portée dernière</div><div class="value">' + fmtN(latest ? latest.reach : 0) + '</div></div>' +
         '<div class="social-stat"><div class="label">Clics site 🔗</div><div class="value">' + fmtN(latest ? latest.websiteClicks : 0) + '</div></div>' +
       '</div>' +
+      (function(){
+        // Dernier relevé complet = likes OU vues renseignés manuellement
+        var fullSnaps = summary.snapshots.filter(function(s){ return !s._liveSync && (socialNum(s.likes) > 0 || socialNum(s.views) > 0 || socialNum(s.reach) > 0); });
+        var lastFull = fullSnaps.length ? fullSnaps[fullSnaps.length-1] : null;
+        if(!lastFull){
+          return '<div style="margin-top:10px;background:var(--warning-bg);border:1px solid rgba(217,119,6,0.2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--warning);display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+            '<span>📋 Aucun relevé complet — saisis tes stats (vues, likes…) pour activer les graphiques.</span>' +
+            '<button class="btn btn-sm" style="background:var(--warning);color:#fff;white-space:nowrap;" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button>' +
+          '</div>';
+        }
+        var daysSince = Math.floor((Date.now() - new Date(lastFull.date + 'T12:00:00').getTime()) / 86400000);
+        var isLate = daysSince >= 7;
+        var color = isLate ? 'var(--warning)' : 'var(--success)';
+        var bg = isLate ? 'var(--warning-bg)' : 'var(--success-bg)';
+        var border = isLate ? 'rgba(217,119,6,0.2)' : 'rgba(5,150,105,0.2)';
+        return '<div style="margin-top:10px;background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:10px 14px;font-size:12px;color:'+color+';display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+          '<span>' + (isLate ? '⚠ ' : '✅ ') + 'Dernier relevé complet il y a <strong>' + daysSince + ' jour' + (daysSince > 1 ? 's' : '') + '</strong>' + (isLate ? ' — pense à mettre à jour !' : '') + '</span>' +
+          (isLate ? '<button class="btn btn-sm" style="background:var(--warning);color:#fff;white-space:nowrap;" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button>' : '') +
+        '</div>';
+      })()
     '</div>';
   }
 
