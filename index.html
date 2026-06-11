@@ -7657,31 +7657,48 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       '</div>' +
       '<div class="social-grid">' + profileCardHtml(ig) + profileCardHtml(tt) + '</div>' +
       '<div class="social-grid">' +
-        '<div class="card"><div class="card-header"><span class="card-title">Évolution des abonnés</span><span class="inline-stat">Instagram vs TikTok</span></div><div style="position:relative;height:280px;"><canvas id="social-followers-chart"></canvas></div></div>' +
-        '<div class="card"><div class="card-header"><span class="card-title">Engagement dans le temps</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:280px;"><canvas id="social-engagement-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Abonnés</span><span class="inline-stat">évolution</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-followers-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Abonnés</span><span class="inline-stat">évolution</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-followers-chart"></canvas></div></div>' +
       '</div>' +
       '<div class="social-grid">' +
-        '<div class="card"><div class="card-header"><span class="card-title">Croissance mensuelle des abonnés</span><span class="inline-stat">variation intra-mois</span></div><div style="position:relative;height:260px;"><canvas id="social-growth-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Engagement</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-eng-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Engagement</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-eng-chart"></canvas></div></div>' +
+      '</div>' +
+      '<div class="social-grid">' +
+        '<div class="card"><div class="card-header"><span class="card-title">Croissance mensuelle des abonnés</span><span class="inline-stat">variation intra-mois par plateforme</span></div><div style="position:relative;height:260px;"><canvas id="social-growth-chart"></canvas></div></div>' +
         '<div class="card"><div class="card-header"><span class="card-title">Derniers relevés</span><span class="inline-stat">24 derniers snapshots</span></div><div class="table-wrap social-table"><table><thead><tr><th>Date</th><th>Plateforme</th><th class="r">Abonnés</th><th class="r">Interactions</th><th class="r">Vues</th><th class="r">Engagement</th><th>Note</th><th></th></tr></thead><tbody>' + (socialTableRows() || '<tr><td colspan="8" class="empty-state">Aucun relevé social pour le moment.</td></tr>') + '</tbody></table></div></div>' +
       '</div>';
 
     var timeline = combinedTimeline();
-    socialUpsertChart('social-followers-chart', {
-      type:'line',
-      data:{ labels:timeline.labels, datasets:[
-        { label:'Instagram', data:timeline.series.instagramFollowers, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.12)', fill:true, tension:0.3, spanGaps:true },
-        { label:'TikTok', data:timeline.series.tiktokFollowers, borderColor:'#12192B', backgroundColor:'rgba(18,25,43,0.08)', fill:true, tension:0.3, spanGaps:true }
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:false } } }
-    });
+    var igLabels = getSnapshots('instagram').map(function(s){ return formatDate(s.date); });
+    var ttLabels = getSnapshots('tiktok').map(function(s){ return formatDate(s.date); });
+    var igFollowers = getSnapshots('instagram').map(function(s){ return socialNum(s.followers); });
+    var ttFollowers = getSnapshots('tiktok').map(function(s){ return socialNum(s.followers); });
+    var igEng = getSnapshots('instagram').map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
+    var ttEng = getSnapshots('tiktok').map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
 
-    socialUpsertChart('social-engagement-chart', {
+    var lineOpts = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:false } } };
+    var engOpts  = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v+'%'; } } } } };
+
+    socialUpsertChart('social-ig-followers-chart', {
       type:'line',
-      data:{ labels:timeline.labels, datasets:[
-        { label:'Instagram', data:timeline.series.instagramEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, spanGaps:true },
-        { label:'TikTok', data:timeline.series.tiktokEng, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.08)', tension:0.35, spanGaps:true }
-      ]},
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v + '%'; } } } } }
+      data:{ labels:igLabels, datasets:[{ label:'Instagram', data:igFollowers, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.12)', fill:true, tension:0.3, pointRadius:3 }]},
+      options:lineOpts
+    });
+    socialUpsertChart('social-tt-followers-chart', {
+      type:'line',
+      data:{ labels:ttLabels, datasets:[{ label:'TikTok', data:ttFollowers, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.1)', fill:true, tension:0.3, pointRadius:3 }]},
+      options:lineOpts
+    });
+    socialUpsertChart('social-ig-eng-chart', {
+      type:'line',
+      data:{ labels:igLabels, datasets:[{ label:'Engagement IG', data:igEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, pointRadius:3 }]},
+      options:engOpts
+    });
+    socialUpsertChart('social-tt-eng-chart', {
+      type:'line',
+      data:{ labels:ttLabels, datasets:[{ label:'Engagement TT', data:ttEng, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.08)', tension:0.35, pointRadius:3 }]},
+      options:engOpts
     });
 
     var igGrowth = monthlyFollowerDelta('instagram');
