@@ -7486,7 +7486,10 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var prev30 = snapshotsSince(platform, 30);
     var oldest30 = prev30.length ? prev30[0] : (snapshots.length ? snapshots[0] : null);
     var followerGrowth = latest && oldest30 ? socialNum(latest.followers) - socialNum(oldest30.followers) : 0;
-    var avgEng = prev30.length ? (prev30.reduce(function(sum, s){ return sum + socialEngagementRate(s); }, 0) / prev30.length) : (latest ? socialEngagementRate(latest) : 0);
+    // Engagement = taux du dernier snapshot avec de vraies interactions (pas liveSync)
+    var realSnaps = snapshots.filter(function(s){ return !s._liveSync && socialInteractions(s) > 0; });
+    var latestReal = realSnaps.length ? realSnaps[realSnaps.length-1] : null;
+    var avgEng = latestReal ? socialEngagementRate(latestReal) : (latest ? socialEngagementRate(latest) : 0);
     var totalInteractions30 = prev30.reduce(function(sum, s){ return sum + socialInteractions(s); }, 0);
     // Vues 30j = delta entre dernier et premier snapshot (cumulatif), pas une somme
     var newestSnap = prev30.length ? prev30[prev30.length - 1] : latest;
@@ -7570,23 +7573,6 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     }).join('');
   }
 
-  function socialReminderBanner(summary){
-    var fullSnaps = summary.snapshots.filter(function(s){ return !s._liveSync && (socialNum(s.likes) > 0 || socialNum(s.views) > 0 || socialNum(s.reach) > 0); });
-    var lastFull = fullSnaps.length ? fullSnaps[fullSnaps.length-1] : null;
-    if(!lastFull){
-      return '<div style="margin-top:10px;background:var(--warning-bg);border:1px solid rgba(217,119,6,0.2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--warning);display:flex;align-items:center;justify-content:space-between;gap:8px;"><span>📋 Aucun relevé complet — saisis tes stats (vues, likes…) pour activer les graphiques.</span><button class="btn btn-sm" style="background:var(--warning);color:#fff;white-space:nowrap;" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button></div>';
-    }
-    var daysSince = Math.floor((Date.now() - new Date(lastFull.date + 'T12:00:00').getTime()) / 86400000);
-    var isLate = daysSince >= 7;
-    var bg = isLate ? 'var(--warning-bg)' : 'var(--success-bg)';
-    var col = isLate ? 'var(--warning)' : 'var(--success)';
-    var border = isLate ? 'rgba(217,119,6,0.2)' : 'rgba(5,150,105,0.2)';
-    return '<div style="margin-top:10px;background:'+bg+';border:1px solid '+border+';border-radius:10px;padding:10px 14px;font-size:12px;color:'+col+';display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
-      '<span>' + (isLate ? '⚠ ' : '✅ ') + 'Dernier relevé complet il y a <strong>' + daysSince + ' jour' + (daysSince > 1 ? 's' : '') + '</strong>' + (isLate ? ' — pense à mettre à jour !' : '') + '</span>' +
-      (isLate ? '<button class="btn btn-sm" style="background:var(--warning);color:#fff;white-space:nowrap;" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button>' : '') +
-    '</div>';
-  }
-
   function profileCardHtml(summary){
     var profile = DB.socialMedia.profiles[summary.platform] || SOCIAL_PROFILES_DEFAULT[summary.platform];
     var latest = summary.latest;
@@ -7640,13 +7626,32 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
           '<button class="btn btn-secondary btn-sm" onclick="window.open(\'' + String(profile.url||'').replace(/'/g, "\\'") + '\',\'_blank\')">Ouvrir</button>' +
         '</div>' +
       '</div>' +
-      '<div class="social-stat-row">' +
-        '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 !== 0 ? (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>') + ' sur 30 j' : 'stable sur 30 j') + '</div></div>' +
-        (summary.platform === 'instagram' ? '<div class="social-stat"><div class="label">Engagement</div><div class="value">' + socialFmtPct(summary.avgEngagement) + engDeltaHtml + '</div><div class="social-mini">interactions / abonnés</div></div>' : '<div class="social-stat"><div class="label">Vues totales</div><div class="value">' + fmtN(latest ? socialNum(latest.views) : 0) + '</div><div class="social-mini">cumulées depuis le début</div></div>') +
-        '<div class="social-stat"><div class="label">Vues 30 j</div><div class="value">' + fmtN(summary.views30) + '</div><div class="social-mini">delta sur la période</div></div>' +
-        (summary.platform === 'instagram' ? '<div class="social-stat"><div class="label">Interactions 30 j</div><div class="value">' + fmtN(summary.interactions30) + '</div><div class="social-mini">likes · comments · partages · saves</div></div>' : '<div class="social-stat"><div class="label">Vues / abonné</div><div class="value">' + (summary.followers > 0 ? (socialNum(latest ? latest.views : 0) / summary.followers).toFixed(1) : '—') + '</div><div class="social-mini">portée organique</div></div>') +
-      '</div>' +
-      socialReminderBanner(summary) +
+      (summary.platform === 'instagram' ? (function(){
+        var saves = latest ? socialNum(latest.saves) : 0;
+        var likes = latest ? socialNum(latest.likes) : 0;
+        var comments = latest ? socialNum(latest.comments) : 0;
+        var clicks = latest ? socialNum(latest.websiteClicks) : 0;
+        var savesRate = summary.followers > 0 ? (saves / summary.followers * 100).toFixed(1) : '—';
+        var commentRatio = likes > 0 ? (comments / likes * 100).toFixed(1) : '—';
+        var bioConv = summary.followers > 0 && clicks > 0 ? (clicks / summary.followers * 100).toFixed(2) : '—';
+        return '<div class="social-stat-row">' +
+          '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : summary.growth30 < 0 ? '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>' : 'stable') + ' sur 30 j</div></div>' +
+          '<div class="social-stat"><div class="label">Engagement</div><div class="value">' + socialFmtPct(summary.avgEngagement) + engDeltaHtml + '</div><div class="social-mini">interactions / abonnés</div></div>' +
+          '<div class="social-stat"><div class="label">Saves rate</div><div class="value">' + savesRate + (savesRate !== '—' ? ' %' : '') + '</div><div class="social-mini">saves / abonnés · contenu evergreen</div></div>' +
+          '<div class="social-stat"><div class="label">Ratio comments/likes</div><div class="value">' + commentRatio + (commentRatio !== '—' ? ' %' : '') + '</div><div class="social-mini">qualité engagement</div></div>' +
+        '</div>';
+      })() : (function(){
+        var totalViews = latest ? socialNum(latest.views) : 0;
+        var posts = latest ? socialNum(latest.contentCount) : 0;
+        var viewsPerPost = posts > 0 ? Math.round(totalViews / posts) : 0;
+        var viewsPerFollower = summary.followers > 0 ? (totalViews / summary.followers).toFixed(1) : '—';
+        return '<div class="social-stat-row">' +
+          '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : summary.growth30 < 0 ? '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>' : 'stable') + ' sur 30 j</div></div>' +
+          '<div class="social-stat"><div class="label">Vues totales</div><div class="value">' + fmtN(totalViews) + '</div><div class="social-mini">cumulées depuis le début</div></div>' +
+          '<div class="social-stat"><div class="label">Vues / vidéo</div><div class="value">' + fmtN(viewsPerPost) + '</div><div class="social-mini">reach moyen par contenu</div></div>' +
+          '<div class="social-stat"><div class="label">Vues / abonné</div><div class="value">' + viewsPerFollower + (viewsPerFollower !== '—' ? 'x' : '') + '</div><div class="social-mini">portée organique</div></div>' +
+        '</div>';
+      })()) +
     '</div>';
   }
 
@@ -7687,7 +7692,9 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var ttLabels = getSnapshots('tiktok').map(function(s){ return formatDate(s.date); });
     var igFollowers = getSnapshots('instagram').map(function(s){ return socialNum(s.followers); });
     var ttFollowers = getSnapshots('tiktok').map(function(s){ return socialNum(s.followers); });
-    var igEng = getSnapshots('instagram').map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
+    var igRealSnaps = getSnapshots('instagram').filter(function(s){ return !s._liveSync && socialInteractions(s) > 0; });
+    var igEngLabels = igRealSnaps.map(function(s){ return formatDate(s.date); });
+    var igEng = igRealSnaps.map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
     var ttEng = getSnapshots('tiktok').map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
 
     var lineOpts = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:false } } };
@@ -7705,7 +7712,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     });
     socialUpsertChart('social-ig-eng-chart', {
       type:'line',
-      data:{ labels:igLabels, datasets:[{ label:'Engagement IG', data:igEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, pointRadius:3 }]},
+      data:{ labels:igEngLabels, datasets:[{ label:'Engagement IG', data:igEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, pointRadius:3 }]},
       options:engOpts
     });
     var ttViews = getSnapshots('tiktok').map(function(s){ return socialNum(s.views); });
