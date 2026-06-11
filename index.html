@@ -4816,24 +4816,9 @@ function addSD() {
   }
 }
 
-function filterSFSelect() {
-  var q = (document.getElementById('nsf-search-d').value||'').toLowerCase();
-  var sel = document.getElementById('nsf-code-d');
-  if(!sel) return;
-  Array.prototype.forEach.call(sel.options, function(opt) {
-    if(!opt.value) { opt.style.display = ''; return; }
-    opt.style.display = (!q || opt.textContent.toLowerCase().indexOf(q) > -1) ? '' : 'none';
-  });
-  // Auto-select first visible non-empty option when filtering
-  if(q) {
-    for(var j=1; j<sel.options.length; j++){
-      if(sel.options[j].style.display !== 'none'){ sel.value = sel.options[j].value; break; }
-    }
-  }
-}
 function openAddStockFini(){
   var opts = DB.catalogue.map(function(p){
-    return '<option value="'+p.code+'">'+p.code+' — '+p.designation+(p.taille?' ('+p.taille+')':'')+'</option>';
+    return '<option value="'+p.code+'">'+escapeHtml(p.designation)+(p.taille?' ('+p.taille+')':'')+'</option>';
   }).join('');
   openModal(
     '<div class="modal-title">Ajouter au stock fini</div>' +
@@ -4844,11 +4829,9 @@ function openAddStockFini(){
 
     /* ── Mode direct ── */
     '<div id="sf-mode-direct">' +
-      '<div class="field" style="margin-bottom:8px;"><label>Rechercher</label>' +
-        '<input type="text" class="input" id="nsf-search-d" placeholder="Filtrer par code, design, couleur…" oninput="filterSFSelect()">' +
-      '</div>' +
+      '<datalist id="nsf-code-d-list">'+opts+'</datalist>' +
       '<div class="field" style="margin-bottom:12px;"><label>Article (catalogue)</label>' +
-        '<select class="select" id="nsf-code-d"><option value="">— Choisir —</option>'+opts+'</select>' +
+        '<input type="text" class="input input-yellow" id="nsf-code-d" list="nsf-code-d-list" placeholder="Tape le code ou la désignation…" autocomplete="off">' +
       '</div>' +
       '<div class="grid2" style="margin-bottom:12px;">' +
         '<div class="field"><label>Quantité à ajouter</label><input type="number" class="input input-yellow" id="nsf-qty-d" value="1" min="1"></div>' +
@@ -4893,12 +4876,14 @@ function setSFMode(mode){
 function addSFAuto(){
   var mode = window._sfCurrentMode || 'direct';
   if(mode === 'direct'){
-    var code = document.getElementById('nsf-code-d').value;
+    var code = document.getElementById('nsf-code-d').value.trim();
     var qty  = parseInt(document.getElementById('nsf-qty-d').value)||0;
     var seuil= parseInt(document.getElementById('nsf-seuil-d').value)||2;
-    if(!code || qty<=0){ toast('Choisissez un article et une quantité'); return; }
-    var prod = DB.catalogue.find(function(p){ return p.code===code; });
-    if(!prod){ toast('Article introuvable'); return; }
+    if(!code || qty<=0){ toast(!code ? 'Tape le code ou la désignation puis sélectionne dans la liste' : 'Quantité invalide'); return; }
+    // Match by code first, then by designation fallback
+    var prod = DB.catalogue.find(function(p){ return p.code===code; }) ||
+               DB.catalogue.find(function(p){ return (p.designation+(p.taille?' ('+p.taille+')':'')).toLowerCase()===code.toLowerCase(); });
+    if(!prod){ toast('Article introuvable — sélectionne une suggestion de la liste'); return; }
     var sf = DB.stockFini.find(function(f){ return f.code===code; });
     if(sf){ sf.stock += qty; }
     else { DB.stockFini.push({code:prod.code, ref:prod.ref, designation:prod.designation, design:prod.design, taille:prod.taille, pv:prod.pv, stock:qty, seuil:seuil}); }
