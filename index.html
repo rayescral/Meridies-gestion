@@ -7631,25 +7631,25 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
         var likes = latest ? socialNum(latest.likes) : 0;
         var comments = latest ? socialNum(latest.comments) : 0;
         var clicks = latest ? socialNum(latest.websiteClicks) : 0;
-        var savesRate = summary.followers > 0 ? (saves / summary.followers * 100).toFixed(1) : '—';
-        var commentRatio = likes > 0 ? (comments / likes * 100).toFixed(1) : '—';
-        var bioConv = summary.followers > 0 && clicks > 0 ? (clicks / summary.followers * 100).toFixed(2) : '—';
+        var savesRate = summary.followers > 0 && saves > 0 ? (saves / summary.followers * 100).toFixed(1) + ' %' : '—';
+        var commentRatio = likes > 0 && comments > 0 ? (comments / likes * 100).toFixed(1) + ' %' : '—';
+        var bioConv = summary.followers > 0 && clicks > 0 ? (clicks / summary.followers * 100).toFixed(2) + ' %' : '—';
         return '<div class="social-stat-row">' +
           '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : summary.growth30 < 0 ? '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>' : 'stable') + ' sur 30 j</div></div>' +
-          '<div class="social-stat"><div class="label">Engagement</div><div class="value">' + socialFmtPct(summary.avgEngagement) + engDeltaHtml + '</div><div class="social-mini">interactions / abonnés</div></div>' +
-          '<div class="social-stat"><div class="label">Saves rate</div><div class="value">' + savesRate + (savesRate !== '—' ? ' %' : '') + '</div><div class="social-mini">saves / abonnés · contenu evergreen</div></div>' +
-          '<div class="social-stat"><div class="label">Ratio comments/likes</div><div class="value">' + commentRatio + (commentRatio !== '—' ? ' %' : '') + '</div><div class="social-mini">qualité engagement</div></div>' +
+          '<div class="social-stat"><div class="label">Posts</div><div class="value">' + fmtN(summary.contentCount) + '</div><div class="social-mini">publications au total</div></div>' +
+          '<div class="social-stat"><div class="label">Saves rate</div><div class="value">' + savesRate + '</div><div class="social-mini">contenu evergreen</div></div>' +
+          '<div class="social-stat"><div class="label">Clics bio → site</div><div class="value">' + bioConv + '</div><div class="social-mini">conversion lien bio</div></div>' +
         '</div>';
       })() : (function(){
         var totalViews = latest ? socialNum(latest.views) : 0;
         var posts = latest ? socialNum(latest.contentCount) : 0;
         var viewsPerPost = posts > 0 ? Math.round(totalViews / posts) : 0;
-        var viewsPerFollower = summary.followers > 0 ? (totalViews / summary.followers).toFixed(1) : '—';
+        var viewsPerFollower = summary.followers > 0 && totalViews > 0 ? (totalViews / summary.followers).toFixed(1) + 'x' : '—';
         return '<div class="social-stat-row">' +
           '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : summary.growth30 < 0 ? '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>' : 'stable') + ' sur 30 j</div></div>' +
           '<div class="social-stat"><div class="label">Vues totales</div><div class="value">' + fmtN(totalViews) + '</div><div class="social-mini">cumulées depuis le début</div></div>' +
           '<div class="social-stat"><div class="label">Vues / vidéo</div><div class="value">' + fmtN(viewsPerPost) + '</div><div class="social-mini">reach moyen par contenu</div></div>' +
-          '<div class="social-stat"><div class="label">Vues / abonné</div><div class="value">' + viewsPerFollower + (viewsPerFollower !== '—' ? 'x' : '') + '</div><div class="social-mini">portée organique</div></div>' +
+          '<div class="social-stat"><div class="label">Vues / abonné</div><div class="value">' + viewsPerFollower + '</div><div class="social-mini">portée organique</div></div>' +
         '</div>';
       })()) +
     '</div>';
@@ -7675,51 +7675,61 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       '</div>' +
       '<div class="social-grid">' + profileCardHtml(ig) + profileCardHtml(tt) + '</div>' +
       '<div class="social-grid">' +
-        '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Abonnés</span><span class="inline-stat">évolution</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-followers-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Abonnés</span><span class="inline-stat">sync auto</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-followers-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Likes & Saves</span><span class="inline-stat">par relevé manuel</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-interactions-chart"></canvas></div></div>' +
+      '</div>' +
+      '<div class="social-grid">' +
         '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Abonnés</span><span class="inline-stat">évolution</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-followers-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Vues cumulées</span><span class="inline-stat">par relevé manuel</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-views-chart"></canvas></div></div>' +
       '</div>' +
       '<div class="social-grid">' +
-        '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Engagement</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-eng-chart"></canvas></div></div>' +
-        '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Vues cumulées</span><span class="inline-stat">total depuis le début</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-eng-chart"></canvas></div></div>' +
-      '</div>' +
-      '<div class="social-grid">' +
-        '<div class="card"><div class="card-header"><span class="card-title">Croissance mensuelle des abonnés</span><span class="inline-stat">variation intra-mois par plateforme</span></div><div style="position:relative;height:260px;"><canvas id="social-growth-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">Croissance mensuelle des abonnés</span><span class="inline-stat">variation intra-mois</span></div><div style="position:relative;height:260px;"><canvas id="social-growth-chart"></canvas></div></div>' +
         '<div class="card"><div class="card-header"><span class="card-title">Derniers relevés</span><span class="inline-stat">24 derniers snapshots</span></div><div class="table-wrap social-table"><table><thead><tr><th>Date</th><th>Plateforme</th><th class="r">Abonnés</th><th class="r">Interactions</th><th class="r">Vues</th><th class="r">Engagement</th><th>Note</th><th></th></tr></thead><tbody>' + (socialTableRows() || '<tr><td colspan="8" class="empty-state">Aucun relevé social pour le moment.</td></tr>') + '</tbody></table></div></div>' +
       '</div>';
 
-    var timeline = combinedTimeline();
-    var igLabels = getSnapshots('instagram').map(function(s){ return formatDate(s.date); });
-    var ttLabels = getSnapshots('tiktok').map(function(s){ return formatDate(s.date); });
-    var igFollowers = getSnapshots('instagram').map(function(s){ return socialNum(s.followers); });
-    var ttFollowers = getSnapshots('tiktok').map(function(s){ return socialNum(s.followers); });
-    var igRealSnaps = getSnapshots('instagram').filter(function(s){ return !s._liveSync && socialInteractions(s) > 0; });
-    var igEngLabels = igRealSnaps.map(function(s){ return formatDate(s.date); });
-    var igEng = igRealSnaps.map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
-    var ttEng = getSnapshots('tiktok').map(function(s){ return Number(socialEngagementRate(s).toFixed(2)); });
+    var igSnaps = getSnapshots('instagram');
+    var ttSnaps = getSnapshots('tiktok');
+    var igRealSnaps = igSnaps.filter(function(s){ return !s._liveSync; });
+    var ttRealSnaps = ttSnaps.filter(function(s){ return !s._liveSync; });
+    var igLabels = igSnaps.map(function(s){ return formatDate(s.date); });
+    var ttLabels = ttSnaps.map(function(s){ return formatDate(s.date); });
+    var igRealLabels = igRealSnaps.map(function(s){ return formatDate(s.date); });
+    var ttRealLabels = ttRealSnaps.map(function(s){ return formatDate(s.date); });
+    var igFollowers = igSnaps.map(function(s){ return socialNum(s.followers); });
+    var ttFollowers = ttSnaps.map(function(s){ return socialNum(s.followers); });
+    var kFmt = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:false } } };
+    var kFmtZero = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v>=1000?(v/1000).toFixed(0)+'k':v; } } } } };
 
-    var lineOpts = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:false } } };
-    var engOpts  = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v+'%'; } } } } };
-
+    // IG Abonnés
     socialUpsertChart('social-ig-followers-chart', {
       type:'line',
-      data:{ labels:igLabels, datasets:[{ label:'Instagram', data:igFollowers, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.12)', fill:true, tension:0.3, pointRadius:3 }]},
-      options:lineOpts
+      data:{ labels:igLabels, datasets:[{ label:'Abonnés', data:igFollowers, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.12)', fill:true, tension:0.3, pointRadius:3 }]},
+      options:kFmt
     });
+
+    // IG Likes + Saves + Commentaires (relevés manuels)
+    socialUpsertChart('social-ig-interactions-chart', {
+      type:'bar',
+      data:{ labels:igRealLabels, datasets:[
+        { label:'Likes', data:igRealSnaps.map(function(s){ return socialNum(s.likes); }), backgroundColor:'#C9A84C', borderRadius:4 },
+        { label:'Saves', data:igRealSnaps.map(function(s){ return socialNum(s.saves); }), backgroundColor:'rgba(201,168,76,0.45)', borderRadius:4 },
+        { label:'Commentaires', data:igRealSnaps.map(function(s){ return socialNum(s.comments); }), backgroundColor:'rgba(201,168,76,0.2)', borderRadius:4 }
+      ]},
+      options:kFmtZero
+    });
+
+    // TT Abonnés
     socialUpsertChart('social-tt-followers-chart', {
       type:'line',
-      data:{ labels:ttLabels, datasets:[{ label:'TikTok', data:ttFollowers, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.1)', fill:true, tension:0.3, pointRadius:3 }]},
-      options:lineOpts
+      data:{ labels:ttLabels, datasets:[{ label:'Abonnés', data:ttFollowers, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.1)', fill:true, tension:0.3, pointRadius:3 }]},
+      options:kFmt
     });
-    socialUpsertChart('social-ig-eng-chart', {
+
+    // TT Vues cumulées
+    socialUpsertChart('social-tt-views-chart', {
       type:'line',
-      data:{ labels:igEngLabels, datasets:[{ label:'Engagement IG', data:igEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, pointRadius:3 }]},
-      options:engOpts
-    });
-    var ttViews = getSnapshots('tiktok').map(function(s){ return socialNum(s.views); });
-    socialUpsertChart('social-tt-eng-chart', {
-      type:'line',
-      data:{ labels:ttLabels, datasets:[{ label:'Vues TikTok', data:ttViews, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.1)', fill:true, tension:0.3, pointRadius:3 }]},
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v >= 1000 ? (v/1000).toFixed(0)+'k' : v; } } } } }
+      data:{ labels:ttRealLabels, datasets:[{ label:'Vues', data:ttRealSnaps.map(function(s){ return socialNum(s.views); }), borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.1)', fill:true, tension:0.3, pointRadius:3 }]},
+      options:kFmtZero
     });
 
     var igGrowth = monthlyFollowerDelta('instagram');
