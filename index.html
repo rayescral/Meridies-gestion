@@ -7563,7 +7563,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
         '<td class="r mono">' + fmtN(s.followers||0) + '</td>' +
         '<td class="r mono">' + fmtN(socialInteractions(s)) + '</td>' +
         '<td class="r mono">' + fmtN(s.views||0) + '</td>' +
-        '<td class="r mono">' + socialFmtPct(socialEngagementRate(s)) + '</td>' +
+        '<td class="r mono">' + (s.platform === 'tiktok' ? '<span style="color:var(--hint)">—</span>' : socialFmtPct(socialEngagementRate(s))) + '</td>' +
         '<td class="mono" style="font-size:11px;color:var(--muted);">' + escapeHtml(s.notes||'') + '</td>' +
         '<td class="c"><button class="btn-icon" onclick="openSocialSnapshotForm(' + Number(s.id) + ')">✏️</button> <button class="btn-icon" onclick="deleteSocialSnapshot(' + Number(s.id) + ')">🗑</button></td>' +
       '</tr>';
@@ -7625,9 +7625,9 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       '</div>' +
       '<div class="social-stat-row">' +
         '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 !== 0 ? (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>') + ' sur 30 j' : 'stable sur 30 j') + '</div></div>' +
-        '<div class="social-stat"><div class="label">Engagement</div><div class="value">' + socialFmtPct(summary.avgEngagement) + engDeltaHtml + '</div><div class="social-mini">interactions / abonnés</div></div>' +
+        (summary.platform === 'instagram' ? '<div class="social-stat"><div class="label">Engagement</div><div class="value">' + socialFmtPct(summary.avgEngagement) + engDeltaHtml + '</div><div class="social-mini">interactions / abonnés</div></div>' : '<div class="social-stat"><div class="label">Vues totales</div><div class="value">' + fmtN(latest ? socialNum(latest.views) : 0) + '</div><div class="social-mini">cumulées depuis le début</div></div>') +
         '<div class="social-stat"><div class="label">Vues 30 j</div><div class="value">' + fmtN(summary.views30) + '</div><div class="social-mini">delta sur la période</div></div>' +
-        '<div class="social-stat"><div class="label">Interactions 30 j</div><div class="value">' + fmtN(summary.interactions30) + '</div><div class="social-mini">likes · comments · partages · saves</div></div>' +
+        (summary.platform === 'instagram' ? '<div class="social-stat"><div class="label">Interactions 30 j</div><div class="value">' + fmtN(summary.interactions30) + '</div><div class="social-mini">likes · comments · partages · saves</div></div>' : '<div class="social-stat"><div class="label">Vues / abonné</div><div class="value">' + (summary.followers > 0 ? (socialNum(latest ? latest.views : 0) / summary.followers).toFixed(1) : '—') + '</div><div class="social-mini">portée organique</div></div>') +
       '</div>' +
       '<div class="social-inline-kpis" style="margin-top:12px;">' +
         '<div class="social-stat"><div class="label">Posts / vidéos</div><div class="value">' + fmtN(summary.contentCount) + '</div></div>' +
@@ -7652,7 +7652,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       '<div class="social-wide-kpis">' +
         '<div class="metric-box"><div class="label">Audience totale</div><div class="value">' + fmtN(overall.totalFollowers) + '</div><div class="inline-stat">Instagram + TikTok</div></div>' +
         '<div class="metric-box"><div class="label">Croissance 30 jours</div><div class="value">' + (overall.growth30 >= 0 ? '+' : '') + fmtN(overall.growth30) + '</div><div class="inline-stat">sur la base des derniers relevés</div></div>' +
-        '<div class="metric-box"><div class="label">Engagement moyen</div><div class="value">' + socialFmtPct(overall.avgEngagement) + '</div><div class="inline-stat">moyenne IG / TikTok</div></div>' +
+        '<div class="metric-box"><div class="label">Engagement Instagram</div><div class="value">' + socialFmtPct(ig.avgEngagement) + '</div><div class="inline-stat">interactions / abonnés</div></div>' +
         '<div class="metric-box"><div class="label">Snapshots</div><div class="value">' + fmtN(overall.snapshots) + '</div><div class="inline-stat">historique disponible</div></div>' +
       '</div>' +
       '<div class="social-grid">' + profileCardHtml(ig) + profileCardHtml(tt) + '</div>' +
@@ -7662,7 +7662,7 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       '</div>' +
       '<div class="social-grid">' +
         '<div class="card"><div class="card-header"><span class="card-title">📸 Instagram — Engagement</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:220px;"><canvas id="social-ig-eng-chart"></canvas></div></div>' +
-        '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Engagement</span><span class="inline-stat">% par relevé</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-eng-chart"></canvas></div></div>' +
+        '<div class="card"><div class="card-header"><span class="card-title">🎵 TikTok — Vues cumulées</span><span class="inline-stat">total depuis le début</span></div><div style="position:relative;height:220px;"><canvas id="social-tt-eng-chart"></canvas></div></div>' +
       '</div>' +
       '<div class="social-grid">' +
         '<div class="card"><div class="card-header"><span class="card-title">Croissance mensuelle des abonnés</span><span class="inline-stat">variation intra-mois par plateforme</span></div><div style="position:relative;height:260px;"><canvas id="social-growth-chart"></canvas></div></div>' +
@@ -7695,10 +7695,11 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       data:{ labels:igLabels, datasets:[{ label:'Engagement IG', data:igEng, borderColor:'#C9A84C', backgroundColor:'rgba(201,168,76,0.08)', tension:0.35, pointRadius:3 }]},
       options:engOpts
     });
+    var ttViews = getSnapshots('tiktok').map(function(s){ return socialNum(s.views); });
     socialUpsertChart('social-tt-eng-chart', {
       type:'line',
-      data:{ labels:ttLabels, datasets:[{ label:'Engagement TT', data:ttEng, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.08)', tension:0.35, pointRadius:3 }]},
-      options:engOpts
+      data:{ labels:ttLabels, datasets:[{ label:'Vues TikTok', data:ttViews, borderColor:'#5B6475', backgroundColor:'rgba(91,100,117,0.1)', fill:true, tension:0.3, pointRadius:3 }]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v >= 1000 ? (v/1000).toFixed(0)+'k' : v; } } } } }
     });
 
     var igGrowth = monthlyFollowerDelta('instagram');
