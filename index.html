@@ -1937,6 +1937,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 </div>
 
 <div class="page" id="page-nomenclature">
+  <div class="kpi-grid" id="nom-kpis" style="margin-bottom:14px;"></div>
   <div class="card" style="margin-bottom:14px;">
     <div style="padding:14px 16px 0;">
       <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
@@ -1959,6 +1960,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <th>Produit vierge → couleur</th>
         <th>Design appliqué</th>
         <th>Stock vierge</th><th>Stock design</th>
+        <th>Prod. max</th>
         <th></th>
       </tr></thead><tbody id="nom-body"></tbody></table>
     </div>
@@ -3435,9 +3437,13 @@ function renderNomenclature(){
   var tbody = document.getElementById('nom-body');
   if(!tbody) return;
   if(!DB.nomenclatures.length){
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">🔗</div>Aucune règle.<br><small>Clique sur <strong>⚡ Générer automatiquement</strong> — une règle par ref produit sera créée.</small></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><div class="icon">🔗</div>Aucune règle.<br><small>Clique sur <strong>⚡ Générer automatiquement</strong> — une règle par ref produit sera créée.</small></td></tr>';
     return;
   }
+
+  // KPI totals
+  var kpiTotal = 0, kpiRupture = 0, kpiOk = 0;
+
   tbody.innerHTML = DB.nomenclatures.map(function(n, i){
     // Codes affectés
     var codes = (DB.catalogue||[]).filter(function(p){ return p.ref === n.refProduit; }).map(function(p){ return p.code; });
@@ -3463,6 +3469,66 @@ function renderNomenclature(){
           ? '<span class="badge" style="background:var(--danger-bg);color:var(--danger);">rupture</span>'
           : '<span class="badge badge-ok">'+dtf.stock+' pcs</span>';
 
+    // ── PROD MAX ──
+    // Pour chaque taille disponible dans le catalogue, on calcule combien on peut assembler
+    // = min(stock vierge taille, stock design / nb tailles) arrondi à l'entier
+    var TAILLES = ['XS','S','M','L','XL','U'];
+    var prodMaxByTaille = {};
+    var prodMaxTotal = 0;
+    var hasVierge = vierge && totalVierge >= 0;
+
+    // Design disponible total (partagé entre toutes les tailles)
+    var designDispo = n.designRef
+      ? (dtf ? (dtf.stock || 0) : 0)
+      : Infinity; // sans design = pas de limite côté design
+
+    // Tailles effectivement présentes dans le catalogue pour cette ref
+    var taillesDuProduit = [];
+    TAILLES.forEach(function(t){
+      var hasTaille = codes.some(function(c){ return c.endsWith('-'+t); });
+      if(hasTaille) taillesDuTaille = t, taillesDuProduit.push(t);
+    });
+
+    if(hasVierge) {
+      taillesDuProduit.forEach(function(t){
+        var tailleKey = t.toLowerCase();
+        var stockTaille = vierge[tailleKey] || 0;
+        // Pour le design : il est partagé entre toutes les tailles — on ne peut pas réserver
+        // donc on indique simplement le min(stock vierge taille, stock design total)
+        var maxForTaille = n.designRef
+          ? Math.min(stockTaille, designDispo)
+          : stockTaille;
+        prodMaxByTaille[t] = maxForTaille;
+        prodMaxTotal += maxForTaille;
+      });
+    }
+
+    // Build prod max cell
+    var prodMaxHtml;
+    if(!hasVierge){
+      prodMaxHtml = '<span style="color:var(--hint);font-size:12px;">—</span>';
+    } else if(prodMaxTotal === 0){
+      prodMaxHtml = '<span class="badge" style="background:var(--danger-bg);color:var(--danger);font-size:11px;">0</span>';
+      kpiRupture++;
+    } else {
+      kpiOk++;
+      // Show per-taille breakdown if multiple sizes, else just total
+      var isU = taillesDuProduit.length === 1 && taillesDuProduit[0] === 'U';
+      if(isU){
+        prodMaxHtml = '<span class="badge badge-ok" style="font-size:11px;">'+prodMaxTotal+' pcs</span>';
+      } else {
+        prodMaxHtml = '<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+        taillesDuProduit.forEach(function(t){
+          var v2 = prodMaxByTaille[t] || 0;
+          var cls = v2 === 0 ? 'background:var(--danger-bg);color:var(--danger);' : v2 <= 3 ? 'background:var(--warning-bg);color:var(--warning);' : 'background:var(--success-bg);color:var(--success);';
+          prodMaxHtml += '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;'+cls+'">'+t+':'+v2+'</span>';
+        });
+        prodMaxHtml += '</div>';
+        prodMaxHtml += '<div style="font-size:10px;color:var(--muted);margin-top:2px;">Total : <strong>'+prodMaxTotal+'</strong></div>';
+      }
+    }
+    kpiTotal += prodMaxTotal;
+
     return '<tr>'+
       '<td class="mono" style="font-weight:700;">'+escapeHtml(n.refProduit)+'</td>'+
       '<td style="font-weight:600;">'+escapeHtml(n.designation||'')+'</td>'+
@@ -3471,12 +3537,32 @@ function renderNomenclature(){
       '<td class="mono">'+(n.designRef?'<span style="font-weight:700;">'+escapeHtml(n.designRef)+'</span>':'<span style="color:var(--hint)">—</span>')+'</td>'+
       '<td>'+viergeStatus+'</td>'+
       '<td>'+designStatus+'</td>'+
+      '<td>'+prodMaxHtml+'</td>'+
       '<td><div style="display:flex;gap:4px;">'+
         '<button class="btn-icon" onclick="editNomenclature('+i+')" title="Modifier">✏️</button>'+
         '<button class="btn-icon" onclick="deleteNomenclature('+i+')" title="Supprimer">🗑</button>'+
       '</div></td>'+
     '</tr>';
   }).join('');
+
+  // Render KPIs
+  var kpiEl = document.getElementById('nom-kpis');
+  if(kpiEl){
+    kpiEl.innerHTML =
+      '<div class="kpi kpi-accent"><div class="kpi-label">Prod. max totale</div><div class="kpi-value">'+kpiTotal+'</div><div class="kpi-sub">pièces assemblables maintenant</div></div>'+
+      '<div class="kpi '+(kpiOk>0?'kpi-success':'')+'"><div class="kpi-label">Refs productibles</div><div class="kpi-value">'+kpiOk+'</div><div class="kpi-sub">sur '+DB.nomenclatures.length+' règles</div></div>'+
+      '<div class="kpi '+(kpiRupture>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Ruptures</div><div class="kpi-value">'+kpiRupture+'</div><div class="kpi-sub">stock vierge ou design à 0</div></div>'+
+      '<div class="kpi"><div class="kpi-label">Valeur prod. max</div><div class="kpi-value kpi-value" style="font-size:20px;">'+fmt((DB.nomenclatures||[]).reduce(function(sum,n2,idx){
+        var codes2 = (DB.catalogue||[]).filter(function(p){ return p.ref===n2.refProduit; });
+        var avgPv = codes2.length ? codes2.reduce(function(s,p){ return s+p.pv; },0)/codes2.length : 0;
+        // get prodMaxTotal for this row — recompute quickly
+        var v2 = (DB.stockVierge||[]).find(function(v){ return v.ref===n2.viergeRef && v.couleur===n2.viergeColor; });
+        var tot2 = v2 ? (v2.xs||0)+(v2.s||0)+(v2.m||0)+(v2.l||0)+(v2.xl||0)+(v2.u||0) : 0;
+        var dtf2 = n2.designRef ? (DB.stockDTF||[]).find(function(d){ return d.ref===n2.designRef; }) : null;
+        var dd2 = n2.designRef ? (dtf2 ? (dtf2.stock||0) : 0) : tot2;
+        return sum + Math.min(tot2, dd2) * avgPv;
+      },0))+'</div><div class="kpi-sub">au PV moyen</div></div>';
+  }
 }
 
 function openAddNomenclature(prefill){
