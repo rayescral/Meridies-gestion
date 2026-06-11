@@ -7280,6 +7280,66 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     tiktok: { key:'tiktok', label:'TikTok', handle:'@meridies.fr', username:'meridies.fr', url:'https://www.tiktok.com/@meridies.fr?is_from_webapp=1&sender_device=pc', color:'#12192B', accent:'#D9DEE8' }
   };
 
+  // ── INSTAGRAM LIVE — Google Apps Script endpoint ──
+  var IG_GAS_URL = "https://script.google.com/macros/s/AKfycbxvRy_215q49RqR6EYpwEBzdoiL1mR3MdBT65eGqAtGniDE6IHKTa_nKgmrVdwG7PhbbQ/exec";
+
+  function fetchInstagramLive(onSuccess, onError) {
+    fetch(IG_GAS_URL)
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data.error){ onError && onError(data.error); return; }
+        onSuccess(data);
+      })
+      .catch(function(e){ onError && onError(e.toString()); });
+  }
+
+  // Auto-sync Instagram au chargement de la page (max 1x par session)
+  function autoSyncInstagram() {
+    var lastSync = Number(sessionStorage.getItem('ig_live_sync') || '0');
+    if(Date.now() - lastSync < 5 * 60 * 1000) return; // 5 min cooldown
+    sessionStorage.setItem('ig_live_sync', String(Date.now()));
+    fetchInstagramLive(function(data) {
+      ensureSocialDefaults();
+      // Crée un snapshot automatique avec les données live si nouveaux followers
+      var existing = getSnapshots('instagram');
+      var latest = existing.length ? existing[existing.length-1] : null;
+      var todayStr = new Date().toISOString().slice(0,10);
+      // Ne crée pas de doublon si un snapshot existe déjà aujourd'hui
+      if(latest && latest.date === todayStr) {
+        // Met à jour le snapshot du jour silencieusement
+        latest.followers = data.followers || latest.followers;
+        latest.contentCount = data.mediaCount || latest.contentCount;
+        latest._liveSync = true;
+      } else if(!latest || data.followers !== latest.followers) {
+        // Nouveau snapshot automatique
+        DB.socialMedia.snapshots.push({
+          id: Date.now(),
+          platform: 'instagram',
+          date: todayStr,
+          followers: data.followers || 0,
+          contentCount: data.mediaCount || 0,
+          views: latest ? (latest.views || 0) : 0,
+          reach: 0, likes: 0, comments: 0, shares: 0, saves: 0,
+          profileVisits: 0, websiteClicks: 0,
+          notes: '🔄 Sync auto',
+          _liveSync: true
+        });
+        DB.socialMedia.snapshots.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+      }
+      saveDB();
+      // Rafraîchit le dashboard si visible
+      if(document.getElementById('page-social-media') && document.getElementById('page-social-media').classList.contains('active')){
+        renderSocialDashboard();
+      }
+      // Met à jour le badge live
+      var badge = document.getElementById('ig-live-badge');
+      if(badge) badge.innerHTML = '<span style="color:var(--success);font-size:11px;font-weight:700;">🟢 Live · ' + data.followers.toLocaleString('fr') + ' abonnés</span>';
+    }, function(err) {
+      var badge = document.getElementById('ig-live-badge');
+      if(badge) badge.innerHTML = '<span style="color:var(--warning);font-size:11px;">⚠ Sync Instagram échouée</span>';
+    });
+  }
+
   function injectSocialStyles(){
     if(document.getElementById('social-dashboard-styles')) return;
     var style = document.createElement('style');
@@ -7400,7 +7460,11 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
 
   function socialEngagementRate(s){
     if(!s) return 0;
-    var base = socialNum(s.reach) > 0 ? socialNum(s.reach) : socialNum(s.followers);
+    // Taux d'engagement = interactions / abonnés (standard industrie)
+    // La portée est utilisée uniquement si elle est cohérente (< 3x les abonnés)
+    var followers = socialNum(s.followers);
+    var reach = socialNum(s.reach);
+    var base = (reach > 0 && reach <= followers * 3) ? reach : followers;
     return base > 0 ? (socialInteractions(s) / base) * 100 : 0;
   }
 
@@ -7424,7 +7488,12 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
     var followerGrowth = latest && oldest30 ? socialNum(latest.followers) - socialNum(oldest30.followers) : 0;
     var avgEng = prev30.length ? (prev30.reduce(function(sum, s){ return sum + socialEngagementRate(s); }, 0) / prev30.length) : (latest ? socialEngagementRate(latest) : 0);
     var totalInteractions30 = prev30.reduce(function(sum, s){ return sum + socialInteractions(s); }, 0);
-    var totalViews30 = prev30.reduce(function(sum, s){ return sum + socialNum(s.views); }, 0);
+    // Vues 30j = delta entre dernier et premier snapshot (cumulatif), pas une somme
+    var newestSnap = prev30.length ? prev30[prev30.length - 1] : latest;
+    var oldestSnap = prev30.length ? prev30[0] : null;
+    var totalViews30 = newestSnap && oldestSnap && socialNum(oldestSnap.views) > 0
+      ? Math.max(0, socialNum(newestSnap.views) - socialNum(oldestSnap.views))
+      : (newestSnap ? socialNum(newestSnap.views) : 0);
     return {
       platform: platform,
       latest: latest,
@@ -7504,32 +7573,68 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
   function profileCardHtml(summary){
     var profile = DB.socialMedia.profiles[summary.platform] || SOCIAL_PROFILES_DEFAULT[summary.platform];
     var latest = summary.latest;
-    var latestDate = latest ? formatDate(latest.date) : '—';
-    return ''+
-      '<div class="social-card social-profile-card">' +
+    var latestDate = latest ? formatDate(latest.date) : null;
+    var platformColor = summary.platform === 'instagram' ? '#C9A84C' : '#12192B';
+    var badgeClass = summary.platform === 'instagram' ? 'social-badge-ig' : 'social-badge-tt';
+
+    // Pas encore de données → CTA bien visible
+    if(!latest){
+      return '<div class="social-card social-profile-card">' +
         '<div class="social-profile-head">' +
           '<div>' +
-            '<div class="social-tag ' + (summary.platform==='instagram'?'social-badge-ig':'social-badge-tt') + '">' + escapeHtml(profile.label || summary.platform) + '</div>' +
+            '<div class="social-tag ' + badgeClass + '">' + escapeHtml(profile.label || summary.platform) + '</div>' +
             '<div class="social-handle">' + escapeHtml(profile.handle || summary.platform) + '</div>' +
-            '<div class="social-sub">Dernier relevé le ' + latestDate + ' · ' + (summary.snapshotCount || 0) + ' snapshot(s)</div>' +
+            '<div class="social-sub" style="color:var(--warning);">⚠ Aucun relevé — compte non relié</div>' +
           '</div>' +
           '<div class="social-actions">' +
-            '<button class="btn btn-secondary btn-sm" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button>' +
+            (summary.platform === 'instagram' ? '<button class="btn btn-primary btn-sm" onclick="manualSyncInstagram(this)">🔄 Sync live</button>' : '') +
+            '<button class="btn btn-secondary btn-sm" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Premier relevé</button>' +
             '<button class="btn btn-secondary btn-sm" onclick="window.open(\'' + String(profile.url||'').replace(/'/g, "\\'") + '\',\'_blank\')">Ouvrir</button>' +
           '</div>' +
         '</div>' +
-        '<div class="social-stat-row">' +
-          '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">compteur actuel</div></div>' +
-          '<div class="social-stat"><div class="label">Croissance 30 j</div><div class="value">' + (summary.growth30 >= 0 ? '+' : '') + fmtN(summary.growth30) + '</div><div class="social-mini">vs relevé 30 j</div></div>' +
-          '<div class="social-stat"><div class="label">Engagement moyen</div><div class="value">' + socialFmtPct(summary.avgEngagement) + '</div><div class="social-mini">interactions / portée ou abonnés</div></div>' +
-          '<div class="social-stat"><div class="label">Interactions 30 j</div><div class="value">' + fmtN(summary.interactions30) + '</div><div class="social-mini">likes, commentaires, partages, saves</div></div>' +
-        '</div>' +
-        '<div class="social-inline-kpis" style="margin-top:12px;">' +
-          '<div class="social-stat"><div class="label">Posts / vidéos</div><div class="value">' + fmtN(summary.contentCount) + '</div></div>' +
-          '<div class="social-stat"><div class="label">Vues 30 j</div><div class="value">' + fmtN(summary.views30) + '</div></div>' +
-          '<div class="social-stat"><div class="label">Dernière portée</div><div class="value">' + fmtN(latest ? latest.reach : 0) + '</div></div>' +
+        '<div style="text-align:center;padding:28px 16px;color:var(--hint);">' +
+          '<div style="font-size:32px;margin-bottom:8px;">📊</div>' +
+          '<div style="font-size:13px;font-weight:600;margin-bottom:4px;">Aucune donnée pour ' + escapeHtml(profile.label || summary.platform) + '</div>' +
+          '<div style="font-size:12px;margin-bottom:16px;">Ajoute ton premier relevé pour commencer le suivi : abonnés, vues, likes…</div>' +
+          '<button class="btn btn-primary" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Ajouter le premier relevé</button>' +
         '</div>' +
       '</div>';
+    }
+
+    // Calcul évolution engagement sur les 2 derniers snapshots
+    var snaps = summary.snapshots;
+    var prevSnap = snaps.length >= 2 ? snaps[snaps.length - 2] : null;
+    var engDelta = prevSnap ? (socialEngagementRate(latest) - socialEngagementRate(prevSnap)) : null;
+    var engDeltaHtml = engDelta !== null
+      ? '<span style="font-size:10px;font-weight:700;margin-left:4px;color:' + (engDelta >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (engDelta >= 0 ? '▲' : '▼') + ' ' + Math.abs(engDelta).toFixed(1) + ' pts</span>'
+      : '';
+
+    return '<div class="social-card social-profile-card">' +
+      '<div class="social-profile-head">' +
+        '<div>' +
+          '<div class="social-tag ' + badgeClass + '">' + escapeHtml(profile.label || summary.platform) + '</div>' +
+          '<div class="social-handle">' + escapeHtml(profile.handle || summary.platform) + '</div>' +
+          '<div class="social-sub">Relevé du ' + latestDate + ' · ' + (summary.snapshotCount || 0) + ' snapshot(s)</div>' +
+          (summary.platform === 'instagram' ? '<div id="ig-live-badge" style="margin-top:4px;"></div>' : '') +
+        '</div>' +
+        '<div class="social-actions">' +
+          (summary.platform === 'instagram' ? '<button class="btn btn-secondary btn-sm" onclick="manualSyncInstagram(this)" title="Récupère les vrais chiffres depuis Instagram">🔄 Sync live</button>' : '') +
+          '<button class="btn btn-secondary btn-sm" onclick="openSocialSnapshotForm(null,\'' + summary.platform + '\')">+ Relevé</button>' +
+          '<button class="btn btn-secondary btn-sm" onclick="window.open(\'' + String(profile.url||'').replace(/'/g, "\\'") + '\',\'_blank\')">Ouvrir</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="social-stat-row">' +
+        '<div class="social-stat"><div class="label">Abonnés</div><div class="value">' + fmtN(summary.followers) + '</div><div class="social-mini">' + (summary.growth30 !== 0 ? (summary.growth30 > 0 ? '<span style="color:var(--success);">+' + fmtN(summary.growth30) + '</span>' : '<span style="color:var(--danger);">' + fmtN(summary.growth30) + '</span>') + ' sur 30 j' : 'stable sur 30 j') + '</div></div>' +
+        '<div class="social-stat"><div class="label">Engagement</div><div class="value">' + socialFmtPct(summary.avgEngagement) + engDeltaHtml + '</div><div class="social-mini">interactions / abonnés</div></div>' +
+        '<div class="social-stat"><div class="label">Vues 30 j</div><div class="value">' + fmtN(summary.views30) + '</div><div class="social-mini">delta sur la période</div></div>' +
+        '<div class="social-stat"><div class="label">Interactions 30 j</div><div class="value">' + fmtN(summary.interactions30) + '</div><div class="social-mini">likes · comments · partages · saves</div></div>' +
+      '</div>' +
+      '<div class="social-inline-kpis" style="margin-top:12px;">' +
+        '<div class="social-stat"><div class="label">Posts / vidéos</div><div class="value">' + fmtN(summary.contentCount) + '</div></div>' +
+        '<div class="social-stat"><div class="label">Portée dernière</div><div class="value">' + fmtN(latest ? latest.reach : 0) + '</div></div>' +
+        '<div class="social-stat"><div class="label">Clics site 🔗</div><div class="value">' + fmtN(latest ? latest.websiteClicks : 0) + '</div></div>' +
+      '</div>' +
+    '</div>';
   }
 
   function renderSocialDashboard(){
@@ -7592,7 +7697,47 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       ]},
       options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } }
     });
+
+    // Auto-sync Instagram en arrière-plan
+    setTimeout(autoSyncInstagram, 800);
   }
+
+  window.manualSyncInstagram = function(btn) {
+    if(btn){ btn.textContent = '⏳ Sync…'; btn.disabled = true; }
+    sessionStorage.removeItem('ig_live_sync'); // force même si cooldown
+    fetchInstagramLive(function(data) {
+      ensureSocialDefaults();
+      var todayStr = new Date().toISOString().slice(0,10);
+      var existing = getSnapshots('instagram');
+      var latest = existing.length ? existing[existing.length-1] : null;
+      if(latest && latest.date === todayStr) {
+        latest.followers = data.followers || latest.followers;
+        latest.contentCount = data.mediaCount || latest.contentCount;
+        latest._liveSync = true;
+      } else {
+        DB.socialMedia.snapshots.push({
+          id: Date.now(),
+          platform: 'instagram',
+          date: todayStr,
+          followers: data.followers || 0,
+          contentCount: data.mediaCount || 0,
+          views: latest ? (latest.views || 0) : 0,
+          reach: 0, likes: 0, comments: 0, shares: 0, saves: 0,
+          profileVisits: 0, websiteClicks: 0,
+          notes: '🔄 Sync auto',
+          _liveSync: true
+        });
+        DB.socialMedia.snapshots.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+      }
+      saveDB();
+      renderSocialDashboard();
+      toast('✅ Instagram synchronisé · ' + (data.followers||0).toLocaleString('fr') + ' abonnés');
+      sessionStorage.setItem('ig_live_sync', String(Date.now()));
+    }, function(err) {
+      if(btn){ btn.textContent = '🔄 Sync live'; btn.disabled = false; }
+      toast('❌ Erreur sync Instagram — vérifie le token');
+    });
+  };
 
   function profileSelectOptions(selected){
     return Object.keys(DB.socialMedia.profiles).map(function(key){
@@ -7657,29 +7802,30 @@ var HISTORICAL_SALES_2025 = [{"id":2500000000001,"venteId":"IMPORT-2025-SHOPIFY-
       } : {});
     }
     openModal(''+
-      '<div class="modal-title">' + (idx > -1 ? 'Modifier un relevé social' : 'Ajouter un relevé social') + '</div>' +
-      '<div class="modal-sub">Renseigne les chiffres visibles publiquement ou ceux de tes outils. Le taux d\'engagement sera calculé automatiquement.</div>' +
+      '<div class="modal-title">' + (idx > -1 ? 'Modifier un relevé' : 'Nouveau relevé') + '</div>' +
+      '<div class="modal-sub" style="margin-bottom:14px;">Chiffres du compte à la date du relevé. ⭐ = champs prioritaires. Taux d\'engagement calculé auto.</div>' +
       '<div class="grid3" style="margin-bottom:12px;">' +
-        '<div class="field"><label>Plateforme</label><select class="select social-platform-select" id="ss-platform">' + profileSelectOptions(base.platform || 'instagram') + '</select></div>' +
-        '<div class="field"><label>Date du relevé</label><input type="date" class="input" id="ss-date" value="' + escapeHtml(base.date || today()) + '"></div>' +
-        '<div class="field"><label>Abonnés</label><input type="number" class="input input-yellow" id="ss-followers" value="' + escapeHtml(base.followers || '') + '"></div>' +
+        '<div class="field"><label>Plateforme</label><select class="select" id="ss-platform">' + profileSelectOptions(base.platform || 'instagram') + '</select></div>' +
+        '<div class="field"><label>Date</label><input type="date" class="input" id="ss-date" value="' + escapeHtml(base.date || today()) + '"></div>' +
+        '<div class="field"><label>Abonnés ⭐</label><input type="number" class="input input-yellow" id="ss-followers" value="' + escapeHtml(base.followers || '') + '" placeholder="Ex: 1240"></div>' +
       '</div>' +
       '<div class="grid3" style="margin-bottom:12px;">' +
-        '<div class="field"><label>Posts / vidéos</label><input type="number" class="input" id="ss-content" value="' + escapeHtml(base.contentCount || '') + '"></div>' +
-        '<div class="field"><label>Vues</label><input type="number" class="input" id="ss-views" value="' + escapeHtml(base.views || '') + '"></div>' +
-        '<div class="field"><label>Portée</label><input type="number" class="input" id="ss-reach" value="' + escapeHtml(base.reach || '') + '"></div>' +
+        '<div class="field"><label>Vues cumulées ⭐</label><input type="number" class="input input-yellow" id="ss-views" value="' + escapeHtml(base.views || '') + '" placeholder="Total depuis le début"></div>' +
+        '<div class="field"><label>Posts / vidéos</label><input type="number" class="input" id="ss-content" value="' + escapeHtml(base.contentCount || '') + '" placeholder="Nb total de posts"></div>' +
+        '<div class="field"><label>Portée (optionnel)</label><input type="number" class="input" id="ss-reach" value="' + escapeHtml(base.reach || '') + '" placeholder="Portée récente"></div>' +
       '</div>' +
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">Interactions (période courante)</div>' +
       '<div class="grid4" style="margin-bottom:12px;">' +
-        '<div class="field"><label>Likes</label><input type="number" class="input" id="ss-likes" value="' + escapeHtml(base.likes || '') + '"></div>' +
+        '<div class="field"><label>Likes ⭐</label><input type="number" class="input" id="ss-likes" value="' + escapeHtml(base.likes || '') + '"></div>' +
         '<div class="field"><label>Commentaires</label><input type="number" class="input" id="ss-comments" value="' + escapeHtml(base.comments || '') + '"></div>' +
         '<div class="field"><label>Partages</label><input type="number" class="input" id="ss-shares" value="' + escapeHtml(base.shares || '') + '"></div>' +
         '<div class="field"><label>Saves</label><input type="number" class="input" id="ss-saves" value="' + escapeHtml(base.saves || '') + '"></div>' +
       '</div>' +
       '<div class="grid2" style="margin-bottom:12px;">' +
         '<div class="field"><label>Visites profil</label><input type="number" class="input" id="ss-visits" value="' + escapeHtml(base.profileVisits || '') + '"></div>' +
-        '<div class="field"><label>Clics site</label><input type="number" class="input" id="ss-clicks" value="' + escapeHtml(base.websiteClicks || '') + '"></div>' +
+        '<div class="field"><label>Clics lien bio / site</label><input type="number" class="input" id="ss-clicks" value="' + escapeHtml(base.websiteClicks || '') + '"></div>' +
       '</div>' +
-      '<div class="field" style="margin-bottom:14px;"><label>Note</label><input class="input" id="ss-notes" value="' + escapeHtml(base.notes || '') + '" placeholder="Ex: reel fort, collab, post produit, concours..."></div>' +
+      '<div class="field" style="margin-bottom:14px;"><label>Note (contexte)</label><input class="input" id="ss-notes" value="' + escapeHtml(base.notes || '') + '" placeholder="Ex: reel viral, collab, lancement drop S26…"></div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveSocialSnapshot(' + (idx > -1 ? Number(base.id) : 'null') + ')">' + (idx > -1 ? 'Enregistrer' : 'Ajouter le relevé') + '</button></div>'
     );
   };
