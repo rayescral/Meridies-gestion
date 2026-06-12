@@ -1932,6 +1932,15 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     </div>
     <div class="table-wrap"><table><thead><tr><th>Référence</th><th>Couleur</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th class="r">Total</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA TTC (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sv-body"></tbody></table></div>
   </div>
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header" style="cursor:pointer;" onclick="var b=document.getElementById('sv-hist-body');var a=document.getElementById('sv-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sv-hist-content','vierge');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
+      <span class="card-title">Historique des mouvements — Stock vierge</span>
+      <span id="sv-hist-arrow" style="font-size:12px;color:var(--muted);">▸ Afficher</span>
+    </div>
+    <div id="sv-hist-body" style="display:none;">
+      <div id="sv-hist-content"></div>
+    </div>
+  </div>
 </div>
 
 <div class="page" id="page-stock-dtf">
@@ -1942,6 +1951,15 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <button class="btn btn-primary btn-sm" onclick="openAddStockDTF()">+ Entrée de stock</button>
     </div>
     <div class="table-wrap"><table style="table-layout:fixed;"><colgroup><col style="width:140px"><col style="min-width:180px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:90px"><col style="width:90px"><col style="width:70px"><col style="width:90px"><col style="width:44px"></colgroup><thead><tr><th>Réf. Design</th><th>Désignation</th><th class="c">Stock</th><th class="c">En cde</th><th class="c">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th class="c">Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sd-body"></tbody></table></div>
+  </div>
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header" style="cursor:pointer;" onclick="var b=document.getElementById('sd-hist-body');var a=document.getElementById('sd-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sd-hist-content','design');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
+      <span class="card-title">Historique des mouvements — Stock designs</span>
+      <span id="sd-hist-arrow" style="font-size:12px;color:var(--muted);">▸ Afficher</span>
+    </div>
+    <div id="sd-hist-body" style="display:none;">
+      <div id="sd-hist-content"></div>
+    </div>
   </div>
 </div>
 
@@ -2519,6 +2537,30 @@ function ensureBaseSeedData() {
     changed++;
   }
 
+  // Migration v6 : générer les mouvements historiques depuis ventes Shopify existantes (1098+)
+  if (!DB.preferences.migrations.v6_stockHistory) {
+    if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+    var _venteShop = (DB.ventes || []).filter(function(v) {
+      return v.canal === 'Shopify' && v.shopifyOrderId;
+    });
+    _venteShop.forEach(function(v) {
+      var _nom = (DB.nomenclatures || []).find(function(n) { return n.refProduit === v.ref; });
+      if (_nom) {
+        var _dateTs = v.date ? (new Date(v.date + 'T12:00:00').toISOString()) : new Date().toISOString();
+        if (_nom.viergeRef) {
+          DB.stockMouvements.push({ ts: _dateTs, type: 'vierge', ref: _nom.viergeRef + ' ' + _nom.viergeColor, detail: 'Vente Shopify ' + (v.numCde || '') + ' — ' + (v.designation || v.code), delta: -(v.qte || 1), source: 'Shopify auto' });
+        }
+        if (_nom.designRef) {
+          DB.stockMouvements.push({ ts: _dateTs, type: 'design', ref: _nom.designRef, detail: 'Vente Shopify ' + (v.numCde || '') + ' — ' + (v.designation || v.code), delta: -(v.qte || 1), source: 'Shopify auto' });
+        }
+      }
+    });
+    // Trier du plus récent au plus ancien
+    DB.stockMouvements.sort(function(a, b) { return b.ts.localeCompare(a.ts); });
+    DB.preferences.migrations.v6_stockHistory = true;
+    changed++;
+  }
+
   changed += mergeMissingItems(DB.catalogue, EMBEDDED_BACKUP.catalogue, function(i){ return i && i.code; });
   // Update existing catalogue entries with saison and PA from EMBEDDED_BACKUP (non-destructive: only fills empty/zero values)
   (EMBEDDED_BACKUP.catalogue||[]).forEach(function(seed){
@@ -2585,7 +2627,8 @@ function normalizeRestoredDB(data) {
     socialMedia: data.socialMedia && typeof data.socialMedia === 'object' ? data.socialMedia : {},
     ignoredOrders: Array.isArray(data.ignoredOrders) ? data.ignoredOrders : [],
     dismissedAlerts: Array.isArray(data.dismissedAlerts) ? data.dismissedAlerts : [],
-    manualStatuses: (data.manualStatuses && typeof data.manualStatuses === 'object' && !Array.isArray(data.manualStatuses)) ? data.manualStatuses : {}
+    manualStatuses: (data.manualStatuses && typeof data.manualStatuses === 'object' && !Array.isArray(data.manualStatuses)) ? data.manualStatuses : {},
+    stockMouvements: Array.isArray(data.stockMouvements) ? data.stockMouvements : []
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -2853,6 +2896,57 @@ function scheduleSync(delay){
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(function(){ pushToSupabase(); }, Math.max(0, delay || 0));
 }
+// ── Journal des mouvements de stock ──────────────────────────────────────────
+function logMouvement(type, ref, detail, delta, source) {
+  if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+  DB.stockMouvements.unshift({
+    ts: new Date().toISOString(),
+    type: type,       // 'vierge' ou 'design'
+    ref: ref,         // ex: 'E220 Blanc' ou 'D01-RSE'
+    detail: detail,   // ex: 'M: +5' ou 'Vente #1099'
+    delta: delta,     // nombre signé ex: +15 ou -1
+    source: source || 'Manuel'
+  });
+  // Garder max 500 mouvements
+  if (DB.stockMouvements.length > 500) DB.stockMouvements = DB.stockMouvements.slice(0, 500);
+}
+
+function renderStockMouvements(containerId, typeFilter) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var items = (DB.stockMouvements || []).filter(function(m) { return m.type === typeFilter; }).slice(0, 50);
+  if (!items.length) {
+    el.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:var(--muted);text-align:center;">Aucun mouvement enregistré</div>';
+    return;
+  }
+  el.innerHTML = '<table style="width:100%;font-size:12px;"><thead><tr>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Date</th>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Référence</th>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Détail</th>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Source</th>' +
+    '<th style="padding:6px 10px;text-align:right;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Mouvement</th>' +
+    '</tr></thead><tbody>' +
+    items.map(function(m) {
+      var d = new Date(m.ts);
+      var dateStr = d.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'2-digit'}) + ' ' +
+                    d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+      var isPos = m.delta > 0;
+      var deltaStr = (isPos ? '+' : '') + m.delta;
+      var deltaStyle = isPos
+        ? 'color:var(--success);font-weight:700;'
+        : 'color:var(--danger);font-weight:700;';
+      return '<tr style="border-bottom:1px solid var(--color-border-tertiary);">' +
+        '<td style="padding:6px 10px;color:var(--muted);white-space:nowrap;">' + dateStr + '</td>' +
+        '<td style="padding:6px 10px;font-family:var(--font-mono);font-size:11px;">' + escapeHtml(m.ref) + '</td>' +
+        '<td style="padding:6px 10px;">' + escapeHtml(m.detail) + '</td>' +
+        '<td style="padding:6px 10px;color:var(--muted);font-size:11px;">' + escapeHtml(m.source) + '</td>' +
+        '<td style="padding:6px 10px;text-align:right;' + deltaStyle + '">' + deltaStr + '</td>' +
+        '</tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function saveDB(arg) {
   var opts = normalizeSaveOptions(arg);
   persistLocalDB();
@@ -3490,7 +3584,17 @@ function saveEditSV(i, hasU) {
   }
   saveDB(); closeModal(); renderStockVierge(); toast('Ligne mise à jour ✓');
 }
-function updateSV(i,field,val) { DB.stockVierge[i][field] = parseInt(val)||0; saveDB(); renderStockVierge(); }
+function updateSV(i,field,val) {
+  var v = DB.stockVierge[i];
+  var ancien = v ? (v[field] || 0) : 0;
+  var nouveau = parseInt(val) || 0;
+  if (v) v[field] = nouveau;
+  var delta = nouveau - ancien;
+  if (delta !== 0 && v && field !== 'seuil' && field !== 'enCommande') {
+    logMouvement('vierge', (v.ref||'') + ' ' + (v.couleur||''), field.toUpperCase() + ' : ' + (delta > 0 ? '+' : '') + delta, delta, 'Manuel');
+  }
+  saveDB(); renderStockVierge();
+}
 function deleteSV(i) { if(confirm('Supprimer cette ligne ?')){ DB.stockVierge.splice(i,1); saveDB(); renderStockVierge(); toast('Ligne supprimée'); } }
 function renderStockDTF() {
   DB.stockDTF = DB.stockDTF.filter(function(d){ return d.ref.indexOf('CP-') !== 0; });
@@ -3527,7 +3631,7 @@ function renderStockDTF() {
     tr.innerHTML =
       '<td class="mono">'+d.ref+'</td>'+
       '<td style="font-weight:600;">'+d.nom+'</td>'+
-      '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="DB.stockDTF['+i+'].stock=parseInt(this.value)||0;saveDB();renderStockDTF();"></td>'+
+      '<td class="c"><input type="number" class="input-sm" style="width:55px;text-align:center;" value="'+dispo+'" onchange="var _old=DB.stockDTF['+i+'].stock||0;var _new=parseInt(this.value)||0;DB.stockDTF['+i+'].stock=_new;logMouvement(\'design\',DB.stockDTF['+i+'].ref,\'Ajustement manuel\',_new-_old,\'Manuel\');saveDB();renderStockDTF();"></td>'+
       '<td class="c mono" style="color:var(--gold);font-weight:600;">'+cmd+'</td>'+
       '<td class="c mono" style="font-weight:700;color:var(--success);">'+proj+'</td>'+
       '<td class="r mono">'+fmt(d.pa||0)+'</td>'+
@@ -4964,6 +5068,8 @@ function addSV(){
     entry.seuil = parseInt(document.getElementById('nsv-seuil').value)||3;
   }
   DB.stockVierge.push(entry);
+  var totalEntry = (entry.xs||0)+(entry.s||0)+(entry.m||0)+(entry.l||0)+(entry.xl||0)+(entry.u||0);
+  logMouvement('vierge', entry.ref + ' ' + entry.couleur, 'Entrée stock initiale', totalEntry, 'Manuel');
   saveDB(); closeModal(); renderStockVierge(); toast('Stock vierge ajouté');
 }
 
@@ -5045,9 +5151,11 @@ function addSD() {
   if(existing){
     existing.stock = (existing.stock||0) + stock;
     if(pa > 0) existing.pa = pa;
+    logMouvement('design', ref, 'Entrée stock (+'+stock+')', stock, 'Manuel');
     saveDB(); closeModal(); renderStockDTF(); toast('Stock design mis à jour (+'+stock+')');
   } else {
     DB.stockDTF.push({ ref:ref, nom:nom, stock:stock, pa:pa, seuil:3, enCommande:0 });
+    logMouvement('design', ref, 'Création design, stock initial', stock, 'Manuel');
     saveDB(); closeModal(); renderStockDTF(); toast('Design ajouté ✓');
   }
 }
@@ -9017,6 +9125,12 @@ async function fusionShopifyVentes(orders) {
         sf.stock = Math.max(0, avant - (v.qte || 1));
         stockLog.push(v.designation + ' x' + v.qte + ' (' + avant + '->' + sf.stock + ')');
         stockTouched = true;
+        // Trouver la nomenclature pour logguer les composants consommés
+        var _nom = (DB.nomenclatures||[]).find(function(n){ return n.refProduit === v.ref; });
+        if (_nom) {
+          if (_nom.viergeRef) logMouvement('vierge', _nom.viergeRef+' '+_nom.viergeColor, 'Vente Shopify '+v.numCde+' — '+(v.designation||v.code)+' x'+v.qte, -(v.qte||1), 'Shopify auto');
+          if (_nom.designRef) logMouvement('design', _nom.designRef, 'Vente Shopify '+v.numCde+' — '+(v.designation||v.code)+' x'+v.qte, -(v.qte||1), 'Shopify auto');
+        }
       }
     });
 
