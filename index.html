@@ -1974,26 +1974,15 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
     </div>
     <div class="table-wrap">
-      <table style="table-layout:fixed;">
-        <colgroup>
-          <col style="width:150px">
-          <col style="min-width:160px">
-          <col style="width:180px">
-          <col style="width:150px">
-          <col style="width:100px">
-          <col style="width:95px">
-          <col style="width:95px">
-          <col style="width:160px">
-          <col style="width:40px">
-        </colgroup>
+      <table>
         <thead><tr>
-          <th>Réf produit</th>
+          <th style="white-space:nowrap;">Réf produit</th>
           <th>Désignation</th>
-          <th>Codes articles</th>
-          <th>Tissu → Couleur</th>
+          <th>Codes</th>
+          <th style="white-space:nowrap;">Tissu / Couleur</th>
           <th>Design</th>
-          <th class="c">Stock tissu</th>
-          <th class="c">Stock design</th>
+          <th class="c" style="white-space:nowrap;">Stk tissu</th>
+          <th class="c" style="white-space:nowrap;">Stk design</th>
           <th class="c">Prod. max</th>
           <th></th>
         </tr></thead>
@@ -3600,8 +3589,8 @@ function renderNomenclature(){
   tbody.innerHTML = DB.nomenclatures.map(function(n, i){
     // Codes affectés
     var codes = (DB.catalogue||[]).filter(function(p){ return p.ref === n.refProduit; }).map(function(p){ return p.code; });
-    var codesHtml = codes.slice(0,4).map(function(c){ return '<span class="badge badge-neutral" style="font-size:9px;margin:1px;">'+escapeHtml(c)+'</span>'; }).join('');
-    if(codes.length > 4) codesHtml += '<span style="font-size:10px;color:var(--muted);"> +' +(codes.length-4)+ '</span>';
+    var codesHtml = codes.slice(0,2).map(function(c){ return '<span class="badge badge-neutral" style="font-size:9px;margin:1px;white-space:nowrap;">'+escapeHtml(c)+'</span>'; }).join('');
+    if(codes.length > 2) codesHtml += '<span style="font-size:10px;color:var(--muted);"> +' +(codes.length-2)+ '</span>';
 
     // Stock vierge
     var vierge = (DB.stockVierge||[]).find(function(v){ return v.ref===n.viergeRef && v.couleur===n.viergeColor; });
@@ -3674,10 +3663,10 @@ function renderNomenclature(){
         taillesDuProduit.forEach(function(t){
           var v2 = prodMaxByTaille[t] || 0;
           var cls = v2 === 0 ? 'background:var(--danger-bg);color:var(--danger);' : v2 <= 3 ? 'background:var(--warning-bg);color:var(--warning);' : 'background:var(--success-bg);color:var(--success);';
-          prodMaxHtml += '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;'+cls+'">'+t+':'+v2+'</span>';
+          prodMaxHtml += '<span style="font-size:9px;font-weight:700;padding:1px 4px;border-radius:99px;'+cls+'">'+t+':'+v2+'</span>';
         });
         prodMaxHtml += '</div>';
-        prodMaxHtml += '<div style="font-size:10px;color:var(--muted);margin-top:2px;">Total : <strong>'+prodMaxTotal+'</strong></div>';
+        prodMaxHtml += '<div style="font-size:9px;color:var(--muted);margin-top:1px;">Tot: <strong>'+prodMaxTotal+'</strong></div>';
       }
     }
     kpiTotal += prodMaxTotal;
@@ -3685,7 +3674,7 @@ function renderNomenclature(){
     return '<tr>'+
       '<td class="mono" style="font-weight:700;">'+escapeHtml(n.refProduit)+'</td>'+
       '<td style="font-weight:600;">'+escapeHtml(n.designation||'')+'</td>'+
-      '<td style="max-width:260px;line-height:1.6;">'+codesHtml+'</td>'+
+      '<td style="line-height:1.5;">'+codesHtml+'</td>'+
       '<td><div style="font-size:12px;font-weight:700;">'+escapeHtml(n.viergeRef)+' — '+escapeHtml(n.viergeColor)+'</div></td>'+
       '<td class="mono">'+(n.designRef?'<span style="font-weight:700;">'+escapeHtml(n.designRef)+'</span>':'<span style="color:var(--hint)">—</span>')+'</td>'+
       '<td>'+viergeStatus+'</td>'+
@@ -8880,6 +8869,8 @@ async function loadShopifyOrders() {
     // Si un statut manuel a été défini pour cette commande, l'appliquer
     var manualStatus = _manualSt[String(o.id)];
     if (manualStatus) o.meridies_status = manualStatus;
+    var manualFulfillment = _manualSt[String(o.id) + '_fulfillment'];
+    if (manualFulfillment) o.fulfillment_status = manualFulfillment;
     return o;
   });
   setShopifyConnStatus(true, _shopifyAllOrders);
@@ -9593,7 +9584,18 @@ async function markOrderMeridiesStatus(orderId, newStatus) {
 
   // Mettre à jour le cache local
   var o = (_shopifyAllOrders||[]).find(function(x){return x.id===orderId;});
-  if (o) o.meridies_status = newStatus;
+  if (o) {
+    o.meridies_status = newStatus;
+    // Si on marque expédié, mettre aussi fulfillment_status à FULFILLED
+    if (newStatus === 'expedie') {
+      o.fulfillment_status = 'FULFILLED';
+      // Sauvegarder aussi dans manualStatuses pour le fulfillment
+      DB.manualStatuses[String(orderId) + '_fulfillment'] = 'FULFILLED';
+      saveDB();
+      // Mettre à jour Supabase fulfillment aussi
+      supabase.from('shopify_orders').update({ fulfillment_status: 'FULFILLED' }).eq('id', orderId).then(function(){}).catch(function(){});
+    }
+  }
   var labels = { a_produire: 'À produire', prepare: 'Préparé', expedie: 'Expédié', nouvelle: 'Nouvelle' };
   showToast('✅ Commande marquée : ' + (labels[newStatus]||newStatus) + ' (figé)');
   closeModal();
