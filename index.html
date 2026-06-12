@@ -1976,15 +1976,15 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="table-wrap">
       <table style="table-layout:fixed;">
         <colgroup>
-          <col style="width:160px">
-          <col style="width:auto">
-          <col style="width:200px">
-          <col style="width:160px">
-          <col style="width:110px">
+          <col style="width:150px">
+          <col style="min-width:160px">
+          <col style="width:180px">
+          <col style="width:150px">
           <col style="width:100px">
-          <col style="width:100px">
-          <col style="width:130px">
-          <col style="width:44px">
+          <col style="width:95px">
+          <col style="width:95px">
+          <col style="width:160px">
+          <col style="width:40px">
         </colgroup>
         <thead><tr>
           <th>Réf produit</th>
@@ -2595,7 +2595,8 @@ function normalizeRestoredDB(data) {
     settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
     socialMedia: data.socialMedia && typeof data.socialMedia === 'object' ? data.socialMedia : {},
     ignoredOrders: Array.isArray(data.ignoredOrders) ? data.ignoredOrders : [],
-    dismissedAlerts: Array.isArray(data.dismissedAlerts) ? data.dismissedAlerts : []
+    dismissedAlerts: Array.isArray(data.dismissedAlerts) ? data.dismissedAlerts : [],
+    manualStatuses: (data.manualStatuses && typeof data.manualStatuses === 'object' && !Array.isArray(data.manualStatuses)) ? data.manualStatuses : {}
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -3669,14 +3670,14 @@ function renderNomenclature(){
       if(isU){
         prodMaxHtml = '<span class="badge badge-ok" style="font-size:11px;">'+prodMaxTotal+' pcs</span>';
       } else {
-        prodMaxHtml = '<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+        prodMaxHtml = '<div style="display:flex;flex-wrap:wrap;gap:3px;min-width:0;">';
         taillesDuProduit.forEach(function(t){
           var v2 = prodMaxByTaille[t] || 0;
           var cls = v2 === 0 ? 'background:var(--danger-bg);color:var(--danger);' : v2 <= 3 ? 'background:var(--warning-bg);color:var(--warning);' : 'background:var(--success-bg);color:var(--success);';
           prodMaxHtml += '<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;'+cls+'">'+t+':'+v2+'</span>';
         });
         prodMaxHtml += '</div>';
-        prodMaxHtml += '<div style="font-size:10px;color:var(--muted);margin-top:2px;">Total : <strong>'+prodMaxTotal+'</strong></div>';
+        prodMaxHtml += '<div style="font-size:10px;color:var(--muted);margin-top:2px;">Total : <strong>'+prodMaxTotal+'</strong></div>';
       }
     }
     kpiTotal += prodMaxTotal;
@@ -8869,11 +8870,17 @@ async function loadShopifyOrders() {
     return;
   }
 
-  // Filtrer immédiatement les commandes blacklistées localement
+  // Filtrer les commandes blacklistées et appliquer les statuts manuels figés
   var _ign2 = DB.ignoredOrders || [];
+  var _manualSt = DB.manualStatuses || {};
   _shopifyAllOrders = (orders || []).filter(function(o) {
     return _ign2.indexOf(String(o.order_name)) === -1 &&
            _ign2.indexOf(String(o.shopify_order_id)) === -1;
+  }).map(function(o) {
+    // Si un statut manuel a été défini pour cette commande, l'appliquer
+    var manualStatus = _manualSt[String(o.id)];
+    if (manualStatus) o.meridies_status = manualStatus;
+    return o;
   });
   setShopifyConnStatus(true, _shopifyAllOrders);
   renderShopifyOrdersTable(_shopifyAllOrders);
@@ -9571,16 +9578,24 @@ function shopifyMeridieBadge(s) {
 }
 
 async function markOrderMeridiesStatus(orderId, newStatus) {
+  // Sauvegarder dans Supabase
   var { error } = await supabase
     .from('shopify_orders')
     .update({ meridies_status: newStatus })
     .eq('id', orderId);
-  if (error) { showToast('❌ ' + error.message); return; }
+  if (error) {
+    showToast('⚠️ Supabase: ' + error.message + ' — statut sauvegardé localement');
+  }
+  // Toujours sauvegarder dans DB.manualStatuses (persiste même si Supabase écrase)
+  if (!DB.manualStatuses || typeof DB.manualStatuses !== 'object') DB.manualStatuses = {};
+  DB.manualStatuses[String(orderId)] = newStatus;
+  saveDB('Statut commande Shopify ' + orderId);
+
   // Mettre à jour le cache local
   var o = (_shopifyAllOrders||[]).find(function(x){return x.id===orderId;});
   if (o) o.meridies_status = newStatus;
-  var labels = { a_produire: 'À produire', prepare: 'Préparé', expedie: 'Expédié' };
-  showToast('✅ Commande marquée : ' + (labels[newStatus]||newStatus));
+  var labels = { a_produire: 'À produire', prepare: 'Préparé', expedie: 'Expédié', nouvelle: 'Nouvelle' };
+  showToast('✅ Commande marquée : ' + (labels[newStatus]||newStatus) + ' (figé)');
   closeModal();
   renderShopifyOrdersTable(_shopifyAllOrders);
 }
