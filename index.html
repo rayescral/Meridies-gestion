@@ -1933,9 +1933,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="table-wrap"><table><thead><tr><th>Référence</th><th>Couleur</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th class="r">Total</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA TTC (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sv-body"></tbody></table></div>
   </div>
   <div class="card" style="margin-top:14px;">
-    <div class="card-header" style="cursor:pointer;" onclick="var b=document.getElementById('sv-hist-body');var a=document.getElementById('sv-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sv-hist-content','vierge');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
-      <span class="card-title">Historique des mouvements — Stock vierge</span>
-      <span id="sv-hist-arrow" style="font-size:12px;color:var(--muted);">▸ Afficher</span>
+    <div class="card-header">
+      <span class="card-title" style="cursor:pointer;" onclick="var b=document.getElementById('sv-hist-body');var a=document.getElementById('sv-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sv-hist-content','vierge');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
+        <span id="sv-hist-arrow">▸</span> Historique mouvements — Stock vierge
+      </span>
+      <button class="btn btn-secondary btn-sm" onclick="if(confirm('Regénérer l\'historique depuis les ventes Shopify ?')){delete DB.preferences.migrations.v6_stockHistory;ensureBaseSeedData();saveDB();renderStockMouvements('sv-hist-content','vierge');showToast('Historique régénéré');}">↺ Regénérer</button>
     </div>
     <div id="sv-hist-body" style="display:none;">
       <div id="sv-hist-content"></div>
@@ -1953,9 +1955,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="table-wrap"><table style="table-layout:fixed;"><colgroup><col style="width:140px"><col style="min-width:180px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:90px"><col style="width:90px"><col style="width:70px"><col style="width:90px"><col style="width:44px"></colgroup><thead><tr><th>Réf. Design</th><th>Désignation</th><th class="c">Stock</th><th class="c">En cde</th><th class="c">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th class="c">Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sd-body"></tbody></table></div>
   </div>
   <div class="card" style="margin-top:14px;">
-    <div class="card-header" style="cursor:pointer;" onclick="var b=document.getElementById('sd-hist-body');var a=document.getElementById('sd-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sd-hist-content','design');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
-      <span class="card-title">Historique des mouvements — Stock designs</span>
-      <span id="sd-hist-arrow" style="font-size:12px;color:var(--muted);">▸ Afficher</span>
+    <div class="card-header">
+      <span class="card-title" style="cursor:pointer;" onclick="var b=document.getElementById('sd-hist-body');var a=document.getElementById('sd-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sd-hist-content','design');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
+        <span id="sd-hist-arrow">▸</span> Historique mouvements — Stock designs
+      </span>
+      <button class="btn btn-secondary btn-sm" onclick="if(confirm('Regénérer l\'historique depuis les ventes Shopify ?')){delete DB.preferences.migrations.v6_stockHistory;ensureBaseSeedData();saveDB();renderStockMouvements('sd-hist-content','design');showToast('Historique régénéré');}">↺ Regénérer</button>
     </div>
     <div id="sd-hist-body" style="display:none;">
       <div id="sd-hist-content"></div>
@@ -2537,29 +2541,6 @@ function ensureBaseSeedData() {
     changed++;
   }
 
-  // Migration v6 : générer les mouvements historiques depuis ventes Shopify existantes (1098+)
-  if (!DB.preferences.migrations.v6_stockHistory) {
-    if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
-    var _venteShop = (DB.ventes || []).filter(function(v) {
-      return v.canal === 'Shopify' && v.shopifyOrderId;
-    });
-    _venteShop.forEach(function(v) {
-      var _nom = (DB.nomenclatures || []).find(function(n) { return n.refProduit === v.ref; });
-      if (_nom) {
-        var _dateTs = v.date ? (new Date(v.date + 'T12:00:00').toISOString()) : new Date().toISOString();
-        if (_nom.viergeRef) {
-          DB.stockMouvements.push({ ts: _dateTs, type: 'vierge', ref: _nom.viergeRef + ' ' + _nom.viergeColor, detail: 'Vente Shopify ' + (v.numCde || '') + ' — ' + (v.designation || v.code), delta: -(v.qte || 1), source: 'Shopify auto' });
-        }
-        if (_nom.designRef) {
-          DB.stockMouvements.push({ ts: _dateTs, type: 'design', ref: _nom.designRef, detail: 'Vente Shopify ' + (v.numCde || '') + ' — ' + (v.designation || v.code), delta: -(v.qte || 1), source: 'Shopify auto' });
-        }
-      }
-    });
-    // Trier du plus récent au plus ancien
-    DB.stockMouvements.sort(function(a, b) { return b.ts.localeCompare(a.ts); });
-    DB.preferences.migrations.v6_stockHistory = true;
-    changed++;
-  }
 
   changed += mergeMissingItems(DB.catalogue, EMBEDDED_BACKUP.catalogue, function(i){ return i && i.code; });
   // Update existing catalogue entries with saison and PA from EMBEDDED_BACKUP (non-destructive: only fills empty/zero values)
@@ -2578,6 +2559,26 @@ function ensureBaseSeedData() {
   DB.nomenclatures = DB.nomenclatures.filter(function(n){ return !_nomBlacklist[n.refProduit]; });
   if(DB.nomenclatures.length !== _nomBefore) changed++;
   changed += mergeMissingItems(DB.nomenclatures, EMBEDDED_BACKUP.nomenclatures||[], function(i){ return i && i.refProduit; });
+
+  // Migration v6 : historique rétroactif depuis ventes Shopify (1098+) — après merge nomenclatures
+  if (!DB.preferences.migrations.v6_stockHistory) {
+    if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+    var _venteShop = (DB.ventes || []).filter(function(v) { return v.canal === 'Shopify' && v.shopifyOrderId; });
+    _venteShop.forEach(function(v) {
+      var _nom = (DB.nomenclatures || []).find(function(n) { return n.refProduit === v.ref; });
+      if (_nom) {
+        var _dateTs = v.date ? (new Date(v.date + 'T12:00:00').toISOString()) : new Date().toISOString();
+        var _id1 = _dateTs + '-sv-' + (v.id||Math.random());
+        var _id2 = _dateTs + '-sd-' + (v.id||Math.random());
+        if (_nom.viergeRef) DB.stockMouvements.push({ id: _id1, ts: _dateTs, type: 'vierge', ref: _nom.viergeRef + ' ' + _nom.viergeColor, detail: (v.designation || v.code || ''), delta: -(v.qte || 1), source: 'Shopify auto', canal: 'Shopify', numCde: v.numCde || '' });
+        if (_nom.designRef) DB.stockMouvements.push({ id: _id2, ts: _dateTs, type: 'design', ref: _nom.designRef, detail: (v.designation || v.code || ''), delta: -(v.qte || 1), source: 'Shopify auto', canal: 'Shopify', numCde: v.numCde || '' });
+      }
+    });
+    DB.stockMouvements.sort(function(a, b) { return b.ts.localeCompare(a.ts); });
+    DB.preferences.migrations.v6_stockHistory = true;
+    changed++;
+  }
+
   // Note: stockVierge and stockDTF are NOT merged from backup — user manages them manually
   changed += mergeMissingItems(DB.fournisseurs, EMBEDDED_BACKUP.fournisseurs, function(i){ return i && i.nom; });
   changed += mergeMissingItems(DB.todos, EMBEDDED_BACKUP.todos, function(i){ return i && [i.task, i.owner].join('|'); });
@@ -2897,34 +2898,44 @@ function scheduleSync(delay){
   _saveTimer = setTimeout(function(){ pushToSupabase(); }, Math.max(0, delay || 0));
 }
 // ── Journal des mouvements de stock ──────────────────────────────────────────
-function logMouvement(type, ref, detail, delta, source) {
+// opts: { type, ref, detail, delta, source, canal, numCde }
+function logMouvement(type, ref, detail, delta, source, canal, numCde) {
   if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+  var id = Date.now() + '-' + Math.random().toString(36).slice(2, 6);
   DB.stockMouvements.unshift({
+    id: id,
     ts: new Date().toISOString(),
-    type: type,       // 'vierge' ou 'design'
-    ref: ref,         // ex: 'E220 Blanc' ou 'D01-RSE'
-    detail: detail,   // ex: 'M: +5' ou 'Vente #1099'
-    delta: delta,     // nombre signé ex: +15 ou -1
-    source: source || 'Manuel'
+    type: type,
+    ref: ref,
+    detail: detail,
+    delta: delta,
+    source: source || 'Manuel',
+    canal: canal || '',
+    numCde: numCde || ''
   });
-  // Garder max 500 mouvements
   if (DB.stockMouvements.length > 500) DB.stockMouvements = DB.stockMouvements.slice(0, 500);
+}
+
+function deleteMouvement(id, containerId, typeFilter) {
+  DB.stockMouvements = (DB.stockMouvements || []).filter(function(m){ return m.id !== id; });
+  saveDB();
+  renderStockMouvements(containerId, typeFilter);
 }
 
 function renderStockMouvements(containerId, typeFilter) {
   var el = document.getElementById(containerId);
   if (!el) return;
-  var items = (DB.stockMouvements || []).filter(function(m) { return m.type === typeFilter; }).slice(0, 50);
+  var all = (DB.stockMouvements || []).filter(function(m) { return m.type === typeFilter; });
+  var items = all.slice(0, 100);
   if (!items.length) {
     el.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:var(--muted);text-align:center;">Aucun mouvement enregistré</div>';
     return;
   }
-  el.innerHTML = '<table style="width:100%;font-size:12px;"><thead><tr>' +
-    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Date</th>' +
-    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Référence</th>' +
-    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Détail</th>' +
-    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Source</th>' +
-    '<th style="padding:6px 10px;text-align:right;color:var(--muted);font-weight:500;border-bottom:1px solid var(--color-border-tertiary);">Mouvement</th>' +
+  var th = function(txt, right) {
+    return '<th style="padding:6px 10px;text-align:'+(right?'right':'left')+';color:var(--muted);font-weight:500;font-size:11px;border-bottom:1px solid var(--color-border-tertiary);">'+txt+'</th>';
+  };
+  el.innerHTML = '<table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr>' +
+    th('Date') + th('Référence') + th('Détail') + th('Origine') + th('N° Cde') + th('Mouvement', true) + th('', false) +
     '</tr></thead><tbody>' +
     items.map(function(m) {
       var d = new Date(m.ts);
@@ -2932,18 +2943,33 @@ function renderStockMouvements(containerId, typeFilter) {
                     d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
       var isPos = m.delta > 0;
       var deltaStr = (isPos ? '+' : '') + m.delta;
-      var deltaStyle = isPos
-        ? 'color:var(--success);font-weight:700;'
-        : 'color:var(--danger);font-weight:700;';
+      var deltaStyle = isPos ? 'color:#059669;font-weight:700;' : 'color:#DC2626;font-weight:700;';
+
+      // Libellé origine enrichi
+      var origineLabel = m.source || 'Manuel';
+      if (m.canal) origineLabel = m.canal;
+      if (isPos && m.source === 'Manuel' && !m.canal) origineLabel = 'Réappro';
+      if (!isPos && m.source === 'Manuel' && !m.canal && m.detail && m.detail.toLowerCase().indexOf('annul') !== -1) origineLabel = 'Annulation';
+
+      var canalBadge = origineLabel
+        ? '<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:var(--surface2);color:var(--muted);">'+escapeHtml(origineLabel)+'</span>'
+        : '';
+      var numCdeBadge = m.numCde
+        ? '<span style="font-size:10px;font-family:var(--font-mono);color:var(--muted);">'+escapeHtml(m.numCde)+'</span>'
+        : '<span style="color:var(--hint)">—</span>';
+      var mId = m.id || '';
       return '<tr style="border-bottom:1px solid var(--color-border-tertiary);">' +
-        '<td style="padding:6px 10px;color:var(--muted);white-space:nowrap;">' + dateStr + '</td>' +
+        '<td style="padding:6px 10px;color:var(--muted);white-space:nowrap;font-size:11px;">' + dateStr + '</td>' +
         '<td style="padding:6px 10px;font-family:var(--font-mono);font-size:11px;">' + escapeHtml(m.ref) + '</td>' +
-        '<td style="padding:6px 10px;">' + escapeHtml(m.detail) + '</td>' +
-        '<td style="padding:6px 10px;color:var(--muted);font-size:11px;">' + escapeHtml(m.source) + '</td>' +
+        '<td style="padding:6px 10px;font-size:11px;">' + escapeHtml(m.detail) + '</td>' +
+        '<td style="padding:6px 10px;">' + canalBadge + '</td>' +
+        '<td style="padding:6px 10px;">' + numCdeBadge + '</td>' +
         '<td style="padding:6px 10px;text-align:right;' + deltaStyle + '">' + deltaStr + '</td>' +
+        '<td style="padding:4px 6px;"><button onclick="deleteMouvement(\'' + escapeHtml(mId) + '\',\'' + containerId + '\',\'' + typeFilter + '\')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 4px;" title="Supprimer">🗑</button></td>' +
         '</tr>';
     }).join('') +
-    '</tbody></table>';
+    '</tbody></table>' +
+    (all.length > 100 ? '<div style="padding:8px 12px;font-size:11px;color:var(--muted);">' + all.length + ' mouvements au total — affichage limité à 100</div>' : '');
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -9128,8 +9154,8 @@ async function fusionShopifyVentes(orders) {
         // Trouver la nomenclature pour logguer les composants consommés
         var _nom = (DB.nomenclatures||[]).find(function(n){ return n.refProduit === v.ref; });
         if (_nom) {
-          if (_nom.viergeRef) logMouvement('vierge', _nom.viergeRef+' '+_nom.viergeColor, 'Vente Shopify '+v.numCde+' — '+(v.designation||v.code)+' x'+v.qte, -(v.qte||1), 'Shopify auto');
-          if (_nom.designRef) logMouvement('design', _nom.designRef, 'Vente Shopify '+v.numCde+' — '+(v.designation||v.code)+' x'+v.qte, -(v.qte||1), 'Shopify auto');
+          if (_nom.viergeRef) logMouvement('vierge', _nom.viergeRef+' '+_nom.viergeColor, (v.designation||v.code||'')+' x'+v.qte, -(v.qte||1), 'Shopify auto', 'Shopify', v.numCde||'');
+          if (_nom.designRef) logMouvement('design', _nom.designRef, (v.designation||v.code||'')+' x'+v.qte, -(v.qte||1), 'Shopify auto', 'Shopify', v.numCde||'');
         }
       }
     });
