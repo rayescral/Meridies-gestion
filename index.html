@@ -2313,6 +2313,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <button class="btn btn-primary btn-sm" onclick="shopifyApiCall('/api/shopify/sync-orders','Sync commandes')">🔄 Synchroniser les commandes</button>
         <button class="btn btn-secondary btn-sm" onclick="shopifyApiCall('/api/shopify/check-materials','Contrôle matière')">🧪 Lancer le contrôle matière</button>
         <button class="btn btn-secondary btn-sm" onclick="shopifyRegisterWebhook()">🔗 Enregistrer le webhook</button>
+        <button class="btn btn-secondary btn-sm" onclick="fixShopifyPrices()" title="Recalcule les prix des ventes Shopify déjà importées en utilisant le vrai prix payé (codes promo inclus)">💰 Corriger les prix promos</button>
       </div>
     </div>
   </div>
@@ -8786,6 +8787,35 @@ async function fusionShopifyVentes(orders) {
   var orderMap = {};
   orders.forEach(function(o){ orderMap[o.id] = o; });
 
+  // ── Calcul du prix réel avec promo par ligne ──────────────────────────────
+  // Pour chaque commande, on répartit le total_price proportionnellement
+  // sur les lignes selon leur unit_price × quantity (prix catalogue)
+  var lineRealPrice = {};
+  orders.forEach(function(order) {
+    var orderLines = lines.filter(function(l){ return l.order_id === order.id; });
+    if (!orderLines.length) return;
+
+    var totalCatalogue = orderLines.reduce(function(s, l){
+      return s + (Number(l.unit_price) || 0) * (Number(l.quantity) || 1);
+    }, 0);
+    var totalReel = Number(order.total_price) || 0;
+
+    // Si pas de promo (totaux identiques à 1 centime près), garder unit_price
+    var hasPromo = Math.abs(totalReel - totalCatalogue) > 0.02;
+
+    orderLines.forEach(function(l) {
+      if (!hasPromo || totalCatalogue === 0) {
+        lineRealPrice[l.id] = Number(l.unit_price) || 0;
+      } else {
+        // Prix réduit proportionnel : unit_price × (totalReel / totalCatalogue)
+        var ratio = totalReel / totalCatalogue;
+        var prixReduit = Math.round((Number(l.unit_price) || 0) * ratio * 100) / 100;
+        lineRealPrice[l.id] = prixReduit;
+      }
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   var nouvelles = [];
   var stockTouched = false;
 
@@ -8823,7 +8853,7 @@ async function fusionShopifyVentes(orders) {
       numCde: order.order_name || '',
       email: order.customer_email || '',
       qte: line.quantity || 1,
-      pv: line.unit_price != null ? Number(line.unit_price) : (prodCat ? (prodCat.pv || 0) : 0),
+      pv: lineRealPrice[line.id] != null ? lineRealPrice[line.id] : (prodCat ? (prodCat.pv || 0) : 0),
       code: prodCat ? prodCat.code : (sku || 'SHOPIFY'),
       ref: prodCat ? (prodCat.ref || '') : '',
       design: prodCat ? (prodCat.design || '') : '',
@@ -9086,6 +9116,85 @@ async function deleteShopifyOrder(orderId, orderName) {
 window.deleteShopifyOrder = deleteShopifyOrder;
 window.bindShopifyOrderButtons = bindShopifyOrderButtons;
 window.markOrderDeletedOnShopify = markOrderDeletedOnShopify;
+
+// ── Correction des prix Shopify déjà importés (promo) ──────────────────────
+async function fixShopifyPrices() {
+  var shopifyVentes = (DB.ventes || []).filter(function(v) { return v.shopifyLineId; });
+  if (!shopifyVentes.length) { showToast('Aucune vente Shopify à corriger'); return; }
+
+  showToast('⏳ Récupération des prix réels depuis Shopify...');
+
+  // Charger toutes les lignes concernées
+  var lineIds = shopifyVentes.map(function(v) { return v.shopifyLineId; });
+  var { data: lines, error } = await supabase
+    .from('shopify_order_lines')
+    .select('id, order_id, unit_price, quantity')
+    .in('id', lineIds);
+
+  if (error || !lines || !lines.length) {
+    showToast('❌ ' + (error ? error.message : 'Aucune ligne trouvée'));
+    return;
+  }
+
+  // Récupérer les commandes pour avoir le total_price réel
+  var orderIds = [...new Set(lines.map(function(l){ return l.order_id; }))];
+  var { data: orders, error: oErr } = await supabase
+    .from('shopify_orders')
+    .select('id, order_name, total_price')
+    .in('id', orderIds);
+
+  if (oErr || !orders) {
+    showToast('❌ Impossible de récupérer les commandes : ' + (oErr ? oErr.message : ''));
+    return;
+  }
+
+  // Index commandes par ID
+  var orderMap = {};
+  orders.forEach(function(o){ orderMap[o.id] = o; });
+
+  // Calculer le prix réel par ligne (répartition proportionnelle)
+  var lineRealPrice = {};
+  orderIds.forEach(function(oid) {
+    var order = orderMap[oid];
+    if (!order) return;
+    var orderLines = lines.filter(function(l){ return l.order_id === oid; });
+    // Inclure aussi les lignes non dans nos ventes pour calculer le bon ratio
+    var totalCatalogue = orderLines.reduce(function(s, l){
+      return s + (Number(l.unit_price) || 0) * (Number(l.quantity) || 1);
+    }, 0);
+    var totalReel = Number(order.total_price) || 0;
+    var hasPromo = Math.abs(totalReel - totalCatalogue) > 0.02;
+
+    orderLines.forEach(function(l) {
+      if (!hasPromo || totalCatalogue === 0) {
+        lineRealPrice[l.id] = Number(l.unit_price) || 0;
+      } else {
+        var ratio = totalReel / totalCatalogue;
+        lineRealPrice[l.id] = Math.round((Number(l.unit_price) || 0) * ratio * 100) / 100;
+      }
+    });
+  });
+
+  // Corriger les prix dans DB.ventes
+  var corrected = 0;
+  shopifyVentes.forEach(function(v) {
+    var realPrice = lineRealPrice[v.shopifyLineId];
+    if (realPrice == null) return;
+    if (Math.abs((v.pv || 0) - realPrice) > 0.001) {
+      v.pv = realPrice;
+      corrected++;
+    }
+  });
+
+  if (corrected > 0) {
+    saveDB('Correction prix Shopify promo');
+    showToast('✅ ' + corrected + ' vente(s) corrigée(s) au prix réel Shopify');
+    if (document.getElementById('page-ventes') && document.getElementById('page-ventes').classList.contains('active')) renderVentes();
+    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+  } else {
+    showToast('✅ Tous les prix étaient déjà corrects');
+  }
+}
 
 function applyShopifyOrdersFilter() {
   var filter = document.getElementById('shopify-orders-filter').value;
