@@ -1878,6 +1878,26 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
     </div>
   </div>
+  <!-- Graphique journalier CA -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <span class="card-title">CA journalier</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="daily-chart-period" class="select input-sm" style="width:130px;" onchange="loadDailyChart()">
+          <option value="7">7 derniers jours</option>
+          <option value="14">14 derniers jours</option>
+          <option value="30" selected>30 derniers jours</option>
+          <option value="90">3 derniers mois</option>
+        </select>
+        <div id="ch5-overlay" onclick="loadDailyChart()" style="cursor:pointer;background:var(--surface2);border-radius:6px;padding:4px 10px;color:var(--muted);font-size:12px;font-weight:600;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'">📊 Afficher</div>
+      </div>
+    </div>
+    <div style="position:relative;height:220px;display:none;" id="ch5-wrap">
+      <canvas id="ch5"></canvas>
+    </div>
+    <div id="ch5-empty" style="display:none;padding:40px;text-align:center;font-size:12px;color:var(--muted);">Aucune vente sur cette période</div>
+  </div>
+
   <div class="grid2">
     <div class="card">
       <div class="card-header"><span class="card-title">Dernières ventes</span></div>
@@ -1954,15 +1974,31 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
     </div>
     <div class="table-wrap">
-      <table><thead><tr>
-        <th>Réf produit</th><th>Désignation</th>
-        <th>Codes articles concernés</th>
-        <th>Produit vierge → couleur</th>
-        <th>Design appliqué</th>
-        <th>Stock vierge</th><th>Stock design</th>
-        <th>Prod. max</th>
-        <th></th>
-      </tr></thead><tbody id="nom-body"></tbody></table>
+      <table style="table-layout:fixed;">
+        <colgroup>
+          <col style="width:160px">
+          <col style="width:auto">
+          <col style="width:200px">
+          <col style="width:160px">
+          <col style="width:110px">
+          <col style="width:100px">
+          <col style="width:100px">
+          <col style="width:130px">
+          <col style="width:44px">
+        </colgroup>
+        <thead><tr>
+          <th>Réf produit</th>
+          <th>Désignation</th>
+          <th>Codes articles</th>
+          <th>Tissu → Couleur</th>
+          <th>Design</th>
+          <th class="c">Stock tissu</th>
+          <th class="c">Stock design</th>
+          <th class="c">Prod. max</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="nom-body"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -3238,6 +3274,102 @@ function loadChart(id) {
     var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
     mkC('pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
   }
+}
+
+function loadDailyChart() {
+  var periodEl = document.getElementById('daily-chart-period');
+  var days = periodEl ? parseInt(periodEl.value) || 30 : 30;
+  var wrap = document.getElementById('ch5-wrap');
+  var emptyEl = document.getElementById('ch5-empty');
+  var overlayEl = document.getElementById('ch5-overlay');
+  var el = document.getElementById('ch5');
+  if (!el) return;
+
+  if (overlayEl) overlayEl.style.display = 'none';
+
+  var ventes = (typeof getDashboardSales === 'function') ? getDashboardSales() : (DB.ventes || []);
+
+  // Générer les N derniers jours
+  var now = new Date();
+  var labels = [], dataCA = [], dataQte = [];
+  for (var i = days - 1; i >= 0; i--) {
+    var d = new Date(now);
+    d.setDate(d.getDate() - i);
+    var key = d.toISOString().substring(0, 10);
+    var dayVentes = ventes.filter(function(v){ return (v.date || '').substring(0, 10) === key; });
+    var ca = dayVentes.reduce(function(s, v){ return s + (v.pv || 0) * (v.qte || 1); }, 0);
+    var qte = dayVentes.reduce(function(s, v){ return s + (v.qte || 1); }, 0);
+    // Label court selon période
+    var label = days <= 14
+      ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+      : days <= 30
+        ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+        : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+    labels.push(label);
+    dataCA.push(Math.round(ca * 100) / 100);
+    dataQte.push(qte);
+  }
+
+  var hasData = dataCA.some(function(v){ return v > 0; });
+  if (!hasData) {
+    if (wrap) wrap.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+  if (wrap) wrap.style.display = 'block';
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  if (el._c) { try { el._c.destroy(); } catch(e) {} }
+  el._c = new Chart(el, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'CA (€)',
+          data: dataCA,
+          backgroundColor: 'rgba(201,168,76,0.75)',
+          borderColor: '#C9A84C',
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Qté vendus',
+          data: dataQte,
+          type: 'line',
+          borderColor: '#2563EB',
+          backgroundColor: 'rgba(37,99,235,0.12)',
+          borderWidth: 2,
+          pointRadius: days > 30 ? 2 : 3,
+          tension: 0.3,
+          fill: false,
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { font: { size: 11 }, padding: 10 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              if (ctx.datasetIndex === 0) return ' CA : ' + ctx.parsed.y.toFixed(2) + ' €';
+              return ' Qté : ' + ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: days > 30 ? 9 : 10 }, maxRotation: days > 30 ? 45 : 0 } },
+        y: { position: 'left', grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: function(v){ return v + '€'; }, font: { size: 10 } } },
+        y2: { position: 'right', grid: { display: false }, ticks: { font: { size: 10 } }, title: { display: false } }
+      }
+    }
+  });
 }
 
 function renderDashboardAlerts() {} // no-op — supprimé pour éviter les appels Supabase async depuis le dashboard
