@@ -2556,7 +2556,9 @@ function normalizeRestoredDB(data) {
     recurringCharges: Array.isArray(data.recurringCharges) ? data.recurringCharges : [],
     preferences: data.preferences && typeof data.preferences === 'object' ? data.preferences : { theme: 'light', role:'admin' },
     settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
-    socialMedia: data.socialMedia && typeof data.socialMedia === 'object' ? data.socialMedia : {}
+    socialMedia: data.socialMedia && typeof data.socialMedia === 'object' ? data.socialMedia : {},
+    ignoredOrders: Array.isArray(data.ignoredOrders) ? data.ignoredOrders : [],
+    dismissedAlerts: Array.isArray(data.dismissedAlerts) ? data.dismissedAlerts : []
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -8734,8 +8736,13 @@ async function loadShopifyOrders() {
     return;
   }
 
-  _shopifyAllOrders = orders || [];
-  setShopifyConnStatus(true, orders);
+  // Filtrer immédiatement les commandes blacklistées localement
+  var _ign2 = DB.ignoredOrders || [];
+  _shopifyAllOrders = (orders || []).filter(function(o) {
+    return _ign2.indexOf(String(o.order_name)) === -1 &&
+           _ign2.indexOf(String(o.shopify_order_id)) === -1;
+  });
+  setShopifyConnStatus(true, _shopifyAllOrders);
   renderShopifyOrdersTable(_shopifyAllOrders);
 
   // KPIs
@@ -8789,6 +8796,10 @@ async function fusionShopifyVentes(orders) {
     var order = orderMap[line.order_id];
     if (!order) return;
 
+    // Commande blacklistée localement (ex: 1097 supprimée manuellement) ?
+    var _ign = DB.ignoredOrders || [];
+    if (_ign.indexOf(String(order.order_name)) !== -1 || _ign.indexOf(String(order.shopify_order_id)) !== -1) return;
+
     // Chercher le produit dans le catalogue par SKU
     var sku = (line.sku || '').trim();
     var prodCat = null;
@@ -8812,7 +8823,7 @@ async function fusionShopifyVentes(orders) {
       numCde: order.order_name || '',
       email: order.customer_email || '',
       qte: line.quantity || 1,
-      pv: prodCat ? (prodCat.pv || line.unit_price || 0) : (line.unit_price || 0),
+      pv: line.unit_price != null ? Number(line.unit_price) : (prodCat ? (prodCat.pv || 0) : 0),
       code: prodCat ? prodCat.code : (sku || 'SHOPIFY'),
       ref: prodCat ? (prodCat.ref || '') : '',
       design: prodCat ? (prodCat.design || '') : '',
@@ -8835,12 +8846,34 @@ async function fusionShopifyVentes(orders) {
   if (nouvelles.length > 0) {
     if (!DB.ventes) DB.ventes = [];
     DB.ventes = DB.ventes.concat(nouvelles);
+
+    // Décrémenter le stock fini pour chaque nouvelle vente
+    var stockLog = [];
+    nouvelles.forEach(function(v) {
+      if (!v.code || v.code === 'SHOPIFY') return;
+      var sf = (DB.stockFini || []).find(function(f){ return f.code === v.code; });
+      if (sf) {
+        var avant = sf.stock || 0;
+        sf.stock = Math.max(0, avant - (v.qte || 1));
+        stockLog.push(v.designation + ' x' + v.qte + ' (' + avant + '->' + sf.stock + ')');
+        stockTouched = true;
+      }
+    });
+
     saveDB();
-    showToast('✅ ' + nouvelles.length + ' vente(s) Shopify importée(s) dans l\'historique');
-    // Rafraîchir le dashboard si visible
-    if (document.getElementById('page-dashboard').classList.contains('active')) {
-      renderDashboard();
+
+    // Toast enrichi avec info stock
+    var toastMsg = '✅ ' + nouvelles.length + ' vente(s) Shopify importée(s)';
+    if (stockLog.length > 0) {
+      toastMsg += ' | 📦 Stock: ' + stockLog.slice(0, 2).join(', ');
+      if (stockLog.length > 2) toastMsg += ' (+' + (stockLog.length - 2) + ')';
+    } else {
+      toastMsg += ' | ⚠️ SKU non trouvé dans catalogue — stock non décrémenté';
     }
+    showToast(toastMsg, 'success', 6000);
+
+    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+    if (document.getElementById('page-stock-fini') && document.getElementById('page-stock-fini').classList.contains('active')) renderStockFini();
   }
 }
 
@@ -9038,7 +9071,12 @@ async function deleteShopifyOrder(orderId, orderName) {
     renderShopifyOrdersTable(_shopifyAllOrders);
     renderAll();
 
-    showToast('✅ Commande supprimée');
+    // Blacklist locale permanente — la commande ne reviendra plus au prochain sync
+    if (!Array.isArray(DB.ignoredOrders)) DB.ignoredOrders = [];
+    if (orderName && DB.ignoredOrders.indexOf(orderName) === -1) DB.ignoredOrders.push(orderName);
+    saveDB('Blacklist commande Shopify ' + orderName);
+
+    showToast('✅ Commande supprimée et blacklistée — elle ne reviendra plus');
   } catch (e) {
     console.error(e);
     showToast('❌ ' + e.message);
@@ -9076,6 +9114,12 @@ async function loadShopifyAlerts() {
   }
 
   var count = data ? data.length : 0;
+
+  // Filtrer les alertes ignorées localement (dismissedAlerts)
+  var _dis = DB.dismissedAlerts || [];
+  data = (data || []).filter(function(a){ return _dis.indexOf(String(a.id)) === -1; });
+  count = data.length;
+
   if (kpiEl) kpiEl.textContent = count;
   if (navEl) navEl.textContent = count || '';
 
@@ -9090,7 +9134,10 @@ async function loadShopifyAlerts() {
       '<td><span class="badge ' + (a.severity === 'high' ? 'badge-danger' : 'badge-warn') + '">' + escapeHtml(a.severity || '') + '</span></td>' +
       '<td style="font-size:12px;">' + escapeHtml(a.message || '') + '</td>' +
       '<td class="mono" style="font-size:11px;color:var(--muted);">' + (a.created_at ? new Date(a.created_at).toLocaleDateString('fr-FR') : '—') + '</td>' +
-      '<td><button class="btn btn-xs btn-success" onclick="shopifyResolveAlert(\'' + a.id + '\')">✓ Résoudre</button></td>' +
+      '<td style="display:flex;gap:6px;">' +
+        '<button class="btn btn-xs btn-success" onclick="shopifyResolveAlert(\'' + a.id + '\')">✓ Résoudre</button>' +
+        '<button class="btn btn-xs btn-danger" onclick="shopifyIgnoreAlert(\'' + a.id + '\')">🗑 Ignorer</button>' +
+      '</td>' +
       '</tr>';
   }).join('');
 }
@@ -9100,8 +9147,29 @@ async function shopifyResolveAlert(id) {
     .from('material_alerts')
     .update({ status: 'resolved', resolved_at: new Date().toISOString() })
     .eq('id', id);
-  if (error) { showToast('❌ ' + error.message); return; }
+  if (error) {
+    // Fallback local si Supabase échoue
+    shopifyDismissAlertLocal(id);
+    showToast('✅ Alerte résolue (mode local)');
+    await loadShopifyAlerts();
+    return;
+  }
   showToast('✅ Alerte résolue');
+  await loadShopifyAlerts();
+}
+
+function shopifyDismissAlertLocal(id) {
+  if (!Array.isArray(DB.dismissedAlerts)) DB.dismissedAlerts = [];
+  if (DB.dismissedAlerts.indexOf(String(id)) === -1) {
+    DB.dismissedAlerts.push(String(id));
+    saveDB();
+  }
+}
+
+async function shopifyIgnoreAlert(id) {
+  try { await supabase.from('material_alerts').delete().eq('id', id); } catch(e) {}
+  shopifyDismissAlertLocal(id);
+  showToast('🗑️ Alerte ignorée');
   await loadShopifyAlerts();
 }
 
