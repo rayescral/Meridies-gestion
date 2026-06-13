@@ -1939,7 +1939,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <span class="card-title" style="cursor:pointer;" onclick="var b=document.getElementById('sv-hist-body');var a=document.getElementById('sv-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sv-hist-content','vierge');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
         <span id="sv-hist-arrow">▸</span> Historique mouvements — Stock vierge
       </span>
-      <button class="btn btn-secondary btn-sm" onclick="if(confirm('Regénérer l\'historique depuis les ventes Shopify ?')){delete DB.preferences.migrations.v6_stockHistory;ensureBaseSeedData();saveDB();renderStockMouvements('sv-hist-content','vierge');showToast('Historique régénéré');}">↺ Regénérer</button>
+      <button class="btn btn-danger btn-sm" onclick="resetMouvementsHistory('vierge')">🗑 Tout effacer</button>
     </div>
     <div id="sv-hist-body" style="display:none;">
       <div id="sv-hist-content"></div>
@@ -1961,7 +1961,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <span class="card-title" style="cursor:pointer;" onclick="var b=document.getElementById('sd-hist-body');var a=document.getElementById('sd-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sd-hist-content','design');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
         <span id="sd-hist-arrow">▸</span> Historique mouvements — Stock designs
       </span>
-      <button class="btn btn-secondary btn-sm" onclick="if(confirm('Regénérer l\'historique depuis les ventes Shopify ?')){delete DB.preferences.migrations.v6_stockHistory;ensureBaseSeedData();saveDB();renderStockMouvements('sd-hist-content','design');showToast('Historique régénéré');}">↺ Regénérer</button>
+      <button class="btn btn-danger btn-sm" onclick="resetMouvementsHistory('design')">🗑 Tout effacer</button>
     </div>
     <div id="sd-hist-body" style="display:none;">
       <div id="sd-hist-content"></div>
@@ -9302,9 +9302,16 @@ function fabriqueShopifyOrder(numCde) {
   lines.forEach(function(v) {
     if (DB.fabricatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
 
+    // Trouver la nomenclature : essayer v.ref d'abord, puis extraire la ref du code (CP-CT-RD-CD-NUM)
     var nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
+    if (!nom && v.code) {
+      // Extraire la ref produit depuis le code complet (en retirant la taille finale)
+      var refFromCode = v.code.split('-').slice(0, 5).join('-');
+      nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === refFromCode; });
+      if (nom) v.ref = refFromCode; // corriger pour la prochaine fois
+    }
     if (!nom) {
-      fabLog.push('⚠️ ' + (v.designation || v.code) + ' : pas de nomenclature');
+      fabLog.push('⚠️ ' + (v.designation || v.code) + ' : pas de nomenclature (ref=' + (v.ref||'?') + ', code=' + (v.code||'?') + ')');
       return;
     }
     var qte = v.qte || 1;
@@ -9446,6 +9453,18 @@ window.dismissShopifyOrder = dismissShopifyOrder;
 window.deleteMouvement = deleteMouvement;
 window.buildAllMouvements = buildAllMouvements;
 window.renderStockMouvements = renderStockMouvements;
+
+// Réinitialiser complètement l'historique d'un type donné (n'affecte pas le stock)
+function resetMouvementsHistory(typeFilter) {
+  var label = { vierge:'tissu vierge', design:'designs', fini:'produits finis' }[typeFilter] || typeFilter;
+  if (!confirm('Effacer TOUT l\'historique ' + label + ' ?\n\nCela ne modifie PAS le stock, seulement le journal.')) return;
+  DB.stockMouvements = (DB.stockMouvements || []).filter(function(m){ return m.type !== typeFilter; });
+  saveDB({ reason: 'Reset historique ' + typeFilter, immediate: true });
+  showToast('🗑 Historique ' + label + ' effacé');
+  var containerId = typeFilter === 'vierge' ? 'sv-hist-content' : (typeFilter === 'design' ? 'sd-hist-content' : 'sf-hist-content');
+  renderStockMouvements(containerId, typeFilter);
+}
+window.resetMouvementsHistory = resetMouvementsHistory;
 
 function renderShopifyOrdersTable(orders) {
   var el = document.getElementById('shopify-orders-body');
