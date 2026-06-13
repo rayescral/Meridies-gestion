@@ -2936,19 +2936,71 @@ function logMouvement(type, ref, detail, delta, source, canal, numCde) {
 }
 
 function deleteMouvement(mid) {
+  // Marquer le mouvement comme supprimé localement (même les auto-générés)
+  if (!Array.isArray(DB.deletedMouvements)) DB.deletedMouvements = [];
+  if (DB.deletedMouvements.indexOf(mid) === -1) DB.deletedMouvements.push(mid);
+  // Le supprimer aussi du tableau manuel si présent
   DB.stockMouvements = (DB.stockMouvements || []).filter(function(m){ return m.id !== mid; });
   saveDB({ reason: 'Mouvement supprimé', immediate: true });
-  // Rafraîchir les deux historiques si ouverts
-  var svEl = document.getElementById('sv-hist-content');
-  var sdEl = document.getElementById('sd-hist-content');
-  if (svEl && document.getElementById('sv-hist-body') && document.getElementById('sv-hist-body').style.display !== 'none') renderStockMouvements('sv-hist-content', 'vierge');
-  if (sdEl && document.getElementById('sd-hist-body') && document.getElementById('sd-hist-body').style.display !== 'none') renderStockMouvements('sd-hist-content', 'design');
+  if (document.getElementById('sv-hist-body') && document.getElementById('sv-hist-body').style.display !== 'none') renderStockMouvements('sv-hist-content', 'vierge');
+  if (document.getElementById('sd-hist-body') && document.getElementById('sd-hist-body').style.display !== 'none') renderStockMouvements('sd-hist-content', 'design');
+}
+
+// Construire la liste complète des mouvements à la volée :
+// = mouvements manuels (DB.stockMouvements) + mouvements auto-générés depuis ventes Shopify
+function buildAllMouvements() {
+  var manual = (DB.stockMouvements || []).slice();
+  var deleted = DB.deletedMouvements || [];
+
+  // Générer les mouvements depuis les ventes Shopify (non sauvegardés en dur)
+  var autoMvts = [];
+  (DB.ventes || []).forEach(function(v) {
+    if (v.canal !== 'Shopify' && !v.shopifyOrderId && !v.shopifyLineId) return;
+    var nom = (DB.nomenclatures || []).find(function(n) { return n.refProduit === v.ref; });
+    if (!nom) return;
+    var dateTs = v.date ? new Date(v.date + 'T12:00:00').toISOString() : new Date().toISOString();
+    var baseId = 'auto-' + (v.shopifyLineId || v.id || '');
+    if (nom.viergeRef) {
+      autoMvts.push({
+        id: baseId + '-sv',
+        ts: dateTs,
+        type: 'vierge',
+        ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
+        detail: (v.designation || v.code || '') + ' x' + (v.qte || 1),
+        delta: -(v.qte || 1),
+        source: 'Shopify auto',
+        canal: 'Shopify',
+        numCde: v.numCde || ''
+      });
+    }
+    if (nom.designRef) {
+      autoMvts.push({
+        id: baseId + '-sd',
+        ts: dateTs,
+        type: 'design',
+        ref: nom.designRef,
+        detail: (v.designation || v.code || '') + ' x' + (v.qte || 1),
+        delta: -(v.qte || 1),
+        source: 'Shopify auto',
+        canal: 'Shopify',
+        numCde: v.numCde || ''
+      });
+    }
+  });
+
+  // Fusionner et exclure les supprimés
+  var all = manual.concat(autoMvts).filter(function(m) {
+    return deleted.indexOf(m.id) === -1;
+  });
+  // Trier du plus récent au plus ancien
+  all.sort(function(a, b) { return (b.ts || '').localeCompare(a.ts || ''); });
+  return all;
 }
 
 function renderStockMouvements(containerId, typeFilter) {
   var el = document.getElementById(containerId);
   if (!el) return;
-  var all = (DB.stockMouvements || []).filter(function(m) { return m.type === typeFilter; });
+  var all = buildAllMouvements().filter(function(m) { return m.type === typeFilter; });
   var items = all.slice(0, 100);
   if (!items.length) {
     el.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:var(--muted);text-align:center;">Aucun mouvement enregistré</div>';
@@ -2964,12 +3016,11 @@ function renderStockMouvements(containerId, typeFilter) {
     var isPos = m.delta > 0;
     var deltaStr = (isPos ? '+' : '') + m.delta;
     var deltaStyle = isPos ? 'color:#059669;font-weight:700;' : 'color:#DC2626;font-weight:700;';
-    var origineLabel = m.canal || (isPos ? 'Réappro' : (m.source === 'Manuel' ? 'Manuel' : (m.source || 'Manuel')));
+    var origineLabel = m.canal || (isPos ? 'Réappro' : (m.source || 'Manuel'));
     if (!isPos && m.source === 'Manuel' && !m.canal && m.detail && m.detail.toLowerCase().indexOf('annul') !== -1) origineLabel = 'Annulation';
     var canalBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:var(--surface2);color:var(--muted);">'+escapeHtml(origineLabel)+'</span>';
     var numCdeBadge = m.numCde ? '<span style="font-size:10px;font-family:var(--font-mono);color:var(--muted);">'+escapeHtml(m.numCde)+'</span>' : '<span style="color:var(--muted)">—</span>';
-    // Même pattern que deleteVente : fonction globale + id passé directement
-    var safeId = (m.id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    var safeId = (m.id || '').replace(/'/g, "\\'");
     var btn = '<button class="btn-icon" onclick="deleteMouvement(\''+safeId+'\')" title="Supprimer cette ligne (ne modifie pas le stock)">🗑</button>';
     return '<tr style="border-bottom:1px solid var(--color-border-tertiary);">' +
       '<td style="padding:6px 10px;color:var(--muted);white-space:nowrap;font-size:11px;">' + dateStr + '</td>' +
@@ -3277,6 +3328,9 @@ function getSalesTransactions(){
 }
 
 function renderDashboard() {
+  // ── Notifs commandes Shopify à valider ───────────────────
+  if (typeof renderShopifyNotifs === 'function') renderShopifyNotifs();
+
   // ── Calculs de base ──────────────────────────────────────
   var now = new Date();
   var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -9153,53 +9207,164 @@ async function fusionShopifyVentes(orders) {
     if (!DB.ventes) DB.ventes = [];
     DB.ventes = DB.ventes.concat(nouvelles);
 
-    // ── Décrémenter stock fini + log mouvements (une seule fois) ──
-    var stockLog = [];
+    // Ajouter les nouvelles commandes au pool "à valider" du dashboard
+    if (!Array.isArray(DB.pendingShopifyOrders)) DB.pendingShopifyOrders = [];
     nouvelles.forEach(function(v) {
-      if (!v.code || v.code === 'SHOPIFY') return;
-      // Stock fini
-      var sf = (DB.stockFini || []).find(function(f){ return f.code === v.code; });
-      if (sf) {
-        var avant = sf.stock || 0;
-        sf.stock = Math.max(0, avant - (v.qte || 1));
-        stockLog.push(v.designation + ' x' + v.qte + ' (' + avant + '→' + sf.stock + ')');
-      }
-      // Log mouvements matières via nomenclature
-      var _nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
-      if (_nom) {
-        if (_nom.viergeRef) logMouvement('vierge', _nom.viergeRef + ' ' + _nom.viergeColor, (v.designation || v.code || '') + ' x' + v.qte, -(v.qte || 1), 'Shopify auto', 'Shopify', v.numCde || '');
-        if (_nom.designRef) logMouvement('design', _nom.designRef, (v.designation || v.code || '') + ' x' + v.qte, -(v.qte || 1), 'Shopify auto', 'Shopify', v.numCde || '');
+      var existing = DB.pendingShopifyOrders.find(function(p){ return p.shopifyLineId === v.shopifyLineId; });
+      if (!existing) {
+        DB.pendingShopifyOrders.push({
+          shopifyLineId: v.shopifyLineId,
+          numCde: v.numCde,
+          designation: v.designation,
+          code: v.code,
+          ref: v.ref,
+          qte: v.qte,
+          date: v.date,
+          validated: false
+        });
       }
     });
 
     saveDB();
+    showToast('🛍️ ' + nouvelles.length + ' nouvelle(s) commande(s) Shopify — à valider sur le dashboard', 'success', 6000);
 
-    // ── Toast ──
-    var toastMsg = '🛍️ ' + nouvelles.length + ' nouvelle(s) vente(s) Shopify';
-    if (stockLog.length > 0) {
-      toastMsg += ' | 📦 ' + stockLog.slice(0, 2).join(', ');
-      if (stockLog.length > 2) toastMsg += ' +' + (stockLog.length - 2);
-    } else {
-      toastMsg += ' | ⚠️ SKU non trouvé — stock non décrémenté';
+    // Rafraîchir dashboard si visible
+    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active')) {
+      renderDashboard();
+      renderShopifyNotifs();
     }
-    showToast(toastMsg, 'success', 7000);
-
-    // ── Notif dashboard ──
-    var dashNotifEl = document.getElementById('dash-shopify-notif');
-    if (dashNotifEl) {
-      dashNotifEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-left:3px solid #C9A84C;border-radius:6px;margin-bottom:12px;">' +
-        '<span style="font-size:18px;">🛍️</span>' +
-        '<div><div style="font-weight:600;font-size:13px;">' + nouvelles.length + ' nouvelle(s) commande(s) Shopify</div>' +
-        '<div style="font-size:12px;color:var(--muted);">' + nouvelles.map(function(v){ return v.numCde || ''; }).filter(Boolean).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ') + '</div></div>' +
-        '<button onclick="this.parentElement.parentElement.innerHTML=\'\'" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;">×</button></div>';
-      dashNotifEl.style.display = 'block';
-    }
-
-    // Rafraîchir les pages visibles
-    if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
-    if (document.getElementById('page-stock-fini') && document.getElementById('page-stock-fini').classList.contains('active')) renderStockFini();
   }
 }
+
+// ── Notifications Shopify dans le dashboard avec bouton Valider ──────────────
+function renderShopifyNotifs() {
+  var container = document.getElementById('dash-shopify-notif');
+  if (!container) return;
+
+  // Détecter les ventes Shopify qui ne sont pas encore validées
+  // (toutes les ventes Shopify avec shopifyLineId qui ne sont pas dans pendingShopifyOrders.validated)
+  if (!Array.isArray(DB.pendingShopifyOrders)) DB.pendingShopifyOrders = [];
+  if (!Array.isArray(DB.validatedShopifyOrders)) DB.validatedShopifyOrders = [];
+
+  // Reconstruire pending depuis DB.ventes Shopify non validées
+  var validated = {};
+  DB.validatedShopifyOrders.forEach(function(id){ validated[id] = true; });
+  var dismissed = {};
+  (DB.dismissedShopifyOrders || []).forEach(function(id){ dismissed[id] = true; });
+
+  var pending = (DB.ventes || []).filter(function(v) {
+    if (v.canal !== 'Shopify' && !v.shopifyLineId) return false;
+    if (!v.shopifyLineId) return false;
+    if (validated[v.shopifyLineId]) return false;
+    if (dismissed[v.shopifyLineId]) return false;
+    return true;
+  });
+
+  if (!pending.length) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  // Regrouper par numCde
+  var byCde = {};
+  pending.forEach(function(v) {
+    var k = v.numCde || 'sans-cde';
+    if (!byCde[k]) byCde[k] = [];
+    byCde[k].push(v);
+  });
+
+  var cards = Object.keys(byCde).sort(function(a,b){ return b.localeCompare(a); }).map(function(numCde) {
+    var lines = byCde[numCde];
+    var itemsHtml = lines.map(function(l) {
+      return '<div style="font-size:12px;color:var(--muted);">• ' + escapeHtml(l.designation || l.code || '') + ' x' + (l.qte||1) + '</div>';
+    }).join('');
+    var safeCde = numCde.replace(/'/g, "\\'");
+    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#FFF8E7;border-left:3px solid #C9A84C;border-radius:6px;margin-bottom:10px;">' +
+      '<span style="font-size:20px;">🛍️</span>' +
+      '<div style="flex:1;">' +
+        '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">Nouvelle commande Shopify ' + escapeHtml(numCde) + '</div>' +
+        itemsHtml +
+        '<div style="font-size:11px;color:var(--muted);margin-top:6px;">⚠️ Stock non décrémenté — clique sur Valider pour appliquer.</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:6px;">' +
+        '<button class="btn btn-success btn-sm" onclick="validateShopifyOrder(\'' + safeCde + '\')">✓ Valider</button>' +
+        '<button class="btn btn-secondary btn-sm" onclick="dismissShopifyOrder(\'' + safeCde + '\')">✗ Ignorer</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  container.innerHTML = cards;
+  container.style.display = 'block';
+}
+
+function validateShopifyOrder(numCde) {
+  var lines = (DB.ventes || []).filter(function(v) { return v.canal === 'Shopify' && v.numCde === numCde && v.shopifyLineId; });
+  if (!lines.length) { showToast('❌ Aucune ligne trouvée pour ' + numCde); return; }
+
+  if (!Array.isArray(DB.validatedShopifyOrders)) DB.validatedShopifyOrders = [];
+  if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+
+  var stockLog = [];
+  lines.forEach(function(v) {
+    // Décrément stock fini
+    var sf = (DB.stockFini || []).find(function(f){ return f.code === v.code; });
+    if (sf) {
+      var avant = sf.stock || 0;
+      sf.stock = Math.max(0, avant - (v.qte || 1));
+      stockLog.push(v.designation + ' (' + avant + '→' + sf.stock + ')');
+    }
+    // Log mouvements depuis nomenclature
+    var nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
+    if (nom) {
+      var nowTs = new Date().toISOString();
+      var baseId = 'val-' + v.shopifyLineId;
+      if (nom.viergeRef) {
+        DB.stockMouvements.unshift({
+          id: baseId + '-sv', ts: nowTs, type: 'vierge',
+          ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
+          detail: (v.designation || '') + ' x' + v.qte,
+          delta: -(v.qte || 1), source: 'Validation Shopify', canal: 'Shopify', numCde: numCde
+        });
+      }
+      if (nom.designRef) {
+        DB.stockMouvements.unshift({
+          id: baseId + '-sd', ts: nowTs, type: 'design',
+          ref: nom.designRef,
+          detail: (v.designation || '') + ' x' + v.qte,
+          delta: -(v.qte || 1), source: 'Validation Shopify', canal: 'Shopify', numCde: numCde
+        });
+      }
+    }
+    // Marquer comme validée
+    DB.validatedShopifyOrders.push(v.shopifyLineId);
+  });
+
+  saveDB({ reason: 'Validation Shopify ' + numCde, immediate: true });
+  showToast('✅ Stock mis à jour pour ' + numCde + (stockLog.length ? ' — ' + stockLog.slice(0,2).join(', ') : ''), 'success', 5000);
+  renderShopifyNotifs();
+  if (typeof renderDashboard === 'function') renderDashboard();
+}
+
+function dismissShopifyOrder(numCde) {
+  if (!Array.isArray(DB.dismissedShopifyOrders)) DB.dismissedShopifyOrders = [];
+  (DB.ventes || []).forEach(function(v) {
+    if (v.canal === 'Shopify' && v.numCde === numCde && v.shopifyLineId) {
+      if (DB.dismissedShopifyOrders.indexOf(v.shopifyLineId) === -1) {
+        DB.dismissedShopifyOrders.push(v.shopifyLineId);
+      }
+    }
+  });
+  saveDB({ immediate: true });
+  renderShopifyNotifs();
+}
+
+// Exposer globalement pour les onclick inline
+window.renderShopifyNotifs = renderShopifyNotifs;
+window.validateShopifyOrder = validateShopifyOrder;
+window.dismissShopifyOrder = dismissShopifyOrder;
+window.deleteMouvement = deleteMouvement;
+window.buildAllMouvements = buildAllMouvements;
+window.renderStockMouvements = renderStockMouvements;
 
 function renderShopifyOrdersTable(orders) {
   var el = document.getElementById('shopify-orders-body');
