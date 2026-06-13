@@ -3712,14 +3712,26 @@ function deleteSD(i) { if(confirm('Supprimer ?')){ DB.stockDTF.splice(i,1); save
 
 function renderStockFini() {
   var totalPcs=0,totalVal=0,sfAlerts=0;
-  DB.stockFini.forEach(function(f){totalPcs+=f.stock;totalVal+=f.stock*f.pv;if(f.stock<=(f.seuil||2))sfAlerts++;});
+  DB.stockFini.forEach(function(f){totalPcs+=f.stock;totalVal+=f.stock*f.pv;if(f.stock>0 && f.stock<=(f.seuil||2))sfAlerts++;});
   document.getElementById('sf-kpis').innerHTML =
     '<div class="kpi"><div class="kpi-label">Pièces prêtes à vendre</div><div class="kpi-value">'+totalPcs+'</div></div>'+
     '<div class="kpi kpi-accent"><div class="kpi-label">Valeur PV</div><div class="kpi-value">'+fmt(totalVal)+'</div></div>'+
     '<div class="kpi '+(sfAlerts>0?'kpi-warning':'kpi-success')+'"><div class="kpi-label">Alertes</div><div class="kpi-value">'+sfAlerts+'</div></div>';
   var tbody = document.getElementById('sf-body');
-  if(DB.stockFini.length===0) { tbody.innerHTML='<tr><td colspan="9" class="empty-state"><div class="icon">📦</div>Ajoutez des produits finis en stock</td></tr>'; return; }
-  tbody.innerHTML = DB.stockFini.map(function(f,i){
+
+  // Filtrer : ne montrer que les lignes avec stock > 0 (les autres peuvent être refabriquées)
+  var visible = [];
+  DB.stockFini.forEach(function(f, idx) {
+    if ((f.stock || 0) > 0) visible.push({ f: f, idx: idx });
+  });
+
+  if(visible.length===0) {
+    tbody.innerHTML='<tr><td colspan="9" class="empty-state"><div class="icon">📦</div>Aucun produit en stock — les produits à 0 sont masqués (ils peuvent être refabriqués depuis le stock vierge + design).</td></tr>';
+    return;
+  }
+  tbody.innerHTML = visible.map(function(item){
+    var f = item.f;
+    var i = item.idx;
     return '<tr><td class="mono">'+f.code+'</td><td style="font-weight:600;">'+f.designation+'</td><td class="c">'+f.taille+'</td>'+
       '<td class="c"><input type="number" class="input-sm" style="width:50px;text-align:center;" value="'+f.stock+'" onchange="updateSF('+i+',this.value)"></td>'+
       '<td class="r mono">'+fmt(f.pv)+'</td><td class="r mono">'+fmt(f.stock*f.pv)+'</td>'+
@@ -9436,15 +9448,21 @@ function fabriqueShopifyOrder(numCde) {
 
     // 3. Incrémenter le stock fini
     if (!Array.isArray(DB.stockFini)) DB.stockFini = [];
-    var sf = DB.stockFini.find(function(f){ return f.code === v.code; });
+
+    // Construire un code article propre : refProduit (nomenclature) + taille
+    var properCode = nom.refProduit + '-' + taille.toUpperCase();
+    // Mettre à jour v.code pour cohérence future (approbation, recherches)
+    v.code = properCode;
+
+    var sf = DB.stockFini.find(function(f){ return f.code === properCode; });
     if (sf) {
       sf.stock = (sf.stock || 0) + qte;
     } else {
-      var prodCat = (DB.catalogue || []).find(function(p){ return p.code === v.code; });
+      var prodCat = (DB.catalogue || []).find(function(p){ return p.code === properCode; });
       DB.stockFini.push({
-        code: v.code,
-        designation: v.designation || (prodCat ? prodCat.designation : v.code),
-        taille: prodCat ? prodCat.taille : '',
+        code: properCode,
+        designation: (prodCat ? prodCat.designation : (nom.designation || v.designation)),
+        taille: taille.toUpperCase(),
         stock: qte,
         pv: prodCat ? prodCat.pv : v.pv,
         seuil: 3
@@ -9454,7 +9472,7 @@ function fabriqueShopifyOrder(numCde) {
     DB.stockMouvements.unshift({
       id: baseId + '-sf',
       ts: nowTs, type: 'fini',
-      ref: v.code,
+      ref: properCode,
       detail: 'Fabrication ' + (v.designation || ''),
       delta: qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
     });
