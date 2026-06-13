@@ -1978,6 +1978,16 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     </div>
     <div class="table-wrap"><table><thead><tr><th>Code Article</th><th>Désignation</th><th>Taille</th><th>Stock</th><th class="r">PV (€)</th><th class="r">Valeur PV</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sf-body"></tbody></table></div>
   </div>
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header">
+      <span class="card-title" style="cursor:pointer;" onclick="var b=document.getElementById('sf-hist-body');var a=document.getElementById('sf-hist-arrow');if(b.style.display==='none'){b.style.display='block';renderStockMouvements('sf-hist-content','fini');a.textContent='▾';}else{b.style.display='none';a.textContent='▸';}">
+        <span id="sf-hist-arrow">▸</span> Historique mouvements — Produits finis
+      </span>
+    </div>
+    <div id="sf-hist-body" style="display:none;">
+      <div id="sf-hist-content"></div>
+    </div>
+  </div>
 </div>
 
 <div class="page" id="page-nomenclature">
@@ -2946,53 +2956,14 @@ function deleteMouvement(mid) {
   if (document.getElementById('sd-hist-body') && document.getElementById('sd-hist-body').style.display !== 'none') renderStockMouvements('sd-hist-content', 'design');
 }
 
-// Construire la liste complète des mouvements à la volée :
-// = mouvements manuels (DB.stockMouvements) + mouvements auto-générés depuis ventes Shopify
 function buildAllMouvements() {
   var manual = (DB.stockMouvements || []).slice();
   var deleted = DB.deletedMouvements || [];
-
-  // Générer les mouvements depuis les ventes Shopify (non sauvegardés en dur)
-  var autoMvts = [];
-  (DB.ventes || []).forEach(function(v) {
-    if (v.canal !== 'Shopify' && !v.shopifyOrderId && !v.shopifyLineId) return;
-    var nom = (DB.nomenclatures || []).find(function(n) { return n.refProduit === v.ref; });
-    if (!nom) return;
-    var dateTs = v.date ? new Date(v.date + 'T12:00:00').toISOString() : new Date().toISOString();
-    var baseId = 'auto-' + (v.shopifyLineId || v.id || '');
-    if (nom.viergeRef) {
-      autoMvts.push({
-        id: baseId + '-sv',
-        ts: dateTs,
-        type: 'vierge',
-        ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
-        detail: (v.designation || v.code || '') + ' x' + (v.qte || 1),
-        delta: -(v.qte || 1),
-        source: 'Shopify auto',
-        canal: 'Shopify',
-        numCde: v.numCde || ''
-      });
-    }
-    if (nom.designRef) {
-      autoMvts.push({
-        id: baseId + '-sd',
-        ts: dateTs,
-        type: 'design',
-        ref: nom.designRef,
-        detail: (v.designation || v.code || '') + ' x' + (v.qte || 1),
-        delta: -(v.qte || 1),
-        source: 'Shopify auto',
-        canal: 'Shopify',
-        numCde: v.numCde || ''
-      });
-    }
-  });
-
-  // Fusionner et exclure les supprimés
-  var all = manual.concat(autoMvts).filter(function(m) {
+  // Pas de génération auto — uniquement les mouvements explicitement enregistrés
+  // (via Fabriquer/Approuver, ajustement manuel, etc.)
+  var all = manual.filter(function(m) {
     return deleted.indexOf(m.id) === -1;
   });
-  // Trier du plus récent au plus ancien
   all.sort(function(a, b) { return (b.ts || '').localeCompare(a.ts || ''); });
   return all;
 }
@@ -9241,22 +9212,26 @@ function renderShopifyNotifs() {
   var container = document.getElementById('dash-shopify-notif');
   if (!container) return;
 
-  // Détecter les ventes Shopify qui ne sont pas encore validées
-  // (toutes les ventes Shopify avec shopifyLineId qui ne sont pas dans pendingShopifyOrders.validated)
-  if (!Array.isArray(DB.pendingShopifyOrders)) DB.pendingShopifyOrders = [];
   if (!Array.isArray(DB.validatedShopifyOrders)) DB.validatedShopifyOrders = [];
+  if (!Array.isArray(DB.dismissedShopifyOrders)) DB.dismissedShopifyOrders = [];
+  if (!Array.isArray(DB.fabricatedShopifyOrders)) DB.fabricatedShopifyOrders = [];
 
-  // Reconstruire pending depuis DB.ventes Shopify non validées
   var validated = {};
-  DB.validatedShopifyOrders.forEach(function(id){ validated[id] = true; });
+  DB.validatedShopifyOrders.forEach(function(id){ validated[String(id)] = true; });
   var dismissed = {};
-  (DB.dismissedShopifyOrders || []).forEach(function(id){ dismissed[id] = true; });
+  DB.dismissedShopifyOrders.forEach(function(id){ dismissed[String(id)] = true; });
+  var fabricated = {};
+  DB.fabricatedShopifyOrders.forEach(function(id){ fabricated[String(id)] = true; });
 
+  // Filtrer : uniquement les commandes >= 1106 et non validées/ignorées
   var pending = (DB.ventes || []).filter(function(v) {
-    if (v.canal !== 'Shopify' && !v.shopifyLineId) return false;
     if (!v.shopifyLineId) return false;
-    if (validated[v.shopifyLineId]) return false;
-    if (dismissed[v.shopifyLineId]) return false;
+    if (v.canal !== 'Shopify') return false;
+    // Extraire le numéro de commande (sans le #)
+    var cdeNum = parseInt((v.numCde || '').replace(/[^0-9]/g, '')) || 0;
+    if (cdeNum < 1106) return false;
+    if (validated[String(v.shopifyLineId)]) return false;
+    if (dismissed[String(v.shopifyLineId)]) return false;
     return true;
   });
 
@@ -9276,20 +9251,36 @@ function renderShopifyNotifs() {
 
   var cards = Object.keys(byCde).sort(function(a,b){ return b.localeCompare(a); }).map(function(numCde) {
     var lines = byCde[numCde];
+    var allFabricated = lines.every(function(l){ return fabricated[String(l.shopifyLineId)]; });
     var itemsHtml = lines.map(function(l) {
-      return '<div style="font-size:12px;color:var(--muted);">• ' + escapeHtml(l.designation || l.code || '') + ' x' + (l.qte||1) + '</div>';
+      var fabBadge = fabricated[String(l.shopifyLineId)] ? ' <span style="background:#10B981;color:white;font-size:9px;padding:1px 5px;border-radius:99px;">✓ Fabriqué</span>' : '';
+      return '<div style="font-size:12px;color:var(--muted);">• ' + escapeHtml(l.designation || l.code || '') + ' x' + (l.qte||1) + fabBadge + '</div>';
     }).join('');
     var safeCde = numCde.replace(/'/g, "\\'");
-    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#FFF8E7;border-left:3px solid #C9A84C;border-radius:6px;margin-bottom:10px;">' +
+
+    var btnFabriquer = allFabricated
+      ? '<button class="btn btn-secondary btn-sm" disabled style="opacity:0.5;">✓ Fabriqué</button>'
+      : '<button class="btn btn-primary btn-sm" onclick="fabriqueShopifyOrder(\'' + safeCde + '\')">🔨 Fabriquer</button>';
+
+    var btnApprouver = allFabricated
+      ? '<button class="btn btn-success btn-sm" onclick="approveShopifyOrder(\'' + safeCde + '\')">✓ Approuver (envoyé)</button>'
+      : '<button class="btn btn-success btn-sm" disabled style="opacity:0.4;" title="Fabriquer d\'abord">✓ Approuver</button>';
+
+    var statusText = allFabricated
+      ? '✅ Fabriqué — clique sur Approuver quand la commande est envoyée pour décrémenter le stock produit fini.'
+      : '⚠️ Stock non décrémenté — clique sur Fabriquer pour consommer les matières.';
+
+    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:' + (allFabricated ? '#E6F7EF' : '#FFF8E7') + ';border-left:3px solid ' + (allFabricated ? '#10B981' : '#C9A84C') + ';border-radius:6px;margin-bottom:10px;">' +
       '<span style="font-size:20px;">🛍️</span>' +
       '<div style="flex:1;">' +
-        '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">Nouvelle commande Shopify ' + escapeHtml(numCde) + '</div>' +
+        '<div style="font-weight:600;font-size:13px;margin-bottom:4px;">Commande Shopify ' + escapeHtml(numCde) + '</div>' +
         itemsHtml +
-        '<div style="font-size:11px;color:var(--muted);margin-top:6px;">⚠️ Stock non décrémenté — clique sur Valider pour appliquer.</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:6px;">' + statusText + '</div>' +
       '</div>' +
-      '<div style="display:flex;flex-direction:column;gap:6px;">' +
-        '<button class="btn btn-success btn-sm" onclick="validateShopifyOrder(\'' + safeCde + '\')">✓ Valider</button>' +
-        '<button class="btn btn-secondary btn-sm" onclick="dismissShopifyOrder(\'' + safeCde + '\')">✗ Ignorer</button>' +
+      '<div style="display:flex;flex-direction:column;gap:6px;min-width:160px;">' +
+        btnFabriquer +
+        btnApprouver +
+        '<button class="btn btn-secondary btn-sm" onclick="dismissShopifyOrder(\'' + safeCde + '\')" style="font-size:11px;">✗ Ignorer</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -9297,70 +9288,160 @@ function renderShopifyNotifs() {
   container.style.display = 'block';
 }
 
-function validateShopifyOrder(numCde) {
+// Fabriquer : consommer matières (vierge + design) → créer stock fini
+function fabriqueShopifyOrder(numCde) {
   var lines = (DB.ventes || []).filter(function(v) { return v.canal === 'Shopify' && v.numCde === numCde && v.shopifyLineId; });
-  if (!lines.length) { showToast('❌ Aucune ligne trouvée pour ' + numCde); return; }
+  if (!lines.length) { showToast('❌ Aucune ligne pour ' + numCde); return; }
+
+  if (!Array.isArray(DB.fabricatedShopifyOrders)) DB.fabricatedShopifyOrders = [];
+  if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+
+  var nowTs = new Date().toISOString();
+  var fabLog = [];
+
+  lines.forEach(function(v) {
+    if (DB.fabricatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
+
+    var nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
+    if (!nom) {
+      fabLog.push('⚠️ ' + (v.designation || v.code) + ' : pas de nomenclature');
+      return;
+    }
+    var qte = v.qte || 1;
+    var baseId = 'fab-' + v.shopifyLineId;
+
+    // 1. Décrémenter le stock vierge (si applicable)
+    if (nom.viergeRef) {
+      var sv = (DB.stockVierge || []).find(function(s){
+        return s.ref === nom.viergeRef && s.couleur === nom.viergeColor;
+      });
+      if (sv) {
+        // Trouver la taille à décrémenter (depuis le code article)
+        var taille = (v.code || '').split('-').pop().toLowerCase();
+        var validTailles = ['xs','s','m','l','xl','u'];
+        if (validTailles.indexOf(taille) !== -1) {
+          var avant = sv[taille] || 0;
+          sv[taille] = Math.max(0, avant - qte);
+          DB.stockMouvements.unshift({
+            id: baseId + '-sv',
+            ts: nowTs, type: 'vierge',
+            ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
+            detail: 'Fabrication ' + (v.designation || '') + ' (' + taille.toUpperCase() + ')',
+            delta: -qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
+          });
+        }
+      }
+    }
+
+    // 2. Décrémenter le stock design (si applicable)
+    if (nom.designRef) {
+      var sd = (DB.stockDTF || []).find(function(d){ return d.ref === nom.designRef; });
+      if (sd) {
+        var avantD = sd.stock || 0;
+        sd.stock = Math.max(0, avantD - qte);
+        DB.stockMouvements.unshift({
+          id: baseId + '-sd',
+          ts: nowTs, type: 'design',
+          ref: nom.designRef,
+          detail: 'Fabrication ' + (v.designation || ''),
+          delta: -qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
+        });
+      }
+    }
+
+    // 3. Incrémenter le stock fini
+    if (!Array.isArray(DB.stockFini)) DB.stockFini = [];
+    var sf = DB.stockFini.find(function(f){ return f.code === v.code; });
+    if (sf) {
+      sf.stock = (sf.stock || 0) + qte;
+    } else {
+      var prodCat = (DB.catalogue || []).find(function(p){ return p.code === v.code; });
+      DB.stockFini.push({
+        code: v.code,
+        designation: v.designation || (prodCat ? prodCat.designation : v.code),
+        taille: prodCat ? prodCat.taille : '',
+        stock: qte,
+        pv: prodCat ? prodCat.pv : v.pv,
+        seuil: 3
+      });
+    }
+    // Log mouvement stock fini (entrée fabrication)
+    DB.stockMouvements.unshift({
+      id: baseId + '-sf',
+      ts: nowTs, type: 'fini',
+      ref: v.code,
+      detail: 'Fabrication ' + (v.designation || ''),
+      delta: qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
+    });
+
+    DB.fabricatedShopifyOrders.push(String(v.shopifyLineId));
+    fabLog.push(v.designation + ' x' + qte);
+  });
+
+  saveDB({ reason: 'Fabrication Shopify ' + numCde, immediate: true });
+  showToast('🔨 Fabriqué ' + numCde + ' — ' + fabLog.slice(0,2).join(', '), 'success', 5000);
+  renderShopifyNotifs();
+  if (typeof renderDashboard === 'function') renderDashboard();
+}
+
+// Approuver : décrémenter le stock fini (commande envoyée)
+function approveShopifyOrder(numCde) {
+  var lines = (DB.ventes || []).filter(function(v) { return v.canal === 'Shopify' && v.numCde === numCde && v.shopifyLineId; });
+  if (!lines.length) return;
 
   if (!Array.isArray(DB.validatedShopifyOrders)) DB.validatedShopifyOrders = [];
   if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
 
-  var stockLog = [];
+  var nowTs = new Date().toISOString();
+  var log = [];
+
   lines.forEach(function(v) {
-    // Décrément stock fini
+    if (DB.validatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
+    var qte = v.qte || 1;
+
+    // Décrémenter le stock fini
     var sf = (DB.stockFini || []).find(function(f){ return f.code === v.code; });
     if (sf) {
       var avant = sf.stock || 0;
-      sf.stock = Math.max(0, avant - (v.qte || 1));
-      stockLog.push(v.designation + ' (' + avant + '→' + sf.stock + ')');
+      sf.stock = Math.max(0, avant - qte);
+      log.push(v.designation + ' (' + avant + '→' + sf.stock + ')');
     }
-    // Log mouvements depuis nomenclature
-    var nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
-    if (nom) {
-      var nowTs = new Date().toISOString();
-      var baseId = 'val-' + v.shopifyLineId;
-      if (nom.viergeRef) {
-        DB.stockMouvements.unshift({
-          id: baseId + '-sv', ts: nowTs, type: 'vierge',
-          ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
-          detail: (v.designation || '') + ' x' + v.qte,
-          delta: -(v.qte || 1), source: 'Validation Shopify', canal: 'Shopify', numCde: numCde
-        });
-      }
-      if (nom.designRef) {
-        DB.stockMouvements.unshift({
-          id: baseId + '-sd', ts: nowTs, type: 'design',
-          ref: nom.designRef,
-          detail: (v.designation || '') + ' x' + v.qte,
-          delta: -(v.qte || 1), source: 'Validation Shopify', canal: 'Shopify', numCde: numCde
-        });
-      }
-    }
-    // Marquer comme validée
-    DB.validatedShopifyOrders.push(v.shopifyLineId);
+
+    DB.stockMouvements.unshift({
+      id: 'app-' + v.shopifyLineId,
+      ts: nowTs, type: 'fini',
+      ref: v.code,
+      detail: 'Vente ' + (v.designation || ''),
+      delta: -qte, source: 'Vente Shopify', canal: 'Shopify', numCde: numCde
+    });
+
+    DB.validatedShopifyOrders.push(String(v.shopifyLineId));
   });
 
-  saveDB({ reason: 'Validation Shopify ' + numCde, immediate: true });
-  showToast('✅ Stock mis à jour pour ' + numCde + (stockLog.length ? ' — ' + stockLog.slice(0,2).join(', ') : ''), 'success', 5000);
+  saveDB({ reason: 'Approbation Shopify ' + numCde, immediate: true });
+  showToast('✅ Approuvé ' + numCde + (log.length ? ' — ' + log.slice(0,2).join(', ') : ''), 'success', 5000);
   renderShopifyNotifs();
   if (typeof renderDashboard === 'function') renderDashboard();
 }
 
 function dismissShopifyOrder(numCde) {
+  if (!confirm('Ignorer définitivement la commande ' + numCde + ' ?\n\nElle ne réapparaîtra plus dans le tableau de bord.')) return;
   if (!Array.isArray(DB.dismissedShopifyOrders)) DB.dismissedShopifyOrders = [];
   (DB.ventes || []).forEach(function(v) {
     if (v.canal === 'Shopify' && v.numCde === numCde && v.shopifyLineId) {
-      if (DB.dismissedShopifyOrders.indexOf(v.shopifyLineId) === -1) {
-        DB.dismissedShopifyOrders.push(v.shopifyLineId);
+      if (DB.dismissedShopifyOrders.indexOf(String(v.shopifyLineId)) === -1) {
+        DB.dismissedShopifyOrders.push(String(v.shopifyLineId));
       }
     }
   });
-  saveDB({ immediate: true });
+  saveDB({ reason: 'Ignorer Shopify ' + numCde, immediate: true });
   renderShopifyNotifs();
 }
 
 // Exposer globalement pour les onclick inline
 window.renderShopifyNotifs = renderShopifyNotifs;
-window.validateShopifyOrder = validateShopifyOrder;
+window.fabriqueShopifyOrder = fabriqueShopifyOrder;
+window.approveShopifyOrder = approveShopifyOrder;
 window.dismissShopifyOrder = dismissShopifyOrder;
 window.deleteMouvement = deleteMouvement;
 window.buildAllMouvements = buildAllMouvements;
