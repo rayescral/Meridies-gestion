@@ -1834,6 +1834,8 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 <div class="content">
 
 <div class="page active" id="page-dashboard">
+  <!-- Notif nouvelles commandes Shopify -->
+  <div id="dash-shopify-notif" style="display:none;"></div>
   <!-- KPIs x6 -->
   <div class="kpi-grid-6" id="dash-kpis"></div>
 
@@ -2559,6 +2561,15 @@ function ensureBaseSeedData() {
   DB.nomenclatures = DB.nomenclatures.filter(function(n){ return !_nomBlacklist[n.refProduit]; });
   if(DB.nomenclatures.length !== _nomBefore) changed++;
   changed += mergeMissingItems(DB.nomenclatures, EMBEDDED_BACKUP.nomenclatures||[], function(i){ return i && i.refProduit; });
+
+  // Migration v7 : reset flags v6 bloqués et force régénération historique mouvements
+  if (!DB.preferences.migrations.v7_resetV6) {
+    delete DB.preferences.migrations.v6_stockHistory;
+    delete DB.preferences.migrations.v6b_done;
+    if (!Array.isArray(DB.stockMouvements)) DB.stockMouvements = [];
+    DB.preferences.migrations.v7_resetV6 = true;
+    changed++;
+  }
 
   // Migration v6 : historique rétroactif depuis ventes Shopify (1098+) — après merge nomenclatures
   // v6b : relance si stockMouvements est vide (flag v6 posé mais rien généré = nomenclatures manquaient)
@@ -9137,52 +9148,55 @@ async function fusionShopifyVentes(orders) {
     };
 
     nouvelles.push(vente);
-
-    // Décrémenter le stock fini si produit trouvé dans catalogue
-    if (prodCat) {
-      var sf = (DB.stockFini || []).find(function(f){ return f.code === prodCat.code; });
-      if (sf) {
-        sf.stock = Math.max(0, (sf.stock || 0) - vente.qte);
-        stockTouched = true;
-      }
-    }
   });
 
   if (nouvelles.length > 0) {
     if (!DB.ventes) DB.ventes = [];
     DB.ventes = DB.ventes.concat(nouvelles);
 
-    // Décrémenter le stock fini pour chaque nouvelle vente
+    // ── Décrémenter stock fini + log mouvements (une seule fois) ──
     var stockLog = [];
     nouvelles.forEach(function(v) {
       if (!v.code || v.code === 'SHOPIFY') return;
+      // Stock fini
       var sf = (DB.stockFini || []).find(function(f){ return f.code === v.code; });
       if (sf) {
         var avant = sf.stock || 0;
         sf.stock = Math.max(0, avant - (v.qte || 1));
-        stockLog.push(v.designation + ' x' + v.qte + ' (' + avant + '->' + sf.stock + ')');
-        stockTouched = true;
-        // Trouver la nomenclature pour logguer les composants consommés
-        var _nom = (DB.nomenclatures||[]).find(function(n){ return n.refProduit === v.ref; });
-        if (_nom) {
-          if (_nom.viergeRef) logMouvement('vierge', _nom.viergeRef+' '+_nom.viergeColor, (v.designation||v.code||'')+' x'+v.qte, -(v.qte||1), 'Shopify auto', 'Shopify', v.numCde||'');
-          if (_nom.designRef) logMouvement('design', _nom.designRef, (v.designation||v.code||'')+' x'+v.qte, -(v.qte||1), 'Shopify auto', 'Shopify', v.numCde||'');
-        }
+        stockLog.push(v.designation + ' x' + v.qte + ' (' + avant + '→' + sf.stock + ')');
+      }
+      // Log mouvements matières via nomenclature
+      var _nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
+      if (_nom) {
+        if (_nom.viergeRef) logMouvement('vierge', _nom.viergeRef + ' ' + _nom.viergeColor, (v.designation || v.code || '') + ' x' + v.qte, -(v.qte || 1), 'Shopify auto', 'Shopify', v.numCde || '');
+        if (_nom.designRef) logMouvement('design', _nom.designRef, (v.designation || v.code || '') + ' x' + v.qte, -(v.qte || 1), 'Shopify auto', 'Shopify', v.numCde || '');
       }
     });
 
     saveDB();
 
-    // Toast enrichi avec info stock
-    var toastMsg = '✅ ' + nouvelles.length + ' vente(s) Shopify importée(s)';
+    // ── Toast ──
+    var toastMsg = '🛍️ ' + nouvelles.length + ' nouvelle(s) vente(s) Shopify';
     if (stockLog.length > 0) {
-      toastMsg += ' | 📦 Stock: ' + stockLog.slice(0, 2).join(', ');
-      if (stockLog.length > 2) toastMsg += ' (+' + (stockLog.length - 2) + ')';
+      toastMsg += ' | 📦 ' + stockLog.slice(0, 2).join(', ');
+      if (stockLog.length > 2) toastMsg += ' +' + (stockLog.length - 2);
     } else {
-      toastMsg += ' | ⚠️ SKU non trouvé dans catalogue — stock non décrémenté';
+      toastMsg += ' | ⚠️ SKU non trouvé — stock non décrémenté';
     }
-    showToast(toastMsg, 'success', 6000);
+    showToast(toastMsg, 'success', 7000);
 
+    // ── Notif dashboard ──
+    var dashNotifEl = document.getElementById('dash-shopify-notif');
+    if (dashNotifEl) {
+      dashNotifEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-left:3px solid #C9A84C;border-radius:6px;margin-bottom:12px;">' +
+        '<span style="font-size:18px;">🛍️</span>' +
+        '<div><div style="font-weight:600;font-size:13px;">' + nouvelles.length + ' nouvelle(s) commande(s) Shopify</div>' +
+        '<div style="font-size:12px;color:var(--muted);">' + nouvelles.map(function(v){ return v.numCde || ''; }).filter(Boolean).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ') + '</div></div>' +
+        '<button onclick="this.parentElement.parentElement.innerHTML=\'\'" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;">×</button></div>';
+      dashNotifEl.style.display = 'block';
+    }
+
+    // Rafraîchir les pages visibles
     if (document.getElementById('page-dashboard') && document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
     if (document.getElementById('page-stock-fini') && document.getElementById('page-stock-fini').classList.contains('active')) renderStockFini();
   }
