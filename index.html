@@ -9302,20 +9302,101 @@ function fabriqueShopifyOrder(numCde) {
   lines.forEach(function(v) {
     if (DB.fabricatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
 
-    // Trouver la nomenclature : essayer v.ref d'abord, puis extraire la ref du code (CP-CT-RD-CD-NUM)
-    var nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
-    if (!nom && v.code) {
-      // Extraire la ref produit depuis le code complet (en retirant la taille finale)
-      var refFromCode = v.code.split('-').slice(0, 5).join('-');
-      nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === refFromCode; });
-      if (nom) v.ref = refFromCode; // corriger pour la prochaine fois
+    // ── Recherche de nomenclature : approche fiable par DÉSIGNATION ──
+    // La désignation reste stable peu importe la version du SKU
+    var nom = null;
+    var debugInfo = { code: v.code, ref: v.ref, designation: v.designation, title: v.title };
+
+    var designation = (v.designation || v.title || '').trim();
+
+    // Normaliser pour comparaison (supprimer espaces multiples, ignorer casse)
+    var norm = function(s) {
+      return (s||'').toLowerCase().replace(/\s+/g, ' ').replace(/\s*\/\s*/g, '/').trim();
+    };
+    var normDesig = norm(designation);
+
+    if (normDesig) {
+      // 1. Match exact sur la désignation de la nomenclature
+      nom = (DB.nomenclatures || []).find(function(n){
+        return norm(n.designation) === normDesig;
+      });
+
+      // 2. Si pas trouvé, match inclusif (la désignation Shopify contient celle de la nomenclature ou inverse)
+      if (!nom) {
+        nom = (DB.nomenclatures || []).find(function(n){
+          var nd = norm(n.designation);
+          if (!nd) return false;
+          return normDesig.indexOf(nd) !== -1 || nd.indexOf(normDesig) !== -1;
+        });
+      }
+
+      // 3. Si plusieurs candidats, prendre le match le plus précis (longest)
+      if (!nom) {
+        var candidates = (DB.nomenclatures || []).filter(function(n){
+          if (!n.designation) return false;
+          var nWords = norm(n.designation).split(' ');
+          // Au moins 2 mots de la nomenclature présents dans la désignation Shopify
+          var matches = nWords.filter(function(w){ return w.length > 2 && normDesig.indexOf(w) !== -1; });
+          return matches.length >= 2;
+        });
+        if (candidates.length > 0) {
+          // Prendre celui avec le plus de mots matchés
+          candidates.sort(function(a, b){
+            var aw = norm(a.designation).split(' ').filter(function(w){ return normDesig.indexOf(w) !== -1; }).length;
+            var bw = norm(b.designation).split(' ').filter(function(w){ return normDesig.indexOf(w) !== -1; }).length;
+            return bw - aw;
+          });
+          nom = candidates[0];
+        }
+      }
     }
+
+    // 4. Fallback : essai par v.ref ou v.code (ancien comportement)
+    if (!nom && v.ref) {
+      nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
+    }
+    if (!nom && v.code) {
+      var parts = v.code.split('-');
+      for (var i = 1; i <= 3 && !nom; i++) {
+        var candidate = parts.slice(0, parts.length - i).join('-');
+        if (candidate && candidate.length > 3) {
+          nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === candidate; });
+        }
+      }
+    }
+
     if (!nom) {
-      fabLog.push('⚠️ ' + (v.designation || v.code) + ' : pas de nomenclature (ref=' + (v.ref||'?') + ', code=' + (v.code||'?') + ')');
+      console.error('[Fabrication] Pas de nomenclature pour:', debugInfo);
+      fabLog.push('⚠️ ' + (v.designation || v.code || '?') + ' : nomenclature introuvable');
       return;
     }
+
+    // Corriger v.ref pour les prochaines fois
+    if (nom.refProduit) v.ref = nom.refProduit;
+
     var qte = v.qte || 1;
     var baseId = 'fab-' + v.shopifyLineId;
+
+    // ── Extraction de la taille : v.taille en priorité, sinon depuis v.code ──
+    var taille = (v.taille || '').toLowerCase().trim();
+    if (!taille && v.code) {
+      var lastSeg = v.code.split('-').pop().toLowerCase();
+      var validTailles = ['xs','s','m','l','xl','u'];
+      if (validTailles.indexOf(lastSeg) !== -1) taille = lastSeg;
+    }
+    // Si toujours pas de taille mais le produit est en taille unique (designation sans XS/S/M/L/XL/XXL)
+    if (!taille) {
+      // Vérifier si la nomenclature pointe vers un produit avec uniquement une taille U
+      var hasU = (DB.stockVierge || []).some(function(s){
+        return s.ref === nom.viergeRef && s.couleur === nom.viergeColor && (s.u || 0) > 0;
+      });
+      if (hasU) taille = 'u';
+    }
+    var validTaillesArr = ['xs','s','m','l','xl','u'];
+    if (validTaillesArr.indexOf(taille) === -1) {
+      console.warn('[Fabrication] Taille non identifiée pour', v.designation, '(taille=' + v.taille + ', code=' + v.code + ') — défaut M');
+      taille = 'm';
+    }
 
     // 1. Décrémenter le stock vierge (si applicable)
     if (nom.viergeRef) {
@@ -9323,20 +9404,17 @@ function fabriqueShopifyOrder(numCde) {
         return s.ref === nom.viergeRef && s.couleur === nom.viergeColor;
       });
       if (sv) {
-        // Trouver la taille à décrémenter (depuis le code article)
-        var taille = (v.code || '').split('-').pop().toLowerCase();
-        var validTailles = ['xs','s','m','l','xl','u'];
-        if (validTailles.indexOf(taille) !== -1) {
-          var avant = sv[taille] || 0;
-          sv[taille] = Math.max(0, avant - qte);
-          DB.stockMouvements.unshift({
-            id: baseId + '-sv',
-            ts: nowTs, type: 'vierge',
-            ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
-            detail: 'Fabrication ' + (v.designation || '') + ' (' + taille.toUpperCase() + ')',
-            delta: -qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
-          });
-        }
+        var avant = sv[taille] || 0;
+        sv[taille] = Math.max(0, avant - qte);
+        DB.stockMouvements.unshift({
+          id: baseId + '-sv',
+          ts: nowTs, type: 'vierge',
+          ref: nom.viergeRef + ' ' + (nom.viergeColor || ''),
+          detail: 'Fabrication ' + (v.designation || '') + ' (' + taille.toUpperCase() + ')',
+          delta: -qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
+        });
+      } else {
+        console.warn('[Fabrication] Stock vierge introuvable pour', nom.viergeRef, nom.viergeColor);
       }
     }
 
@@ -9458,9 +9536,20 @@ window.renderStockMouvements = renderStockMouvements;
 function resetMouvementsHistory(typeFilter) {
   var label = { vierge:'tissu vierge', design:'designs', fini:'produits finis' }[typeFilter] || typeFilter;
   if (!confirm('Effacer TOUT l\'historique ' + label + ' ?\n\nCela ne modifie PAS le stock, seulement le journal.')) return;
+
+  // Vider les mouvements de ce type
+  var before = (DB.stockMouvements || []).length;
   DB.stockMouvements = (DB.stockMouvements || []).filter(function(m){ return m.type !== typeFilter; });
+  var removed = before - DB.stockMouvements.length;
+
+  // Ajouter aussi tous les IDs (ou pseudo-IDs) à deletedMouvements pour bloquer toute réapparition
+  if (!Array.isArray(DB.deletedMouvements)) DB.deletedMouvements = [];
+  // Marquer un flag global pour ce type
+  if (!DB.stockHistoryResetFlags) DB.stockHistoryResetFlags = {};
+  DB.stockHistoryResetFlags[typeFilter] = new Date().toISOString();
+
   saveDB({ reason: 'Reset historique ' + typeFilter, immediate: true });
-  showToast('🗑 Historique ' + label + ' effacé');
+  showToast('🗑 ' + removed + ' mouvement(s) effacé(s) — ' + label);
   var containerId = typeFilter === 'vierge' ? 'sv-hist-content' : (typeFilter === 'design' ? 'sd-hist-content' : 'sf-hist-content');
   renderStockMouvements(containerId, typeFilter);
 }
