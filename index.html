@@ -2935,11 +2935,14 @@ function logMouvement(type, ref, detail, delta, source, canal, numCde) {
   if (DB.stockMouvements.length > 500) DB.stockMouvements = DB.stockMouvements.slice(0, 500);
 }
 
-function deleteMouvement(id, containerId, typeFilter) {
-  // Supprime uniquement la ligne de l'historique — n'affecte pas le stock
-  DB.stockMouvements = (DB.stockMouvements || []).filter(function(m){ return m.id !== id; });
-  saveDB();
-  renderStockMouvements(containerId, typeFilter);
+function deleteMouvement(mid) {
+  DB.stockMouvements = (DB.stockMouvements || []).filter(function(m){ return m.id !== mid; });
+  saveDB({ reason: 'Mouvement supprimé', immediate: true });
+  // Rafraîchir les deux historiques si ouverts
+  var svEl = document.getElementById('sv-hist-content');
+  var sdEl = document.getElementById('sd-hist-content');
+  if (svEl && document.getElementById('sv-hist-body') && document.getElementById('sv-hist-body').style.display !== 'none') renderStockMouvements('sv-hist-content', 'vierge');
+  if (sdEl && document.getElementById('sd-hist-body') && document.getElementById('sd-hist-body').style.display !== 'none') renderStockMouvements('sd-hist-content', 'design');
 }
 
 function renderStockMouvements(containerId, typeFilter) {
@@ -2961,12 +2964,13 @@ function renderStockMouvements(containerId, typeFilter) {
     var isPos = m.delta > 0;
     var deltaStr = (isPos ? '+' : '') + m.delta;
     var deltaStyle = isPos ? 'color:#059669;font-weight:700;' : 'color:#DC2626;font-weight:700;';
-    var origineLabel = m.canal || (isPos ? 'Réappro' : (m.source === 'Manuel' ? 'Manuel' : m.source || 'Manuel'));
+    var origineLabel = m.canal || (isPos ? 'Réappro' : (m.source === 'Manuel' ? 'Manuel' : (m.source || 'Manuel')));
     if (!isPos && m.source === 'Manuel' && !m.canal && m.detail && m.detail.toLowerCase().indexOf('annul') !== -1) origineLabel = 'Annulation';
     var canalBadge = '<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:var(--surface2);color:var(--muted);">'+escapeHtml(origineLabel)+'</span>';
     var numCdeBadge = m.numCde ? '<span style="font-size:10px;font-family:var(--font-mono);color:var(--muted);">'+escapeHtml(m.numCde)+'</span>' : '<span style="color:var(--muted)">—</span>';
-    // Bouton suppression via data-attribute pour éviter les problèmes d'échappement
-    var btn = '<button class="sm-del-btn" data-mid="'+escapeHtml(m.id||'')+'" data-cid="'+containerId+'" data-tf="'+typeFilter+'" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;" title="Supprimer cette ligne (ne modifie pas le stock)">🗑</button>';
+    // Même pattern que deleteVente : fonction globale + id passé directement
+    var safeId = (m.id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    var btn = '<button class="btn-icon" onclick="deleteMouvement(\''+safeId+'\')" title="Supprimer cette ligne (ne modifie pas le stock)">🗑</button>';
     return '<tr style="border-bottom:1px solid var(--color-border-tertiary);">' +
       '<td style="padding:6px 10px;color:var(--muted);white-space:nowrap;font-size:11px;">' + dateStr + '</td>' +
       '<td style="padding:6px 10px;font-family:var(--font-mono);font-size:11px;">' + escapeHtml(m.ref) + '</td>' +
@@ -2977,21 +2981,10 @@ function renderStockMouvements(containerId, typeFilter) {
       '<td style="padding:4px 6px;">' + btn + '</td>' +
       '</tr>';
   }).join('');
-
   el.innerHTML = '<table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr>' +
     th('Date') + th('Référence') + th('Détail') + th('Origine') + th('N° Cde') + th('Mouvement', true) + th('') +
     '</tr></thead><tbody>' + rows + '</tbody></table>' +
     (all.length > 100 ? '<div style="padding:8px 12px;font-size:11px;color:var(--muted);">' + all.length + ' mouvements — affichage limité à 100</div>' : '');
-
-  // Attacher les événements sur les boutons via delegation (pas de inline onclick)
-  el.querySelectorAll('.sm-del-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var mid = this.getAttribute('data-mid');
-      var cid = this.getAttribute('data-cid');
-      var tf  = this.getAttribute('data-tf');
-      deleteMouvement(mid, cid, tf);
-    });
-  });
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -5690,6 +5683,12 @@ function enhanceLoadPostActions(){
   renderHistory();
   maybeShowAlertToast();
   document.querySelectorAll('#page-stock-vierge table, #page-stock-dtf table, #page-stock-fini table').forEach(function(t){ t.classList.add('stock-align'); });
+  // Sync Shopify silencieux au démarrage pour détecter nouvelles commandes + notif dashboard
+  setTimeout(function() {
+    if (typeof loadShopifyOrders === 'function') {
+      loadShopifyOrders().catch(function(){});
+    }
+  }, 2000);
 }
 
 
