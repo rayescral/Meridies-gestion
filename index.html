@@ -2658,7 +2658,11 @@ function normalizeRestoredDB(data) {
     ignoredOrders: Array.isArray(data.ignoredOrders) ? data.ignoredOrders : [],
     dismissedAlerts: Array.isArray(data.dismissedAlerts) ? data.dismissedAlerts : [],
     manualStatuses: (data.manualStatuses && typeof data.manualStatuses === 'object' && !Array.isArray(data.manualStatuses)) ? data.manualStatuses : {},
-    stockMouvements: Array.isArray(data.stockMouvements) ? data.stockMouvements : []
+    stockMouvements: Array.isArray(data.stockMouvements) ? data.stockMouvements : [],
+    deletedMouvements: Array.isArray(data.deletedMouvements) ? data.deletedMouvements : [],
+    fabricatedShopifyOrders: Array.isArray(data.fabricatedShopifyOrders) ? data.fabricatedShopifyOrders : [],
+    validatedShopifyOrders: Array.isArray(data.validatedShopifyOrders) ? data.validatedShopifyOrders : [],
+    dismissedShopifyOrders: Array.isArray(data.dismissedShopifyOrders) ? data.dismissedShopifyOrders : []
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
