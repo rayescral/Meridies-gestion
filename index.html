@@ -2373,6 +2373,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <button class="btn btn-secondary btn-sm" onclick="shopifyApiCall('/api/shopify/check-materials','Contrôle matière')">🧪 Lancer le contrôle matière</button>
         <button class="btn btn-secondary btn-sm" onclick="shopifyRegisterWebhook()">🔗 Enregistrer le webhook</button>
         <button class="btn btn-secondary btn-sm" onclick="fixShopifyPrices()" title="Recalcule les prix des ventes Shopify déjà importées en utilisant le vrai prix payé (codes promo inclus)">💰 Corriger les prix promos</button>
+        <button class="btn btn-secondary btn-sm" onclick="fixShopifyVariants()" title="Récupère titre et variante (taille/couleur) depuis Supabase pour les ventes Shopify déjà importées">🏷️ Corriger tailles/variantes</button>
       </div>
     </div>
   </div>
@@ -9170,6 +9171,30 @@ async function fusionShopifyVentes(orders) {
       ? order.created_at_shopify.substring(0, 10)
       : today();
 
+    // Construire la vente — enrichi avec line.title et line.variant_title pour récupérer taille/couleur
+    var lineTitle = (line.title || '').trim();           // ex: "Mercatus"
+    var variantTitle = (line.variant_title || '').trim(); // ex: "Bleu / XL" ou "XL"
+
+    // Désignation complète = title + variant (pour matcher la nomenclature)
+    var fullDesignation = prodCat ? prodCat.designation : (lineTitle + (variantTitle ? ' ' + variantTitle.replace(/\s*\/\s*/g, ' ') : '')).trim();
+
+    // Taille : prodCat.taille en priorité, sinon dernier segment de variant_title (souvent "Couleur / Taille")
+    var detectedTaille = '';
+    if (prodCat && prodCat.taille) {
+      detectedTaille = prodCat.taille;
+    } else if (variantTitle) {
+      var variantParts = variantTitle.split('/').map(function(s){ return s.trim(); });
+      var validTailles = ['XS','S','M','L','XL','XXL','U','TU','Taille unique'];
+      // Chercher une taille dans n'importe quelle partie du variant
+      for (var vi = variantParts.length - 1; vi >= 0; vi--) {
+        var p = variantParts[vi].toUpperCase();
+        if (validTailles.indexOf(p) !== -1) {
+          detectedTaille = p === 'TU' || p === 'TAILLE UNIQUE' ? 'U' : p;
+          break;
+        }
+      }
+    }
+
     var vente = {
       id: 'shopify_' + line.id,
       shopifyLineId: line.id,
@@ -9183,8 +9208,10 @@ async function fusionShopifyVentes(orders) {
       code: prodCat ? prodCat.code : (sku || 'SHOPIFY'),
       ref: prodCat ? (prodCat.ref || '') : '',
       design: prodCat ? (prodCat.design || '') : '',
-      designation: prodCat ? prodCat.designation : (line.title || sku || 'Article Shopify'),
-      taille: prodCat ? (prodCat.taille || '') : ''
+      designation: fullDesignation,
+      taille: detectedTaille,
+      shopifyTitle: lineTitle,
+      shopifyVariant: variantTitle
     };
 
     nouvelles.push(vente);
@@ -9319,59 +9346,71 @@ function fabriqueShopifyOrder(numCde) {
     if (DB.fabricatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
 
     // ── Recherche de nomenclature : approche fiable par DÉSIGNATION ──
-    // La désignation reste stable peu importe la version du SKU
     var nom = null;
-    var debugInfo = { code: v.code, ref: v.ref, designation: v.designation, title: v.title };
+    var debugInfo = { code: v.code, ref: v.ref, designation: v.designation, title: v.shopifyTitle, variant: v.shopifyVariant };
 
-    var designation = (v.designation || v.title || '').trim();
+    // Construire plusieurs variantes de désignation à tester
+    var titlePart = (v.shopifyTitle || '').trim();
+    var variantPart = (v.shopifyVariant || '').trim();
+    // Retirer la taille du variant pour ne garder que la couleur (ex: "Bleu / XL" → "Bleu")
+    var validTaillesUpper = ['XS','S','M','L','XL','XXL','U','TU'];
+    var variantWithoutTaille = variantPart.split('/').map(function(p){ return p.trim(); })
+      .filter(function(p){ return validTaillesUpper.indexOf(p.toUpperCase()) === -1; })
+      .join(' / ');
 
-    // Normaliser pour comparaison (supprimer espaces multiples, ignorer casse)
+    var candidatesDesig = [
+      v.designation,                                                       // brute (ex: "Mercatus Bleu XL")
+      titlePart + ' ' + variantWithoutTaille,                              // ex: "Mercatus Bleu"
+      titlePart,                                                            // ex: "Mercatus"
+    ].filter(Boolean);
+
     var norm = function(s) {
-      return (s||'').toLowerCase().replace(/\s+/g, ' ').replace(/\s*\/\s*/g, '/').trim();
+      return (s||'').toLowerCase()
+        .replace(/[éèêë]/g,'e').replace(/[àâä]/g,'a').replace(/[îï]/g,'i').replace(/[ôö]/g,'o').replace(/[ûüù]/g,'u').replace(/ç/g,'c')
+        .replace(/\s+/g, ' ').replace(/\s*\/\s*/g, ' / ').trim();
     };
-    var normDesig = norm(designation);
 
-    if (normDesig) {
-      // 1. Match exact sur la désignation de la nomenclature
-      nom = (DB.nomenclatures || []).find(function(n){
-        return norm(n.designation) === normDesig;
-      });
+    // Pour chaque variante, essayer match exact, puis inclusif, puis par mots-clés
+    for (var ci = 0; ci < candidatesDesig.length && !nom; ci++) {
+      var normDesig = norm(candidatesDesig[ci]);
+      if (!normDesig) continue;
 
-      // 2. Si pas trouvé, match inclusif (la désignation Shopify contient celle de la nomenclature ou inverse)
+      // 1. Match exact
+      nom = (DB.nomenclatures || []).find(function(n){ return norm(n.designation) === normDesig; });
+
+      // 2. Match : la designation Shopify CONTIENT toute la nomenclature, ou inverse
       if (!nom) {
         nom = (DB.nomenclatures || []).find(function(n){
           var nd = norm(n.designation);
-          if (!nd) return false;
-          return normDesig.indexOf(nd) !== -1 || nd.indexOf(normDesig) !== -1;
+          return nd && (normDesig.indexOf(nd) !== -1 || nd.indexOf(normDesig) !== -1);
         });
-      }
-
-      // 3. Si plusieurs candidats, prendre le match le plus précis (longest)
-      if (!nom) {
-        var candidates = (DB.nomenclatures || []).filter(function(n){
-          if (!n.designation) return false;
-          var nWords = norm(n.designation).split(' ');
-          // Au moins 2 mots de la nomenclature présents dans la désignation Shopify
-          var matches = nWords.filter(function(w){ return w.length > 2 && normDesig.indexOf(w) !== -1; });
-          return matches.length >= 2;
-        });
-        if (candidates.length > 0) {
-          // Prendre celui avec le plus de mots matchés
-          candidates.sort(function(a, b){
-            var aw = norm(a.designation).split(' ').filter(function(w){ return normDesig.indexOf(w) !== -1; }).length;
-            var bw = norm(b.designation).split(' ').filter(function(w){ return normDesig.indexOf(w) !== -1; }).length;
-            return bw - aw;
-          });
-          nom = candidates[0];
-        }
       }
     }
 
-    // 4. Fallback : essai par v.ref ou v.code (ancien comportement)
+    // 3. Si rien : match par MOTS-CLÉS sur la designation complète
+    if (!nom) {
+      var allTokens = norm(v.designation + ' ' + titlePart + ' ' + variantWithoutTaille).split(/\s+/).filter(function(w){ return w.length > 2 && w !== 'and' && w !== 'des'; });
+      var candidates = (DB.nomenclatures || []).map(function(n){
+        var nd = norm(n.designation);
+        var ndWords = nd.split(/\s+/).filter(function(w){ return w.length > 2; });
+        // Compter combien de mots de la nomenclature sont présents dans la désignation
+        var matched = ndWords.filter(function(w){ return allTokens.indexOf(w) !== -1; });
+        return { nom: n, score: matched.length, total: ndWords.length };
+      }).filter(function(c){
+        // Au moins 60% des mots de la nomenclature doivent matcher
+        return c.score >= Math.max(2, Math.ceil(c.total * 0.6));
+      });
+      if (candidates.length > 0) {
+        candidates.sort(function(a, b){ return b.score - a.score; });
+        nom = candidates[0].nom;
+      }
+    }
+
+    // 4. Fallback : essai par v.ref ou v.code
     if (!nom && v.ref) {
       nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === v.ref; });
     }
-    if (!nom && v.code) {
+    if (!nom && v.code && v.code !== 'SHOPIFY') {
       var parts = v.code.split('-');
       for (var i = 1; i <= 3 && !nom; i++) {
         var candidate = parts.slice(0, parts.length - i).join('-');
@@ -9393,25 +9432,57 @@ function fabriqueShopifyOrder(numCde) {
     var qte = v.qte || 1;
     var baseId = 'fab-' + v.shopifyLineId;
 
-    // ── Extraction de la taille : v.taille en priorité, sinon depuis v.code ──
-    var taille = (v.taille || '').toLowerCase().trim();
+    // ── Extraction robuste de la taille ──
+    // Liste de tailles valides (avec mots-clés Shopify)
+    var validTailles = ['xs','s','m','l','xl','xxl','u','tu'];
+    var taille = '';
+
+    var tryExtract = function(str) {
+      if (!str) return '';
+      var s = str.toLowerCase();
+      // 1. Chercher après "/" (format Shopify "Couleur / Taille")
+      var slashParts = s.split('/').map(function(p){ return p.trim(); });
+      for (var i = slashParts.length - 1; i >= 0; i--) {
+        if (validTailles.indexOf(slashParts[i]) !== -1) return slashParts[i];
+      }
+      // 2. Chercher après " - " ou " – "
+      var dashParts = s.split(/\s+[-–]\s+/).map(function(p){ return p.trim(); });
+      for (var j = dashParts.length - 1; j >= 0; j--) {
+        if (validTailles.indexOf(dashParts[j]) !== -1) return dashParts[j];
+      }
+      // 3. Chercher comme mot isolé (avec espace avant/après ou fin de string)
+      var match = s.match(/(?:^|\s)(xxl|xs|s|m|l|xl|u|tu)(?:\s|$)/i);
+      if (match) return match[1].toLowerCase();
+      return '';
+    };
+
+    // Essayer dans plusieurs sources
+    if (v.taille) {
+      var t = v.taille.toString().toLowerCase().trim();
+      if (validTailles.indexOf(t) !== -1) taille = t;
+    }
+    if (!taille && v.shopifyVariant) taille = tryExtract(v.shopifyVariant);
+    if (!taille && v.designation) taille = tryExtract(v.designation);
     if (!taille && v.code) {
       var lastSeg = v.code.split('-').pop().toLowerCase();
-      var validTailles = ['xs','s','m','l','xl','u'];
       if (validTailles.indexOf(lastSeg) !== -1) taille = lastSeg;
     }
-    // Si toujours pas de taille mais le produit est en taille unique (designation sans XS/S/M/L/XL/XXL)
+
+    // Normaliser
+    if (taille === 'tu') taille = 'u';
+
+    // Si toujours pas de taille mais le produit est en taille unique
     if (!taille) {
-      // Vérifier si la nomenclature pointe vers un produit avec uniquement une taille U
       var hasU = (DB.stockVierge || []).some(function(s){
         return s.ref === nom.viergeRef && s.couleur === nom.viergeColor && (s.u || 0) > 0;
       });
       if (hasU) taille = 'u';
     }
-    var validTaillesArr = ['xs','s','m','l','xl','u'];
-    if (validTaillesArr.indexOf(taille) === -1) {
-      console.warn('[Fabrication] Taille non identifiée pour', v.designation, '(taille=' + v.taille + ', code=' + v.code + ') — défaut M');
-      taille = 'm';
+
+    if (validTailles.indexOf(taille) === -1) {
+      console.error('[Fabrication] Taille introuvable pour', v.designation, { taille: v.taille, code: v.code, variant: v.shopifyVariant });
+      fabLog.push('⚠️ ' + (v.designation || '?') + ' : taille introuvable (variant=' + (v.shopifyVariant||'?') + ', code=' + (v.code||'?') + ')');
+      return;
     }
 
     // 1. Décrémenter le stock vierge (si applicable)
@@ -9786,6 +9857,57 @@ async function deleteShopifyOrder(orderId, orderName) {
 window.deleteShopifyOrder = deleteShopifyOrder;
 window.bindShopifyOrderButtons = bindShopifyOrderButtons;
 window.markOrderDeletedOnShopify = markOrderDeletedOnShopify;
+
+// ── Correction des titres/variantes Shopify pour ventes déjà importées ──────
+async function fixShopifyVariants() {
+  var shopifyVentes = (DB.ventes || []).filter(function(v) { return v.shopifyLineId; });
+  if (!shopifyVentes.length) { showToast('Aucune vente Shopify'); return; }
+
+  showToast('⏳ Récupération des variantes...');
+  var lineIds = shopifyVentes.map(function(v) { return v.shopifyLineId; });
+  var { data: lines, error } = await supabase
+    .from('shopify_order_lines')
+    .select('id, title, variant_title')
+    .in('id', lineIds);
+
+  if (error || !lines) { showToast('❌ ' + (error ? error.message : 'rien')); return; }
+
+  var lineMap = {};
+  lines.forEach(function(l){ lineMap[String(l.id)] = l; });
+
+  var validTaillesUpper = ['XS','S','M','L','XL','XXL','U','TU'];
+  var corrected = 0;
+  shopifyVentes.forEach(function(v) {
+    var line = lineMap[String(v.shopifyLineId)];
+    if (!line) return;
+    var lineTitle = (line.title || '').trim();
+    var variantTitle = (line.variant_title || '').trim();
+    var variantWithoutTaille = variantTitle.split('/').map(function(p){ return p.trim(); })
+      .filter(function(p){ return validTaillesUpper.indexOf(p.toUpperCase()) === -1; })
+      .join(' / ');
+    var detectedTaille = '';
+    if (variantTitle) {
+      var vp = variantTitle.split('/').map(function(s){ return s.trim().toUpperCase(); });
+      for (var vi = vp.length - 1; vi >= 0; vi--) {
+        if (validTaillesUpper.indexOf(vp[vi]) !== -1) { detectedTaille = vp[vi] === 'TU' ? 'U' : vp[vi]; break; }
+      }
+    }
+    v.shopifyTitle = lineTitle;
+    v.shopifyVariant = variantTitle;
+    if (detectedTaille) v.taille = detectedTaille;
+    // Mettre à jour la désignation si elle ne contient pas déjà la couleur
+    if (lineTitle && variantWithoutTaille) {
+      var newDesig = (lineTitle + ' ' + variantWithoutTaille).trim();
+      v.designation = newDesig;
+    }
+    corrected++;
+  });
+
+  saveDB({ reason: 'Fix variantes Shopify', immediate: true });
+  showToast('✅ ' + corrected + ' vente(s) enrichie(s) avec titre/variante/taille');
+  if (typeof renderDashboard === 'function') renderDashboard();
+}
+window.fixShopifyVariants = fixShopifyVariants;
 
 // ── Correction des prix Shopify déjà importés (promo) ──────────────────────
 async function fixShopifyPrices() {
