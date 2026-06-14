@@ -3745,8 +3745,15 @@ function renderStockFini() {
       '<td><button class="btn-icon" onclick="deleteSF('+i+')">🗑</button></td></tr>';
   }).join('');
 }
-function updateSF(i,val) {
-  DB.stockFini[i].stock = parseInt(val) || 0;
+function updateSF(i, val) {
+  var f = DB.stockFini[i];
+  var ancien = f ? (f.stock || 0) : 0;
+  var nouveau = parseInt(val) || 0;
+  if (f) f.stock = nouveau;
+  var delta = nouveau - ancien;
+  if (delta !== 0 && f && typeof logMouvement === 'function') {
+    logMouvement('fini', f.code, (delta > 0 ? 'Ajout' : 'Retrait') + ' manuel ' + f.designation, delta, 'Manuel');
+  }
   saveDB();
   refreshBusinessViews();
 }
@@ -5314,6 +5321,9 @@ function addSFAuto(){
     var sf = DB.stockFini.find(function(f){ return f.code===code; });
     if(sf){ sf.stock += qty; }
     else { DB.stockFini.push({code:prod.code, ref:prod.ref, designation:prod.designation, design:prod.design, taille:prod.taille, pv:prod.pv, stock:qty, seuil:seuil}); }
+    if (typeof logMouvement === 'function') {
+      logMouvement('fini', prod.code, 'Ajout direct ' + prod.designation, qty, 'Manuel');
+    }
     saveDB(); closeModal(); renderStockFini(); toast(qty+' pièce(s) ajoutée(s) au stock fini ✓');
   } else {
     addSF();
@@ -5364,6 +5374,21 @@ function addSF(){
   var sf = DB.stockFini.find(function(f){ return f.code===prod.code; });
   if(sf){ sf.stock += qty; }
   else { DB.stockFini.push({code:prod.code, ref:prod.ref, designation:prod.designation, design:prod.design, taille:prod.taille, pv:prod.pv, stock:qty, seuil:2}); }
+
+  // ── Logger les mouvements (matières consommées + produit fini créé) ──
+  if (typeof logMouvement === 'function') {
+    var nowTs = new Date().toISOString();
+    var baseId = 'asm-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+    // Vierge
+    logMouvement('vierge', vierge.ref + ' ' + (vierge.couleur||''), 'Assemblage ' + prod.designation + ' (' + tailleKey.toUpperCase() + ')', -qty, 'Assemblage manuel');
+    // Design
+    if (dtf) {
+      logMouvement('design', dtf.ref, 'Assemblage ' + prod.designation, -qty, 'Assemblage manuel');
+    }
+    // Fini
+    logMouvement('fini', prod.code, 'Assemblage ' + prod.designation, qty, 'Assemblage manuel');
+  }
+
   saveDB(); closeModal(); renderStockVierge(); renderStockDTF(); renderStockFini(); toast('Produit fini assemblé ✓');
 }
 
