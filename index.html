@@ -2374,6 +2374,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <button class="btn btn-secondary btn-sm" onclick="shopifyRegisterWebhook()">🔗 Enregistrer le webhook</button>
         <button class="btn btn-secondary btn-sm" onclick="fixShopifyPrices()" title="Recalcule les prix des ventes Shopify déjà importées en utilisant le vrai prix payé (codes promo inclus)">💰 Corriger les prix promos</button>
         <button class="btn btn-secondary btn-sm" onclick="fixShopifyVariants()" title="Récupère titre et variante (taille/couleur) depuis Supabase pour les ventes Shopify déjà importées">🏷️ Corriger tailles/variantes</button>
+        <button class="btn btn-secondary btn-sm" onclick="openShopifyMapping()">🔗 Gérer correspondances</button>
       </div>
     </div>
   </div>
@@ -2663,7 +2664,8 @@ function normalizeRestoredDB(data) {
     deletedMouvements: Array.isArray(data.deletedMouvements) ? data.deletedMouvements : [],
     fabricatedShopifyOrders: Array.isArray(data.fabricatedShopifyOrders) ? data.fabricatedShopifyOrders : [],
     validatedShopifyOrders: Array.isArray(data.validatedShopifyOrders) ? data.validatedShopifyOrders : [],
-    dismissedShopifyOrders: Array.isArray(data.dismissedShopifyOrders) ? data.dismissedShopifyOrders : []
+    dismissedShopifyOrders: Array.isArray(data.dismissedShopifyOrders) ? data.dismissedShopifyOrders : [],
+    shopifyTitleMap: (data.shopifyTitleMap && typeof data.shopifyTitleMap === 'object' && !Array.isArray(data.shopifyTitleMap)) ? data.shopifyTitleMap : {}
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -9191,6 +9193,17 @@ async function fusionShopifyVentes(orders) {
       });
     }
 
+    // Auto-mapper le titre Shopify → nomenclature si prodCat trouvé
+    if (prodCat && prodCat.ref) {
+      if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+      var _lTitle = (line.title || '').toLowerCase().trim();
+      var _lVariant = (line.variant_title || '').toLowerCase().trim();
+      var _mapKey = (_lTitle + '|||' + _lVariant).trim();
+      var _mapKeyShort = _lTitle;
+      if (_mapKey && !DB.shopifyTitleMap[_mapKey]) DB.shopifyTitleMap[_mapKey] = prodCat.ref;
+      if (_mapKeyShort && !DB.shopifyTitleMap[_mapKeyShort]) DB.shopifyTitleMap[_mapKeyShort] = prodCat.ref;
+    }
+
     // Construire la vente
     var dateStr = order.created_at_shopify
       ? order.created_at_shopify.substring(0, 10)
@@ -9370,9 +9383,18 @@ function fabriqueShopifyOrder(numCde) {
   lines.forEach(function(v) {
     if (DB.fabricatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
 
-    // ── Recherche de nomenclature : approche fiable par DÉSIGNATION ──
+    // ── Recherche de nomenclature ──
     var nom = null;
     var debugInfo = { code: v.code, ref: v.ref, designation: v.designation, title: v.shopifyTitle, variant: v.shopifyVariant };
+
+    // 0. Consulter le shopifyTitleMap (table de correspondance pré-construite)
+    if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+    var mapKey = ((v.shopifyTitle || v.designation || '') + '|||' + (v.shopifyVariant || '')).toLowerCase().trim();
+    var mapKeyNoVariant = (v.shopifyTitle || v.designation || '').toLowerCase().trim();
+    var mappedRef = DB.shopifyTitleMap[mapKey] || DB.shopifyTitleMap[mapKeyNoVariant];
+    if (mappedRef) {
+      nom = (DB.nomenclatures || []).find(function(n){ return n.refProduit === mappedRef; });
+    }
 
     // Construire plusieurs variantes de désignation à tester
     var titlePart = (v.shopifyTitle || '').trim();
@@ -9451,8 +9473,13 @@ function fabriqueShopifyOrder(numCde) {
       return;
     }
 
-    // Corriger v.ref pour les prochaines fois
-    if (nom.refProduit) v.ref = nom.refProduit;
+    // Corriger v.ref et enrichir le shopifyTitleMap pour les prochaines fois
+    if (nom.refProduit) {
+      v.ref = nom.refProduit;
+      if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+      if (mapKey) DB.shopifyTitleMap[mapKey] = nom.refProduit;
+      if (mapKeyNoVariant) DB.shopifyTitleMap[mapKeyNoVariant] = nom.refProduit;
+    }
 
     var qte = v.qte || 1;
     var baseId = 'fab-' + v.shopifyLineId;
@@ -9882,6 +9909,70 @@ async function deleteShopifyOrder(orderId, orderName) {
 window.deleteShopifyOrder = deleteShopifyOrder;
 window.bindShopifyOrderButtons = bindShopifyOrderButtons;
 window.markOrderDeletedOnShopify = markOrderDeletedOnShopify;
+
+// ── Table de correspondance Shopify → Nomenclature ──────────────────────────
+function openShopifyMapping() {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  var noms = (DB.nomenclatures || []);
+
+  // Collecter tous les titres Shopify distincts depuis les ventes
+  var shopifyTitles = {};
+  (DB.ventes || []).forEach(function(v) {
+    if (!v.shopifyLineId) return;
+    var key = ((v.shopifyTitle || v.designation || '') + '|||' + (v.shopifyVariant || '')).toLowerCase().trim();
+    var label = (v.shopifyTitle || v.designation || '') + (v.shopifyVariant ? ' / ' + v.shopifyVariant : '');
+    if (key && !shopifyTitles[key]) shopifyTitles[key] = label;
+  });
+
+  var nomOptions = noms.map(function(n) {
+    return '<option value="' + escapeHtml(n.refProduit) + '">' + escapeHtml(n.refProduit + ' — ' + (n.designation || '')) + '</option>';
+  }).join('');
+
+  var rows = Object.keys(shopifyTitles).map(function(key) {
+    var label = shopifyTitles[key];
+    var currentRef = DB.shopifyTitleMap[key] || '';
+    var safeKey = key.replace(/'/g, "\'");
+    return '<tr style="border-bottom:1px solid var(--color-border-tertiary);">' +
+      '<td style="padding:6px 10px;font-size:12px;">' + escapeHtml(label) + '</td>' +
+      '<td style="padding:6px 10px;">' +
+        '<select class="select" style="font-size:11px;width:100%;" onchange="setShopifyMapping('' + safeKey + '', this.value)">' +
+          '<option value="">— non mappé —</option>' + nomOptions.replace('value="' + currentRef + '"', 'value="' + currentRef + '" selected') +
+        '</select>' +
+      '</td>' +
+      '<td style="padding:6px 10px;font-size:11px;color:var(--muted);">' + (currentRef ? '<span style="color:var(--success);">✓ ' + escapeHtml(currentRef) + '</span>' : '<span style="color:var(--warning);">⚠ non mappé</span>') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  openModal(
+    '<div class="modal-title">Correspondances Shopify → Nomenclature</div>' +
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Associe chaque titre produit Shopify à une référence de nomenclature. Une fois mappé, la fabrication fonctionnera automatiquement.</div>' +
+    '<div style="max-height:420px;overflow-y:auto;">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;border-bottom:1px solid var(--color-border-tertiary);">Titre Shopify</th>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;border-bottom:1px solid var(--color-border-tertiary);">Nomenclature associée</th>' +
+    '<th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:11px;border-bottom:1px solid var(--color-border-tertiary);">Statut</th>' +
+    '</tr></thead><tbody>' + (rows || '<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--muted);">Aucune vente Shopify importée</td></tr>') + '</tbody></table>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
+    '<button class="btn btn-primary" onclick="saveDB({immediate:true});closeModal();showToast('✅ Correspondances sauvegardées');">Sauvegarder</button>' +
+    '<button class="btn btn-secondary" onclick="closeModal()">Fermer</button>' +
+    '</div>'
+  );
+}
+
+function setShopifyMapping(key, refProduit) {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  if (refProduit) {
+    DB.shopifyTitleMap[key] = refProduit;
+    // Aussi mapper sur le titre seul (sans variant) pour plus de chances de match
+    var titleOnly = key.split('|||')[0].trim();
+    if (titleOnly && !DB.shopifyTitleMap[titleOnly]) DB.shopifyTitleMap[titleOnly] = refProduit;
+  } else {
+    delete DB.shopifyTitleMap[key];
+  }
+}
+window.openShopifyMapping = openShopifyMapping;
+window.setShopifyMapping = setShopifyMapping;
 
 // ── Correction des titres/variantes Shopify pour ventes déjà importées ──────
 async function fixShopifyVariants() {
