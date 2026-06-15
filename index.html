@@ -1776,6 +1776,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="nav-section">Stocks</div>
     <div class="nav-item" onclick="goTo('stock-vierge')"><span class="icon">👕</span>Produits vierges</div>
     <div class="nav-item" onclick="goTo('stock-dtf')"><span class="icon">🎨</span>Stock Designs</div>
+    <div class="nav-item" onclick="goTo('shopify-map')"><span class="icon">🔗</span>Corresp. Shopify</div>
     <div class="nav-item" onclick="goTo('stock-fini')"><span class="icon">✅</span>Produits finis</div>
     <div class="nav-item" onclick="goTo('nomenclature')"><span class="icon">🔗</span>Nomenclature</div>
     
@@ -2155,6 +2156,46 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="table-wrap"><table><thead><tr><th>N° BC</th><th>Date</th><th>Fournisseur</th><th>Articles</th><th class="r">Cmdé</th><th class="r">Reçu</th><th class="r">Reste</th><th class="r">Total HT</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="bc-hist-body"></tbody></table></div>
   </div>
 </div>
+<div class="page" id="page-shopify-map">
+  <div class="page-header">
+    <div class="page-title">Correspondances Shopify → Nomenclature</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px;">Associe chaque titre Shopify à une nomenclature pour que la fabrication depuis le dashboard fonctionne automatiquement.</div>
+  </div>
+  <div id="smap-status" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;"></div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Tableau de correspondances</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="smapAddRow()">+ Ajouter</button>
+        <button class="btn btn-primary btn-sm" onclick="smapAutoDetect()">&#128269; Détecter depuis ventes</button>
+        <button class="btn btn-success btn-sm" onclick="smapSave()">&#128190; Sauvegarder</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:200px;">Titre Shopify</th>
+          <th style="width:160px;">Variante Shopify</th>
+          <th style="min-width:220px;">Nomenclature associée</th>
+          <th style="width:160px;">Tissu</th>
+          <th style="width:100px;">Réf Design</th>
+          <th style="width:80px;">Statut</th>
+          <th style="width:44px;"></th>
+        </tr></thead>
+        <tbody id="smap-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header"><span class="card-title">Guide</span></div>
+    <div style="padding:14px 16px;font-size:12px;line-height:1.7;color:var(--muted);">
+      Quand une commande Shopify arrive, le site cherche ici le titre + variante pour trouver la nomenclature.<br>
+      <strong style="color:var(--text);">Statut vert</strong> = fabrication automatique. <strong style="color:var(--text);">Statut orange</strong> = à configurer.<br>
+      Clique sur <strong style="color:var(--text);">Détecter depuis ventes</strong> pour pré-remplir depuis tes commandes existantes, puis ajuste les correspondances manquantes.
+    </div>
+  </div>
+</div>
+
 <div id="pdf-preview" class="no-print"></div>
 <div class="modal-overlay" id="modal-reception">
   <div class="modal" style="width:560px;">
@@ -3151,6 +3192,7 @@ var _renderMap = {
   'catalogue':       function(){ if(typeof renderCatalogue==='function') renderCatalogue(); },
   'stock-vierge':    function(){ if(typeof renderStockVierge==='function') renderStockVierge(); },
   'stock-dtf':       function(){ if(typeof renderStockDTF==='function') renderStockDTF(); },
+    'shopify-map':     function(){ if(typeof renderShopifyMap==='function') renderShopifyMap(); },
   'stock-fini':      function(){ if(typeof renderStockFini==='function') renderStockFini(); },
   'ventes':          function(){ if(typeof renderVentes==='function') renderVentes(); },
   'saisie-vente':    function(){ if(typeof renderVentes==='function') renderVentes(); if(typeof renderVentePage==='function') renderVentePage(); },
@@ -3246,7 +3288,7 @@ function goTo(page) {
   document.getElementById('page-title').textContent = titles[page] || page;
   var renderers = {
     'dashboard':renderDashboard,'catalogue':renderCatalogue,'stock-vierge':renderStockVierge,
-    'stock-dtf':renderStockDTF,'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
+    'stock-dtf':renderStockDTF,'shopify-map':function(){if(typeof renderShopifyMap==='function')renderShopifyMap();},'stock-fini':renderStockFini,'saisie-vente':renderVentePage,
     'nomenclature':renderNomenclature,
     'fournisseurs':renderFournisseurs,'commandes':renderCommandes,'todo':renderTodos,
     'calendar':renderCalendarPlanning,'drops':renderDropsCollections,'compta':renderCompta,
@@ -5381,7 +5423,12 @@ function addSF(){
   // U = taille unique
   if(tailleKey === 'u' || tailleKey === '') tailleKey = 'u';
   if((vierge[tailleKey]||0) < qty){ toast('Stock vierge insuffisant ('+tailleKey+': '+(vierge[tailleKey]||0)+')'); return; }
-  var dtf = DB.stockDTF.find(function(d){ return d.ref===prod.ref; });
+  // Chercher le design via la nomenclature (designRef), pas prod.ref direct
+  var _nomForSF = (DB.nomenclatures||[]).find(function(n){ return n.refProduit === prod.ref; });
+  var dtf = null;
+  if (_nomForSF && _nomForSF.designRef) {
+    dtf = DB.stockDTF.find(function(d){ return d.ref === _nomForSF.designRef; });
+  }
   if(dtf && (dtf.stock||0) < qty){ toast('Stock design insuffisant'); return; }
   vierge[tailleKey] -= qty;
   if(dtf) dtf.stock -= qty;
@@ -10774,6 +10821,120 @@ window.addEventListener('appinstalled', function() {
   if (btn) btn.remove();
   if (typeof toast === 'function') toast('✅ MERIDIES installé sur cet appareil');
 });
+
+// PAGE CORRESPONDANCES SHOPIFY -> NOMENCLATURE
+function renderShopifyMap() { renderSmapStatus(); renderSmapTable(); }
+
+function renderSmapStatus() {
+  var map = DB.shopifyTitleMap || {};
+  var keys = Object.keys(map);
+  var mapped = keys.filter(function(k){ return map[k]; }).length;
+  var el = document.getElementById('smap-status');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="kpi" style="flex:0 0 auto;padding:10px 16px;"><div class="kpi-label">Correspondances définies</div><div class="kpi-value" style="font-size:20px;">' + mapped + ' / ' + keys.length + '</div></div>' +
+    '<div class="kpi ' + (mapped >= keys.length && keys.length > 0 ? 'kpi-success' : 'kpi-warning') + '" style="flex:0 0 auto;padding:10px 16px;"><div class="kpi-label">Statut</div><div class="kpi-value" style="font-size:14px;">' + (mapped >= keys.length && keys.length > 0 ? '&#9989; Complet' : '&#9888; Incomplet') + '</div></div>';
+}
+
+function renderSmapTable() {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  var map = DB.shopifyTitleMap;
+  var noms = DB.nomenclatures || [];
+  var nomOptions = '<option value="">— non mappé —</option>' + noms.map(function(n){
+    return '<option value="' + escapeHtml(n.refProduit) + '">' + escapeHtml(n.refProduit + ' — ' + n.designation) + '</option>';
+  }).join('');
+  var keys = Object.keys(map);
+  var tbody = document.getElementById('smap-body');
+  if (!tbody) return;
+  if (!keys.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucune correspondance. Cliquez sur "Détecter depuis ventes".</td></tr>';
+    return;
+  }
+  tbody.innerHTML = keys.sort().map(function(key) {
+    var parts = key.split('|||');
+    var title = parts[0] || '';
+    var variant = parts.slice(1).join('|||') || '';
+    var ref = map[key] || '';
+    var nom = noms.find(function(n){ return n.refProduit === ref; });
+    var badge = ref && nom
+      ? '<span class="badge" style="background:var(--success);color:white;font-size:10px;">OK</span>'
+      : '<span class="badge" style="background:var(--warning);color:white;font-size:10px;">Non mappé</span>';
+    var safeKey = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    var selectedOpts = nomOptions.replace('value="' + ref + '"', 'value="' + ref + '" selected');
+    return '<tr>' +
+      '<td><input class="input input-sm" style="width:190px;" value="' + escapeHtml(title) + '" onchange="smapRenameKey(\'' + safeKey + '\', this.value, \'' + escapeHtml(variant).replace(/'/g,"\\'") + '\')"></td>' +
+      '<td><input class="input input-sm" style="width:150px;" value="' + escapeHtml(variant) + '" onchange="smapRenameKey(\'' + safeKey + '\', \'' + escapeHtml(title).replace(/'/g,"\\'") + '\', this.value)"></td>' +
+      '<td><select class="select" style="width:100%;font-size:11px;" onchange="smapSetRef(\'' + safeKey + '\', this.value)">' + selectedOpts + '</select></td>' +
+      '<td style="font-size:11px;color:var(--muted);">' + (nom ? escapeHtml(nom.viergeRef + ' ' + nom.viergeColor) : '—') + '</td>' +
+      '<td class="mono" style="font-size:11px;color:var(--muted);">' + (nom ? escapeHtml(nom.designRef || '—') : '—') + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td><button class="btn-icon" onclick="smapDeleteKey(\'' + safeKey + '\')">&#128465;</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function smapSetRef(key, ref) {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  if (ref) DB.shopifyTitleMap[key] = ref; else delete DB.shopifyTitleMap[key];
+  renderSmapStatus(); renderSmapTable();
+}
+function smapRenameKey(oldKey, newTitle, newVariant) {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  var oldRef = DB.shopifyTitleMap[oldKey];
+  delete DB.shopifyTitleMap[oldKey];
+  var newKey = newTitle.toLowerCase().trim() + '|||' + newVariant.toLowerCase().trim();
+  DB.shopifyTitleMap[newKey] = oldRef || '';
+  renderSmapTable();
+}
+function smapDeleteKey(key) {
+  if (!DB.shopifyTitleMap) return;
+  delete DB.shopifyTitleMap[key];
+  renderSmapTable(); renderSmapStatus();
+}
+function smapAddRow() {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  var k = 'nouveau-titre|||';
+  DB.shopifyTitleMap[k] = '';
+  renderSmapTable(); renderSmapStatus();
+}
+function smapAutoDetect() {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  var noms = DB.nomenclatures || [];
+  var added = 0;
+  var norm = function(s) { return (s||'').toLowerCase().replace(/[ée]/g,'e').replace(/[à]/g,'a').replace(/[î]/g,'i').replace(/[ôo]/g,'o').replace(/[û]/g,'u').trim(); };
+  (DB.ventes || []).forEach(function(v) {
+    if (!v.shopifyLineId) return;
+    var title = (v.shopifyTitle || v.designation || '').toLowerCase().trim();
+    var variant = (v.shopifyVariant || '').toLowerCase().trim();
+    var key = title + '|||' + variant;
+    if (DB.shopifyTitleMap[key] !== undefined) return;
+    // Chercher la meilleure nomenclature par score mots
+    var allText = norm(title + ' ' + variant.split('/').filter(function(p){ return ['xs','s','m','l','xl','u'].indexOf(p.trim().toLowerCase()) === -1; }).join(' '));
+    var best = null, bestScore = 0;
+    noms.forEach(function(n) {
+      var words = norm(n.designation).split(/\s+/).filter(function(w){ return w.length > 2; });
+      var score = words.length ? words.filter(function(w){ return allText.indexOf(w) !== -1; }).length / words.length : 0;
+      if (score > bestScore && score >= 0.5) { bestScore = score; best = n; }
+    });
+    DB.shopifyTitleMap[key] = best ? best.refProduit : '';
+    added++;
+  });
+  saveDB({ immediate: true });
+  renderSmapTable(); renderSmapStatus();
+  showToast('&#128269; ' + added + ' correspondance(s) détectée(s)');
+}
+function smapSave() {
+  saveDB({ reason: 'Correspondances Shopify', immediate: true });
+  showToast('&#9989; Correspondances sauvegardées');
+  renderSmapStatus();
+}
+window.renderShopifyMap = renderShopifyMap;
+window.smapSetRef = smapSetRef;
+window.smapRenameKey = smapRenameKey;
+window.smapDeleteKey = smapDeleteKey;
+window.smapAddRow = smapAddRow;
+window.smapAutoDetect = smapAutoDetect;
+window.smapSave = smapSave;
 </script>
 </body>
 </html>
