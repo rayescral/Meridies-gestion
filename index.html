@@ -2161,28 +2161,25 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 <div class="page" id="page-shopify-map">
   <div class="page-header">
     <div class="page-title">Correspondances Shopify → Nomenclature</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px;">Associe chaque titre Shopify à une référence de nomenclature pour que la fabrication depuis le dashboard fonctionne automatiquement.</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px;">Pour chaque article du catalogue (189), indique le nom tel qu'il apparaît sur le site Shopify. Utilisé pour identifier automatiquement la nomenclature lors de la fabrication.</div>
   </div>
   <div id="smap-status" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;"></div>
   <div class="card">
     <div class="card-header">
-      <span class="card-title">Tableau de correspondances <span id="smap-count" style="color:var(--muted);font-size:12px;font-weight:400;"></span></span>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-secondary btn-sm" onclick="smapAddRow()">+ Ajouter</button>
-        <button class="btn btn-primary btn-sm" onclick="smapAutoDetect()">🔍 Détecter depuis ventes</button>
+      <span class="card-title">Tableau — <span id="smap-count"></span></span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="smap-filter" class="input input-sm" placeholder="Filtrer..." style="width:180px;" oninput="renderSmapTable()">
         <button class="btn btn-success btn-sm" onclick="smapSave()">💾 Sauvegarder</button>
       </div>
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th style="width:200px;">Titre Shopify (sur le site)</th>
-          <th style="width:160px;">Variante / Taille</th>
-          <th style="min-width:220px;">Nomenclature associée</th>
-          <th style="width:160px;">Tissu</th>
-          <th style="width:100px;">Réf Design</th>
+          <th style="width:200px;">Code Article</th>
+          <th style="min-width:240px;">Désignation Méridies</th>
+          <th style="width:60px;">Taille</th>
+          <th style="min-width:280px;">Nom Shopify (tel qu'il apparaît sur le site)</th>
           <th style="width:80px;">Statut</th>
-          <th style="width:44px;"></th>
         </tr></thead>
         <tbody id="smap-body"></tbody>
       </table>
@@ -2191,10 +2188,9 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card" style="margin-top:14px;">
     <div class="card-header"><span class="card-title">Guide</span></div>
     <div style="padding:14px 16px;font-size:12px;line-height:1.7;color:var(--muted);">
-      Quand une commande Shopify arrive, le site cherche ici le titre + variante pour trouver la nomenclature et décider quel tissu et quel design consommer.<br>
-      <strong style="color:var(--text);">✅ Vert</strong> = correspondance trouvée, fabrication automatique depuis le dashboard.<br>
-      <strong style="color:var(--text);">⚠️ Orange</strong> = à configurer manuellement.<br>
-      Clique sur <strong style="color:var(--text);">💾 Sauvegarder</strong> après chaque modification pour que ça persiste.
+      Saisis le nom <strong style="color:var(--text);">exactement tel qu'il est affiché</strong> sur meridiesofficiel.fr (ex: <em>"T-shirt Lou Pescadou Rose"</em>, <em>"Mercatus Bleu"</em>).<br>
+      Le même nom Shopify peut s'appliquer à toutes les tailles d'un même produit.<br>
+      <strong style="color:var(--text);">💾 Sauvegarder</strong> après modification — les correspondances sont ensuite utilisées automatiquement pour la fabrication depuis le dashboard.
     </div>
   </div>
 </div>
@@ -2762,7 +2758,8 @@ function normalizeRestoredDB(data) {
     fabricatedShopifyOrders: Array.isArray(data.fabricatedShopifyOrders) ? data.fabricatedShopifyOrders : [],
     validatedShopifyOrders: Array.isArray(data.validatedShopifyOrders) ? data.validatedShopifyOrders : [],
     dismissedShopifyOrders: Array.isArray(data.dismissedShopifyOrders) ? data.dismissedShopifyOrders : [],
-    shopifyTitleMap: (data.shopifyTitleMap && typeof data.shopifyTitleMap === 'object' && !Array.isArray(data.shopifyTitleMap)) ? data.shopifyTitleMap : {}
+    shopifyTitleMap: (data.shopifyTitleMap && typeof data.shopifyTitleMap === 'object' && !Array.isArray(data.shopifyTitleMap)) ? data.shopifyTitleMap : {},
+    shopifyProductNames: (data.shopifyProductNames && typeof data.shopifyProductNames === 'object' && !Array.isArray(data.shopifyProductNames)) ? data.shopifyProductNames : {}
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -3257,6 +3254,8 @@ var _renderMap = {
 };
 
 function renderAll() {
+  // Synchroniser les correspondances Shopify à chaque render
+  if (typeof ensureSmapNames === 'function') ensureSmapNames();
   // Rend uniquement la page actuellement visible + dashboard (KPIs toujours à jour)
   var activePage = sessionStorage.getItem('meridies_page') || 'dashboard';
   if (activePage !== 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
@@ -10880,123 +10879,191 @@ window.addEventListener('appinstalled', function() {
 });
 
 // PAGE CORRESPONDANCES SHOPIFY -> NOMENCLATURE
-function renderShopifyMap() { renderSmapStatus(); renderSmapTable(); }
+// ════════════════════════════════════════════════════════════════════════
+// CORRESPONDANCES SHOPIFY → NOMENCLATURE
+// Source de vérité : DB.catalogue (189 articles)
+// Noms Shopify stockés dans : DB.shopifyProductNames { refProduit: "Nom sur le site" }
+// ════════════════════════════════════════════════════════════════════════
+
+// Noms Shopify par défaut (depuis le site meridiesofficiel.fr)
+var SMAP_DEFAULTS = {
+  "LP-BLC-D01-RSE-001": "T-shirt Lou Pescadou Rose",
+  "LP-BLC-D01-BLE-001": "T-shirt Lou Pescadou Bleu",
+  "LP-BLC-D01-VCL-001": "T-shirt Lou Pescadou Vert",
+  "LP-BLC-D01-VIO-001": "T-shirt Lou Pescadou Violet",
+  "LP-NR-D01-BLC-001":  "T-shirt Lou Pescadou Noir",
+  "LP-BEI-D01-MRN-001": "T-shirt Lou Pescadou Beige",
+  "LI-BLC-D02-JNE-002": "T-shirt Li d'elo dóu Sud Jaune",
+  "LI-BLC-D02-VER-002": "T-shirt Li d'elo dóu Sud Vert",
+  "LI-BLC-D02-NR-002":  "T-shirt Li d'elo dóu Sud Blanc",
+  "LI-NR-D02-BLC-002":  "T-shirt Li d'elo dóu Sud Noir",
+  "MT-MAR-D03-BLC-003": "Mercatus Bleu",
+  "MT-NR-D03-BLC-003":  "Mercatus Noir",
+  "MT-BLC-D03-NR-003":  "",
+  "ML-CEL-D04-BLC-004": "T-shirt Massilia Bleu ciel / Blanc",
+  "ML-CEL-D04-BFO-004": "T-shirt Massilia Bleu ciel / Bleu",
+  "ML-BLC-D04-BFO-004": "T-shirt Massilia Blanc / Bleu",
+  "ML-MAR-D04-BLC-004": "T-shirt Massilia Bleu foncé / Blanc",
+  "CP-BEI-ND-ND-005":   "Capèu Beige",
+  "CP-KAK-ND-ND-005":   "Capèu Kaki",
+  "CP-MAR-ND-ND-005":   "Capèu Bleu",
+  "LM-BLC-D05-RSE-006": "Lou Mistrau Blanc / Rose",
+  "LM-BLC-D05-BLE-006": "Lou Mistrau Blanc / Bleu",
+  "LM-BLC-D05-VER-006": "Lou Mistrau Blanc / Vert",
+  "LM-NR-D05-BLC-006":  "Lou Mistrau Noir / Blanc",
+  "LM-NR-D05-RSE-006":  "Lou Mistrau Noir / Rose",
+  "LM-NR-D05-BLE-006":  "",
+  "LM-NR-D05-VER-006":  "",
+  "LS-NR-ND-ND-007":    "Lou Serein Noir",
+  "LS-BLC-ND-ND-007":   "Lou Serein Blanc",
+  "LC-BLC-D06-RSE-008": "Lou Cap Canaio Blanc / Rose",
+  "LC-NR-D06-RSE-008":  "Lou Cap Canaio Noir / Rose",
+  "LC-MAR-D06-BLE-008": "Lou Cap Canaio Bleu marine / Bleu",
+  "LC-MAR-D06-BEI-008": "Lou Cap Canaio Blanc / Beige",
+  "LC-NR-D06-BLC-008":  "Lou Cap Canaio Noir / Blanc",
+  "LV-NR-D07-BLC-009":  "Lou Santavél Noir",
+  "LV-BLC-D07-BLE-009": "Lou Santavél Bleu",
+  "LB-RSE-ND-ND-010":   "Lou Bagnadou Rose",
+  "LB-BLE-ND-ND-010":   "Lou Bagnadou Bleu",
+  "LR-NR-ND-ND-011":    "",
+  "LR-NR-ND-ND-012":    "",
+  "LP-BEI-ND-ND-013":   "La Paiola",
+  "LV-NR-ND-ND-014":    "Lou Velout",
+  "TL-BEI-ND-ND-015":   "Tote Bags La Ciotat",
+  "TC-BEI-ND-ND-015":   "Tote Bags Cassis",
+  "LL-BRD-ND-ND-016":   ""
+};
+
+// S'assurer que shopifyProductNames existe et est enrichi des defaults
+function ensureSmapNames() {
+  if (!DB.shopifyProductNames) DB.shopifyProductNames = {};
+  Object.keys(SMAP_DEFAULTS).forEach(function(ref) {
+    if (DB.shopifyProductNames[ref] === undefined) {
+      DB.shopifyProductNames[ref] = SMAP_DEFAULTS[ref];
+    }
+  });
+  // Synchroniser aussi le shopifyTitleMap pour la fabrication
+  syncShopifyTitleMap();
+}
+
+// Construire/mettre à jour shopifyTitleMap depuis shopifyProductNames
+function syncShopifyTitleMap() {
+  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
+  var cat = DB.catalogue || [];
+  var names = DB.shopifyProductNames || {};
+  // Pour chaque article du catalogue, créer les clés titre|||taille
+  cat.forEach(function(art) {
+    var ref = art.ref;
+    var nomShopify = names[ref] || '';
+    if (!nomShopify) return;
+    var taille = (art.taille || '').toLowerCase();
+    var titleLow = nomShopify.toLowerCase().trim();
+    // Clé sans variante
+    if (!DB.shopifyTitleMap[titleLow + '|||']) DB.shopifyTitleMap[titleLow + '|||'] = ref;
+    // Clé avec taille
+    if (taille && !DB.shopifyTitleMap[titleLow + '|||' + taille]) DB.shopifyTitleMap[titleLow + '|||' + taille] = ref;
+  });
+}
+
+function renderShopifyMap() {
+  ensureSmapNames();
+  renderSmapStatus();
+  renderSmapTable();
+}
 
 function renderSmapStatus() {
-  var map = DB.shopifyTitleMap || {};
-  var keys = Object.keys(map);
-  var mapped = keys.filter(function(k){ return map[k]; }).length;
+  var names = DB.shopifyProductNames || {};
+  // Compter les refs catalogue uniques
+  var refs = {};
+  (DB.catalogue || []).forEach(function(a){ if (a.ref) refs[a.ref] = true; });
+  var total = Object.keys(refs).length;
+  var mapped = Object.keys(refs).filter(function(r){ return names[r]; }).length;
   var el = document.getElementById('smap-status');
   if (!el) return;
   el.innerHTML =
-    '<div class="kpi" style="flex:0 0 auto;padding:10px 16px;"><div class="kpi-label">Correspondances définies</div><div class="kpi-value" style="font-size:20px;">' + mapped + ' / ' + keys.length + '</div></div>' +
-    '<div class="kpi ' + (mapped >= keys.length && keys.length > 0 ? 'kpi-success' : 'kpi-warning') + '" style="flex:0 0 auto;padding:10px 16px;"><div class="kpi-label">Statut</div><div class="kpi-value" style="font-size:14px;">' + (mapped >= keys.length && keys.length > 0 ? '&#9989; Complet' : '&#9888; Incomplet') + '</div></div>';
+    '<div class="kpi" style="flex:0 0 auto;padding:10px 16px;">' +
+      '<div class="kpi-label">Produits mappés</div>' +
+      '<div class="kpi-value" style="font-size:20px;">' + mapped + ' / ' + total + '</div>' +
+    '</div>' +
+    '<div class="kpi ' + (mapped === total ? 'kpi-success' : 'kpi-warning') + '" style="flex:0 0 auto;padding:10px 16px;">' +
+      '<div class="kpi-label">Articles couverts</div>' +
+      '<div class="kpi-value" style="font-size:14px;">' + (DB.catalogue||[]).filter(function(a){ return names[a.ref]; }).length + ' / 189</div>' +
+    '</div>';
+  var countEl = document.getElementById('smap-count');
+  if (countEl) countEl.textContent = mapped + ' / ' + total + ' produits mappés';
 }
 
 function renderSmapTable() {
-  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
-  var map = DB.shopifyTitleMap;
-  var noms = DB.nomenclatures || [];
-  var nomOptions = '<option value="">— non mappé —</option>' + noms.map(function(n){
-    return '<option value="' + escapeHtml(n.refProduit) + '">' + escapeHtml(n.refProduit + ' — ' + n.designation) + '</option>';
-  }).join('');
-  var keys = Object.keys(map);
-  var countEl = document.getElementById('smap-count');
-  if (countEl) {
-    var mapped = keys.filter(function(k){ return map[k]; }).length;
-    countEl.textContent = mapped + ' / ' + keys.length + ' mappées';
-  }
+  ensureSmapNames();
+  var names = DB.shopifyProductNames || {};
+  var cat = DB.catalogue || [];
   var tbody = document.getElementById('smap-body');
   if (!tbody) return;
-  if (!keys.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucune correspondance. Cliquez sur "Détecter depuis ventes".</td></tr>';
+  if (!cat.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Catalogue vide</td></tr>';
     return;
   }
-  tbody.innerHTML = keys.sort().map(function(key) {
-    var parts = key.split('|||');
-    var title = parts[0] || '';
-    var variant = parts.slice(1).join('|||') || '';
-    var ref = map[key] || '';
-    var nom = noms.find(function(n){ return n.refProduit === ref; });
-    var badge = ref && nom
-      ? '<span class="badge" style="background:var(--success);color:white;font-size:10px;">OK</span>'
-      : '<span class="badge" style="background:var(--warning);color:white;font-size:10px;">Non mappé</span>';
-    var safeKey = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    var selectedOpts = nomOptions.replace('value="' + ref + '"', 'value="' + ref + '" selected');
-    return '<tr>' +
-      '<td><input class="input input-sm" style="width:190px;" value="' + escapeHtml(title) + '" onchange="smapRenameKey(\'' + safeKey + '\', this.value, \'' + escapeHtml(variant).replace(/'/g,"\\'") + '\')"></td>' +
-      '<td><input class="input input-sm" style="width:150px;" value="' + escapeHtml(variant) + '" onchange="smapRenameKey(\'' + safeKey + '\', \'' + escapeHtml(title).replace(/'/g,"\\'") + '\', this.value)"></td>' +
-      '<td><select class="select" style="width:100%;font-size:11px;" onchange="smapSetRef(\'' + safeKey + '\', this.value)">' + selectedOpts + '</select></td>' +
-      '<td style="font-size:11px;color:var(--muted);">' + (nom ? escapeHtml(nom.viergeRef + ' ' + nom.viergeColor) : '—') + '</td>' +
-      '<td class="mono" style="font-size:11px;color:var(--muted);">' + (nom ? escapeHtml(nom.designRef || '—') : '—') + '</td>' +
+
+  // Filtre actuel
+  var filterVal = (document.getElementById('smap-filter') ? document.getElementById('smap-filter').value : '').toLowerCase();
+
+  tbody.innerHTML = cat.filter(function(art) {
+    if (!filterVal) return true;
+    return (art.code||'').toLowerCase().indexOf(filterVal) !== -1 ||
+           (art.designation||'').toLowerCase().indexOf(filterVal) !== -1 ||
+           (names[art.ref]||'').toLowerCase().indexOf(filterVal) !== -1;
+  }).map(function(art, i) {
+    var nomShopify = names[art.ref] || '';
+    var mapped = !!nomShopify;
+    var badge = mapped
+      ? '<span class="badge" style="background:var(--success);color:white;font-size:10px;">✓ OK</span>'
+      : '<span class="badge" style="background:var(--warning);color:white;font-size:10px;">⚠ Vide</span>';
+    var safeRef = (art.ref||'').replace(/'/g,"\\'");
+    var safeNom = nomShopify.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    return '<tr style="background:' + (i%2===0 ? 'var(--surface)' : 'var(--surface2)') + ';">' +
+      '<td class="mono" style="font-size:11px;color:var(--muted);">' + escapeHtml(art.code) + '</td>' +
+      '<td style="font-size:12px;font-weight:600;">' + escapeHtml(art.designation) + '</td>' +
+      '<td class="c" style="font-size:11px;">' + escapeHtml(art.taille) + '</td>' +
+      '<td><input class="input input-sm" style="width:100%;min-width:200px;" value="' + escapeHtml(nomShopify) + '" ' +
+        'placeholder="Nom tel qu\'il apparaît sur le site Shopify" ' +
+        'onchange="smapSetName(\'' + safeRef + '\', this.value)">' +
+      '</td>' +
       '<td>' + badge + '</td>' +
-      '<td><button class="btn-icon" onclick="smapDeleteKey(\'' + safeKey + '\')">&#128465;</button></td>' +
     '</tr>';
   }).join('');
 }
 
-function smapSetRef(key, ref) {
-  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
-  if (ref) DB.shopifyTitleMap[key] = ref; else delete DB.shopifyTitleMap[key];
-  renderSmapStatus(); renderSmapTable();
-}
-function smapRenameKey(oldKey, newTitle, newVariant) {
-  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
-  var oldRef = DB.shopifyTitleMap[oldKey];
-  delete DB.shopifyTitleMap[oldKey];
-  var newKey = newTitle.toLowerCase().trim() + '|||' + newVariant.toLowerCase().trim();
-  DB.shopifyTitleMap[newKey] = oldRef || '';
-  renderSmapTable();
-}
-function smapDeleteKey(key) {
-  if (!DB.shopifyTitleMap) return;
-  delete DB.shopifyTitleMap[key];
-  renderSmapTable(); renderSmapStatus();
-}
-function smapAddRow() {
-  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
-  var k = 'nouveau-titre|||';
-  DB.shopifyTitleMap[k] = '';
-  renderSmapTable(); renderSmapStatus();
-}
-function smapAutoDetect() {
-  if (!DB.shopifyTitleMap) DB.shopifyTitleMap = {};
-  var noms = DB.nomenclatures || [];
-  var added = 0;
-  var norm = function(s) { return (s||'').toLowerCase().replace(/[ée]/g,'e').replace(/[à]/g,'a').replace(/[î]/g,'i').replace(/[ôo]/g,'o').replace(/[û]/g,'u').trim(); };
-  (DB.ventes || []).forEach(function(v) {
-    if (!v.shopifyLineId) return;
-    var title = (v.shopifyTitle || v.designation || '').toLowerCase().trim();
-    var variant = (v.shopifyVariant || '').toLowerCase().trim();
-    var key = title + '|||' + variant;
-    if (DB.shopifyTitleMap[key] !== undefined) return;
-    // Chercher la meilleure nomenclature par score mots
-    var allText = norm(title + ' ' + variant.split('/').filter(function(p){ return ['xs','s','m','l','xl','u'].indexOf(p.trim().toLowerCase()) === -1; }).join(' '));
-    var best = null, bestScore = 0;
-    noms.forEach(function(n) {
-      var words = norm(n.designation).split(/\s+/).filter(function(w){ return w.length > 2; });
-      var score = words.length ? words.filter(function(w){ return allText.indexOf(w) !== -1; }).length / words.length : 0;
-      if (score > bestScore && score >= 0.5) { bestScore = score; best = n; }
-    });
-    DB.shopifyTitleMap[key] = best ? best.refProduit : '';
-    added++;
-  });
-  saveDB({ immediate: true });
-  renderSmapTable(); renderSmapStatus();
-  showToast('&#128269; ' + added + ' correspondance(s) détectée(s)');
-}
-function smapSave() {
-  saveDB({ reason: 'Correspondances Shopify', immediate: true });
-  showToast('&#9989; Correspondances sauvegardées');
+// Mettre à jour le nom Shopify pour une ref produit
+function smapSetName(ref, nomShopify) {
+  if (!DB.shopifyProductNames) DB.shopifyProductNames = {};
+  DB.shopifyProductNames[ref] = nomShopify.trim();
+  // Mettre à jour le shopifyTitleMap immédiatement
+  syncShopifyTitleMap();
   renderSmapStatus();
 }
+window.smapSetName = smapSetName;
+
+function smapSave() {
+  syncShopifyTitleMap();
+  saveDB({ reason: 'Correspondances Shopify', immediate: true });
+  showToast('&#9989; Correspondances sauvegardées (' + Object.keys(DB.shopifyProductNames || {}).length + ' produits)');
+  renderSmapStatus();
+}
+
+// Garder pour compatibilité
+function smapAutoDetect() { showToast('Utilisez la colonne "Nom Shopify" pour saisir les noms directement.'); }
+function smapSetRef() {}
+function smapRenameKey() {}
+function smapDeleteKey() {}
+function smapAddRow() {}
+
 window.renderShopifyMap = renderShopifyMap;
+window.smapSave = smapSave;
+window.smapAutoDetect = smapAutoDetect;
 window.smapSetRef = smapSetRef;
 window.smapRenameKey = smapRenameKey;
 window.smapDeleteKey = smapDeleteKey;
 window.smapAddRow = smapAddRow;
-window.smapAutoDetect = smapAutoDetect;
-window.smapSave = smapSave;
 </script>
 </body>
 </html>
