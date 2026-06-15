@@ -6639,9 +6639,9 @@ function addArticleToSale(showMessage){
   var remise = parseFloat(document.getElementById('vente-remise').value)||0;
   var sf = (DB.stockFini||[]).find(function(f){ return f.code === code; });
   var reserved = getReservedCartQty(code);
+  // Ne pas bloquer — on autorise les ventes même si stock insuffisant
   if(sf && ((sf.stock||0) < (reserved + qte))){
-    toast('Stock insuffisant pour ajouter cette quantité');
-    return false;
+    if(!confirm('⚠️ Stock insuffisant pour ' + prod.designation + ' ' + prod.taille + '\nStock dispo : ' + Math.max(0,(sf.stock||0)-reserved) + ' | Demandé : ' + qte + '\n\nAjouter quand même ?')) return false;
   }
   var existing = (currentSaleItems||[]).find(function(it){ return it.code === code && it.pv === pv; });
   if(existing) existing.qte += qte;
@@ -6670,10 +6670,9 @@ function updateSaleCartQty(i, value){
   if(qte <= 0){ removeSaleCartItem(i); return; }
   var sf = (DB.stockFini||[]).find(function(f){ return f.code === item.code; });
   var reserved = getReservedCartQty(item.code, i);
+  // Autoriser la modification même si stock insuffisant
   if(sf && ((sf.stock||0) < (reserved + qte))){
-    toast('Stock insuffisant');
-    renderSaleCart();
-    return;
+    if(!confirm('⚠️ Stock insuffisant (' + (sf.stock||0) + ' dispo). Confirmer quand même ?')){ renderSaleCart(); return; }
   }
   item.qte = qte;
   renderSaleCart();
@@ -6704,13 +6703,18 @@ function enregistrerVente() {
   var paiement = paiementRadio ? paiementRadio.value : 'Espèces';
   var venteId = 'VT-' + Date.now();
 
+  // Vérifier les stocks — avertir mais ne pas bloquer
+  var lignesInsuffisantes = [];
   for(var i=0;i<currentSaleItems.length;i++){
     var line = currentSaleItems[i];
     var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
-    if(sf && (sf.stock||0) < (line.qte||0)){
-      toast('Stock insuffisant pour ' + line.designation);
-      return;
+    var stockActuel = sf ? (sf.stock||0) : 0;
+    if(stockActuel < (line.qte||0)){
+      lignesInsuffisantes.push(line.designation + ' ' + (line.taille||'') + ' (stock: ' + stockActuel + ', demandé: ' + line.qte + ')');
     }
+  }
+  if(lignesInsuffisantes.length > 0){
+    if(!confirm('⚠️ Stock insuffisant pour :\n' + lignesInsuffisantes.join('\n') + '\n\nValider quand même la vente ?')) return;
   }
 
   currentSaleItems.forEach(function(line, idx){
@@ -6733,7 +6737,18 @@ function enregistrerVente() {
       paiement: paiement
     });
     var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
-    if(sf) sf.stock = Math.max(0, (sf.stock||0) - (line.qte||0));
+    var newStock = sf ? ((sf.stock||0) - (line.qte||0)) : -(line.qte||0);
+    if(sf) {
+      sf.stock = newStock; // Peut passer en négatif
+    } else if(newStock < 0) {
+      // Créer ligne stock fini à négatif pour tracer le déficit
+      var catLine = (DB.catalogue||[]).find(function(p){ return p.code === line.code; });
+      DB.stockFini.push({ code: line.code, ref: line.ref, designation: line.designation, taille: line.taille, pv: line.pv, stock: newStock, seuil: 2 });
+    }
+    if(newStock < 0) {
+      if(!Array.isArray(DB.stockAlertesVente)) DB.stockAlertesVente = [];
+      DB.stockAlertesVente.push({ id: 'alert-'+Date.now()+'-'+i, date: date, code: line.code, designation: line.designation + ' ' + (line.taille||''), manque: Math.abs(newStock), message: 'Stock négatif — ' + Math.abs(newStock) + ' pièce(s) à fabriquer' });
+    }
 
     // Auto-decrement composants via nomenclature
     var catItem = (DB.catalogue||[]).find(function(p){ return p.code === line.code; });
