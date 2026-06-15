@@ -6639,10 +6639,7 @@ function addArticleToSale(showMessage){
   var remise = parseFloat(document.getElementById('vente-remise').value)||0;
   var sf = (DB.stockFini||[]).find(function(f){ return f.code === code; });
   var reserved = getReservedCartQty(code);
-  // Ne pas bloquer — on autorise les ventes même si stock insuffisant
-  if(sf && ((sf.stock||0) < (reserved + qte))){
-    if(!confirm('⚠️ Stock insuffisant pour ' + prod.designation + ' ' + prod.taille + '\nStock dispo : ' + Math.max(0,(sf.stock||0)-reserved) + ' | Demandé : ' + qte + '\n\nAjouter quand même ?')) return false;
-  }
+  // L'auto-fabrication se fait à l'enregistrement — pas de blocage à l'ajout au panier
   var existing = (currentSaleItems||[]).find(function(it){ return it.code === code && it.pv === pv; });
   if(existing) existing.qte += qte;
   else currentSaleItems.push({
@@ -6670,10 +6667,7 @@ function updateSaleCartQty(i, value){
   if(qte <= 0){ removeSaleCartItem(i); return; }
   var sf = (DB.stockFini||[]).find(function(f){ return f.code === item.code; });
   var reserved = getReservedCartQty(item.code, i);
-  // Autoriser la modification même si stock insuffisant
-  if(sf && ((sf.stock||0) < (reserved + qte))){
-    if(!confirm('⚠️ Stock insuffisant (' + (sf.stock||0) + ' dispo). Confirmer quand même ?')){ renderSaleCart(); return; }
-  }
+  // Pas de blocage à la modification du panier — auto-fabrication à l'enregistrement
   item.qte = qte;
   renderSaleCart();
 }
@@ -6703,19 +6697,8 @@ function enregistrerVente() {
   var paiement = paiementRadio ? paiementRadio.value : 'Espèces';
   var venteId = 'VT-' + Date.now();
 
-  // Vérifier les stocks — avertir mais ne pas bloquer
+  // Ventes validées — auto-fabrication gérée ligne par ligne
   var lignesInsuffisantes = [];
-  for(var i=0;i<currentSaleItems.length;i++){
-    var line = currentSaleItems[i];
-    var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
-    var stockActuel = sf ? (sf.stock||0) : 0;
-    if(stockActuel < (line.qte||0)){
-      lignesInsuffisantes.push(line.designation + ' ' + (line.taille||'') + ' (stock: ' + stockActuel + ', demandé: ' + line.qte + ')');
-    }
-  }
-  if(lignesInsuffisantes.length > 0){
-    if(!confirm('⚠️ Stock insuffisant pour :\n' + lignesInsuffisantes.join('\n') + '\n\nValider quand même la vente ?')) return;
-  }
 
   currentSaleItems.forEach(function(line, idx){
     DB.ventes.push({
@@ -6736,38 +6719,69 @@ function enregistrerVente() {
       email: email,
       paiement: paiement
     });
-    var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
-    var newStock = sf ? ((sf.stock||0) - (line.qte||0)) : -(line.qte||0);
-    if(sf) {
-      sf.stock = newStock; // Peut passer en négatif
-    } else if(newStock < 0) {
-      // Créer ligne stock fini à négatif pour tracer le déficit
-      var catLine = (DB.catalogue||[]).find(function(p){ return p.code === line.code; });
-      DB.stockFini.push({ code: line.code, ref: line.ref, designation: line.designation, taille: line.taille, pv: line.pv, stock: newStock, seuil: 2 });
-    }
-    if(newStock < 0) {
-      if(!Array.isArray(DB.stockAlertesVente)) DB.stockAlertesVente = [];
-      DB.stockAlertesVente.push({ id: 'alert-'+Date.now()+'-'+i, date: date, code: line.code, designation: line.designation + ' ' + (line.taille||''), manque: Math.abs(newStock), message: 'Stock négatif — ' + Math.abs(newStock) + ' pièce(s) à fabriquer' });
-    }
-
-    // Auto-decrement composants via nomenclature
+    // ── Auto-fabrication si stock fini insuffisant ──────────────────
     var catItem = (DB.catalogue||[]).find(function(p){ return p.code === line.code; });
     var nom = catItem ? getNomenclatureForProduct(catItem) : null;
-    if(nom){
-      // Decrement stockVierge
-      var vierge = (DB.stockVierge||[]).find(function(v){ return v.ref===nom.viergeRef && v.couleur===nom.viergeColor; });
-      if(vierge){
-        var tailleKey = (line.taille||'').toLowerCase();
-        if(tailleKey === 'u' || tailleKey === '') tailleKey = 'u';
-        if(vierge[tailleKey] !== undefined){
-          vierge[tailleKey] = Math.max(0, (vierge[tailleKey]||0) - (line.qte||0));
+    var sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
+    var stockFiniActuel = sf ? (sf.stock || 0) : 0;
+    var qteManquante = Math.max(0, (line.qte||0) - stockFiniActuel);
+
+    if (qteManquante > 0 && nom) {
+      // Vérifier si on a assez de matières premières pour fabriquer
+      var tKey = (line.taille||'').toLowerCase() || 'u';
+      var vierge = nom.viergeRef ? (DB.stockVierge||[]).find(function(v){ return v.ref===nom.viergeRef && v.couleur===nom.viergeColor; }) : null;
+      var dtf = nom.designRef ? (DB.stockDTF||[]).find(function(d){ return d.ref===nom.designRef; }) : null;
+      var stockViergeDisp = vierge ? (vierge[tKey] || 0) : (nom.viergeRef ? 0 : 999);
+      var stockDTFDisp = dtf ? (dtf.stock || 0) : (nom.designRef ? 0 : 999);
+      var peutFabriquer = Math.min(stockViergeDisp, stockDTFDisp);
+
+      var qteFabriquer = Math.min(qteManquante, peutFabriquer);
+      var qteSansMatiere = qteManquante - qteFabriquer;
+
+      if (qteFabriquer > 0) {
+        // Fabriquer automatiquement
+        var nowTs = new Date().toISOString();
+        var baseId = 'autofab-' + Date.now() + '-' + line.code;
+        if (vierge) {
+          vierge[tKey] = Math.max(0, (vierge[tKey]||0) - qteFabriquer);
+          if (typeof logMouvement === 'function') logMouvement('vierge', nom.viergeRef+' '+(nom.viergeColor||''), 'Fab. auto vente '+line.designation+' ('+tKey.toUpperCase()+')', -qteFabriquer, 'Fabrication auto');
         }
+        if (dtf) {
+          dtf.stock = Math.max(0, (dtf.stock||0) - qteFabriquer);
+          if (typeof logMouvement === 'function') logMouvement('design', nom.designRef, 'Fab. auto vente '+line.designation, -qteFabriquer, 'Fabrication auto');
+        }
+        if (sf) {
+          sf.stock = (sf.stock||0) + qteFabriquer;
+        } else {
+          DB.stockFini.push({ code: line.code, ref: line.ref, designation: line.designation, taille: line.taille, pv: line.pv, stock: qteFabriquer, seuil: 2 });
+          sf = DB.stockFini[DB.stockFini.length-1];
+        }
+        if (typeof logMouvement === 'function') logMouvement('fini', line.code, 'Fab. auto pour vente '+line.designation, qteFabriquer, 'Fabrication auto');
       }
-      // Decrement stockDTF design
-      if(nom.designRef){
-        var dtf = (DB.stockDTF||[]).find(function(d){ return d.ref === nom.designRef; });
-        if(dtf) dtf.stock = Math.max(0, (dtf.stock||0) - (line.qte||0));
+
+      // Alerte si matières insuffisantes pour tout fabriquer
+      if (qteSansMatiere > 0) {
+        var alertMsg = '⚠️ Matières insuffisantes pour fabriquer ' + qteSansMatiere + ' pièce(s) de ' + line.designation + ' ' + (line.taille||'');
+        if (vierge && (vierge[tKey]||0) < qteManquante) alertMsg += '\n• Stock vierge ' + nom.viergeRef + ' ' + (nom.viergeColor||'') + ' ' + tKey.toUpperCase() + ': ' + (vierge[tKey]||0);
+        if (dtf && nom.designRef && (dtf.stock||0) < qteManquante) alertMsg += '\n• Stock design ' + nom.designRef + ': ' + (dtf.stock||0);
+        showToast(alertMsg, 'warning', 8000);
+        if (!Array.isArray(DB.stockAlertesVente)) DB.stockAlertesVente = [];
+        DB.stockAlertesVente.push({ id: 'alert-'+Date.now(), date: date, code: line.code, designation: line.designation+' '+(line.taille||''), manque: qteSansMatiere, message: 'Matières insuffisantes — '+qteSansMatiere+' pièce(s) impossible à fabriquer' });
       }
+    }
+
+    // ── Décrémenter le stock fini (re-lire après éventuelle fabrication) ──
+    sf = (DB.stockFini||[]).find(function(f){ return f.code === line.code; });
+    if (sf) {
+      sf.stock = (sf.stock||0) - (line.qte||0);
+    } else {
+      DB.stockFini.push({ code: line.code, ref: line.ref, designation: line.designation, taille: line.taille, pv: line.pv, stock: -(line.qte||0), seuil: 2 });
+    }
+    if (typeof logMouvement === 'function') logMouvement('fini', line.code, 'Vente '+(line.canal||canal||'')+(numCde?' #'+numCde:''), -(line.qte||0), canal||'Manuel');
+
+    // ── Décrémenter matières si pas de stock fini ET pas de nomenclature ──
+    if (!nom) {
+      // Pas de nomenclature : juste décrémenter le stock fini (déjà fait ci-dessus)
     }
   });
 
