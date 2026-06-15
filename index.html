@@ -2759,7 +2759,8 @@ function normalizeRestoredDB(data) {
     validatedShopifyOrders: Array.isArray(data.validatedShopifyOrders) ? data.validatedShopifyOrders : [],
     dismissedShopifyOrders: Array.isArray(data.dismissedShopifyOrders) ? data.dismissedShopifyOrders : [],
     shopifyTitleMap: (data.shopifyTitleMap && typeof data.shopifyTitleMap === 'object' && !Array.isArray(data.shopifyTitleMap)) ? data.shopifyTitleMap : {},
-    shopifyProductNames: (data.shopifyProductNames && typeof data.shopifyProductNames === 'object' && !Array.isArray(data.shopifyProductNames)) ? data.shopifyProductNames : {}
+    shopifyProductNames: (data.shopifyProductNames && typeof data.shopifyProductNames === 'object' && !Array.isArray(data.shopifyProductNames)) ? data.shopifyProductNames : {},
+    stockAlertesVente: Array.isArray(data.stockAlertesVente) ? data.stockAlertesVente : []
   };
   if(typeof restored.comptaSettings.openingTreasury !== 'number') restored.comptaSettings.openingTreasury = parseFloat(restored.comptaSettings.openingTreasury)||0;
   restored.recurringCharges = restored.recurringCharges.map(function(c){ return Object.assign({id:Date.now()+Math.random(), label:'', amount:0, frequency:'monthly', startDate: today(), active:true, category:'Charge récurrente'}, c||{}); });
@@ -3482,9 +3483,13 @@ function renderDashboard() {
   // ── Alertes stock local ──────────────────────────────────
   var alerts=[];
   (DB.stockFini||[]).forEach(function(i){if((i.stock||0)<=(i.seuil||0))alerts.push(i.code+' — produit fini sous seuil');});
+  // Stock négatif = vente enregistrée sans stock => à produire en urgence
+  (DB.stockFini||[]).forEach(function(i){if((i.stock||0)<0)alerts.unshift('🔴 ' + (i.designation||i.code) + ' ' + (i.taille||'') + ' : stock à ' + i.stock + ' → ' + Math.abs(i.stock) + ' pièce(s) à fabriquer');});
+  // Alertes vente sans stock
+  (DB.stockAlertesVente||[]).slice(-5).forEach(function(a){ alerts.unshift('⚠️ ' + a.designation + ' — ' + a.message); });
   (DB.stockDTF||[]).forEach(function(i){if((i.stock||0)<=(i.seuil||0))alerts.push('DTF '+i.ref+' sous seuil');});
   (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
-  document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">⚠️ '+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
+  document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">'+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
 
 }
 
@@ -4260,9 +4265,18 @@ function enregistrerVente() {
   if(qte <= 0){toast('La quantité doit être supérieure à 0');return;}
 
   var sf = DB.stockFini.find(function(f){return f.code===code;});
-  if(sf && (sf.stock||0) < qte){
-    toast('Stock insuffisant pour cette vente');
-    return;
+  var stockActuel = sf ? (sf.stock || 0) : 0;
+  var stockApres = stockActuel - qte;
+
+  // Ne pas bloquer la vente — mais avertir si stock insuffisant
+  if (stockApres < 0) {
+    // Demander confirmation si stock insuffisant (mais pas bloquer)
+    if (!confirm(
+      '⚠️ Stock insuffisant pour ' + prod.designation + ' (' + prod.taille + ')\n\n' +
+      'Stock actuel : ' + stockActuel + ' | Quantité demandée : ' + qte + '\n' +
+      'Le stock passera à ' + stockApres + ' (négatif).\n\n' +
+      'Confirmer quand même la vente ?'
+    )) return;
   }
 
   var vente = {
@@ -4273,7 +4287,33 @@ function enregistrerVente() {
     numCde: document.getElementById('vente-numcde').value, email: document.getElementById('vente-email').value
   };
   DB.ventes.push(vente);
-  if(sf) { sf.stock = Math.max(0, (sf.stock||0) - vente.qte); }
+
+  // Mettre à jour le stock fini (peut passer négatif)
+  if (sf) {
+    sf.stock = (sf.stock || 0) - qte;
+  } else if (stockApres < 0) {
+    // Créer une ligne de stock fini à négatif pour tracer le déficit
+    DB.stockFini.push({
+      code: code, ref: prod.ref, designation: prod.designation,
+      taille: prod.taille, pv: prod.pv, stock: -qte, seuil: 2
+    });
+  }
+
+  // Ajouter une alerte stock si négatif
+  if (stockApres < 0) {
+    if (!Array.isArray(DB.stockAlertesVente)) DB.stockAlertesVente = [];
+    DB.stockAlertesVente.push({
+      id: 'alert-' + Date.now(),
+      date: today(),
+      code: code,
+      designation: prod.designation + ' ' + prod.taille,
+      manque: Math.abs(stockApres),
+      message: 'Stock insuffisant — ' + Math.abs(stockApres) + ' pièce(s) à produire'
+    });
+    showToast('⚠️ Vente enregistrée — stock négatif pour ' + prod.designation + ' ' + prod.taille + ' : ' + Math.abs(stockApres) + ' à produire', 'warning', 6000);
+  }
+
+  logMouvement('fini', code, 'Vente ' + (vente.canal||'') + (vente.numCde ? ' #'+vente.numCde : ''), -qte, vente.canal || 'Manuel');
   saveDB();
   clearVenteForm();
   refreshBusinessViews('Vente enregistrée !');
