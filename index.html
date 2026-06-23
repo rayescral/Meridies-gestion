@@ -9632,8 +9632,21 @@ function fabriqueShopifyOrder(numCde) {
     }
 
     if (!nom) {
-      console.error('[Fabrication] Pas de nomenclature pour:', debugInfo);
-      fabLog.push('⚠️ ' + (v.designation || v.code || '?') + ' : nomenclature introuvable');
+      // Pas de nomenclature = produit fini directement (Capèu, Tote Bag, accessoire...)
+      // Vérifier si en stock fini
+      var sfNoNom = (DB.stockFini || []).find(function(f){ return f.code === v.code || f.ref === v.ref; });
+      var stockOk = sfNoNom && (sfNoNom.stock || 0) > 0;
+
+      if (stockOk) {
+        // En stock → marquer comme fabriqué directement (il sera décrémenté à l'approbation)
+        DB.fabricatedShopifyOrders.push(String(v.shopifyLineId));
+        fabLog.push('✅ ' + (v.designation || v.code) + ' — disponible en stock fini (' + sfNoNom.stock + ' pcs)');
+      } else {
+        // Pas en stock et pas de nomenclature → alerte mais marquer quand même pour pas bloquer
+        DB.fabricatedShopifyOrders.push(String(v.shopifyLineId));
+        fabLog.push('📦 ' + (v.designation || v.code) + ' — pas de stock détecté, vérifier manuellement');
+        showToast('📦 ' + (v.designation || v.code) + ' : stock non détecté — vérifier en stock fini', 'warning', 5000);
+      }
       return;
     }
 
@@ -9788,8 +9801,11 @@ function approveShopifyOrder(numCde) {
     if (DB.validatedShopifyOrders.indexOf(String(v.shopifyLineId)) !== -1) return;
     var qte = v.qte || 1;
 
-    // Décrémenter le stock fini
+    // Chercher le stock fini par code exact, puis par ref produit (pour produits sans taille précise comme Capèu)
     var sf = (DB.stockFini || []).find(function(f){ return f.code === v.code; });
+    if (!sf && v.ref) {
+      sf = (DB.stockFini || []).find(function(f){ return f.ref === v.ref || f.code.startsWith(v.ref); });
+    }
     if (sf) {
       var avant = sf.stock || 0;
       sf.stock = Math.max(0, avant - qte);
@@ -9799,7 +9815,7 @@ function approveShopifyOrder(numCde) {
     DB.stockMouvements.unshift({
       id: 'app-' + v.shopifyLineId,
       ts: nowTs, type: 'fini',
-      ref: v.code,
+      ref: v.code || v.ref,
       detail: 'Vente ' + (v.designation || ''),
       delta: -qte, source: 'Vente Shopify', canal: 'Shopify', numCde: numCde
     });
