@@ -2663,6 +2663,44 @@ function ensureBaseSeedData() {
     changed++;
   }
 
+  // Migration v10 : forcer le marquage "fabriqué" pour les lignes Shopify sans nomenclature
+  // (Capèu, Tote Bags, La Paiola, etc.) qui ont été skippées par l'ancien code
+  if (!DB.preferences.migrations.v10_fixFabNoNom) {
+    if (!Array.isArray(DB.fabricatedShopifyOrders)) DB.fabricatedShopifyOrders = [];
+    if (!Array.isArray(DB.validatedShopifyOrders)) DB.validatedShopifyOrders = [];
+    var _fabSet = {};
+    DB.fabricatedShopifyOrders.forEach(function(id){ _fabSet[String(id)] = true; });
+    var _valSet = {};
+    DB.validatedShopifyOrders.forEach(function(id){ _valSet[String(id)] = true; });
+
+    (DB.ventes || []).forEach(function(v) {
+      if (!v.shopifyLineId || v.canal !== 'Shopify') return;
+      var lineId = String(v.shopifyLineId);
+      if (_fabSet[lineId] || _valSet[lineId]) return;
+
+      // Vérifier si ce produit a une nomenclature avec des matières à consommer
+      var nomForV = (DB.nomenclatures || []).find(function(n) { return n.refProduit === v.ref; });
+      var hasNom = !!nomForV;
+      var hasMatières = nomForV && (nomForV.viergeRef || nomForV.designRef);
+
+      // Vérifier si déjà en stock fini suffisant
+      var sfV = (DB.stockFini || []).find(function(f){ return f.code === v.code || f.ref === v.ref || (v.ref && f.code && f.code.startsWith(v.ref)); });
+      var enStockFini = sfV && (sfV.stock || 0) >= (v.qte || 1);
+
+      // Marquer fabriqué si :
+      // - pas de nomenclature, OU
+      // - nomenclature sans matières, OU
+      // - déjà en stock fini suffisant (pas besoin de fabriquer)
+      if (!hasNom || !hasMatières || enStockFini) {
+        DB.fabricatedShopifyOrders.push(lineId);
+        _fabSet[lineId] = true;
+        changed++;
+      }
+    });
+    DB.preferences.migrations.v10_fixFabNoNom = true;
+    changed++;
+  }
+
   if (!DB.preferences.migrations.v8_cleanCatalogue) {
     var _oldCatCount = (DB.catalogue || []).length;
     // Les nouveaux codes ont exactement 6 segments (ex: LP-BLC-D01-RSE-001-XS)
@@ -9656,6 +9694,16 @@ function fabriqueShopifyOrder(numCde) {
     var qte = v.qte || 1;
     var baseId = 'fab-' + v.shopifyLineId;
 
+    // Si déjà en stock fini suffisant → marquer fabriqué sans consommer les matières
+    var sfCheck = (DB.stockFini || []).find(function(f){
+      return f.code === v.code || f.ref === v.ref || (v.ref && f.code && f.code.startsWith(v.ref));
+    });
+    if (sfCheck && (sfCheck.stock || 0) >= qte) {
+      DB.fabricatedShopifyOrders.push(String(v.shopifyLineId));
+      fabLog.push('✅ ' + (v.designation || v.code) + ' — disponible en stock fini (' + sfCheck.stock + ' pcs)');
+      return;
+    }
+
     // ── Extraction robuste de la taille ──
     // Liste de tailles valides (avec mots-clés Shopify)
     var validTailles = ['xs','s','m','l','xl','xxl','u','tu'];
@@ -9695,19 +9743,25 @@ function fabriqueShopifyOrder(numCde) {
     // Normaliser
     if (taille === 'tu') taille = 'u';
 
-    // Si toujours pas de taille mais le produit est en taille unique
+    // Si toujours pas de taille : chercher dans la nomenclature ou le catalogue
     if (!taille) {
-      var hasU = (DB.stockVierge || []).some(function(s){
-        return s.ref === nom.viergeRef && s.couleur === nom.viergeColor && (s.u || 0) > 0;
+      // Chercher dans le catalogue si c'est un produit taille unique
+      var catArt = (DB.catalogue || []).find(function(p){ return p.ref === nom.refProduit; });
+      if (catArt && catArt.taille) {
+        taille = catArt.taille.toLowerCase();
+      }
+    }
+    // Si toujours pas de taille mais le produit est en taille unique (stock vierge avec colonne u)
+    if (!taille) {
+      var svCheck = (DB.stockVierge || []).find(function(s){
+        return s.ref === nom.viergeRef && s.couleur === nom.viergeColor;
       });
-      if (hasU) taille = 'u';
+      if (svCheck && svCheck.u !== undefined) taille = 'u';
     }
+    // Dernier recours : taille unique
+    if (!taille) taille = 'u';
 
-    if (validTailles.indexOf(taille) === -1) {
-      console.error('[Fabrication] Taille introuvable pour', v.designation, { taille: v.taille, code: v.code, variant: v.shopifyVariant });
-      fabLog.push('⚠️ ' + (v.designation || '?') + ' : taille introuvable (variant=' + (v.shopifyVariant||'?') + ', code=' + (v.code||'?') + ')');
-      return;
-    }
+    if (validTailles.indexOf(taille) === -1) taille = 'u';
 
     // 1. Décrémenter le stock vierge (si applicable)
     if (nom.viergeRef) {
@@ -9715,8 +9769,8 @@ function fabriqueShopifyOrder(numCde) {
         return s.ref === nom.viergeRef && s.couleur === nom.viergeColor;
       });
       if (sv) {
-        var avant = sv[taille] || 0;
-        sv[taille] = Math.max(0, avant - qte);
+        var avant = sv[taille] !== undefined ? (sv[taille] || 0) : 0;
+        sv[taille] = avant - qte; // Peut passer négatif — on ne bloque pas
         DB.stockMouvements.unshift({
           id: baseId + '-sv',
           ts: nowTs, type: 'vierge',
@@ -9725,7 +9779,7 @@ function fabriqueShopifyOrder(numCde) {
           delta: -qte, source: 'Fabrication', canal: 'Shopify', numCde: numCde
         });
       } else {
-        console.warn('[Fabrication] Stock vierge introuvable pour', nom.viergeRef, nom.viergeColor);
+        console.warn('[Fabrication] Stock vierge introuvable pour', nom.viergeRef, nom.viergeColor, '— fabrication quand même');
       }
     }
 
