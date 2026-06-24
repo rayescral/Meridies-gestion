@@ -155,6 +155,30 @@ tr:hover td{background:var(--surface2);}
   .kpi-grid{grid-template-columns:1fr 1fr;}
   .grid2,.grid3,.grid4{grid-template-columns:1fr;}
   .content{padding:16px;}
+
+  /* Modal plein écran sur mobile */
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal-overlay .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    overflow-y: auto !important;
+    padding: 20px 16px 32px !important;
+  }
+
+  /* Inputs plus grands sur mobile (évite le zoom auto iOS) */
+  .input, .select, input[type="text"], input[type="number"], input[type="search"], select {
+    font-size: 16px !important;
+    min-height: 44px !important;
+  }
+  .input-sm { font-size: 14px !important; min-height: 36px !important; }
+
+  /* Grille 2 colonnes dans modal */
+  .modal .grid2 { grid-template-columns: 1fr !important; }
+
+  /* Boutons plus larges */
+  .modal .btn { min-height: 44px; font-size: 14px; }
 }
 
 /* ===== PDF PRINT ===== */
@@ -5455,7 +5479,9 @@ function openAddStockFini(){
     '<div id="sf-mode-direct">' +
       '<datalist id="nsf-code-d-list">'+opts+'</datalist>' +
       '<div class="field" style="margin-bottom:12px;"><label>Article (catalogue)</label>' +
-        '<input type="text" class="input input-yellow" id="nsf-code-d" list="nsf-code-d-list" placeholder="Tape le code ou la désignation…" autocomplete="off">' +
+        '<input type="search" class="input input-yellow" id="nsf-code-d" list="nsf-code-d-list"' +
+        ' placeholder="Tape le code ou la désignation…" autocomplete="off"' +
+        ' style="width:100%;font-size:16px;min-height:44px;">' +
       '</div>' +
       '<div class="grid2" style="margin-bottom:12px;">' +
         '<div class="field"><label>Quantité à ajouter</label><input type="number" class="input input-yellow" id="nsf-qty-d" value="1" min="1"></div>' +
@@ -5468,7 +5494,10 @@ function openAddStockFini(){
     '<div id="sf-mode-assemble" style="display:none;">' +
       '<datalist id="nsf-code-list">'+opts+'</datalist>' +
       '<div class="field" style="margin-bottom:12px;"><label>Produit fini (catalogue)</label>' +
-        '<input type="text" class="input input-yellow" id="nsf-code" list="nsf-code-list" placeholder="Tape le code ou la désignation…" autocomplete="off" oninput="onAssemblageChange()">' +
+        '<input type="search" class="input input-yellow" id="nsf-code" list="nsf-code-list"' +
+        ' placeholder="Tape le code ou la désignation…" autocomplete="off"' +
+        ' style="width:100%;font-size:16px;min-height:44px;"' +
+        ' oninput="onAssemblageChange()">' +
       '</div>' +
       '<div class="grid2" style="margin-bottom:12px;">' +
         '<div class="field"><label>Produit vierge</label><select class="select" id="nsf-vierge"><option value="">— Choisir —</option>'+
