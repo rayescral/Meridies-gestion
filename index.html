@@ -2124,7 +2124,20 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header"><span class="card-title">Historique des ventes</span>
       <div class="section-actions">
-        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:160px;"></select>
+        <select class="select input-sm" id="ventes-filter-canal" onchange="renderVentes()" style="width:140px;"></select>
+        <input type="date" class="input input-sm" id="ventes-filter-date-from" onchange="renderVentes()" style="width:140px;" title="Date de début">
+        <input type="date" class="input input-sm" id="ventes-filter-date-to" onchange="renderVentes()" style="width:140px;" title="Date de fin">
+        <select class="select input-sm" id="ventes-filter-taille" onchange="renderVentes()" style="width:90px;">
+          <option value="">Toutes tailles</option>
+          <option value="XS">XS</option>
+          <option value="S">S</option>
+          <option value="M">M</option>
+          <option value="L">L</option>
+          <option value="XL">XL</option>
+          <option value="U">U</option>
+        </select>
+        <input type="search" class="input input-sm" id="ventes-filter-designation" oninput="renderVentes()" placeholder="🔍 Désignation…" style="width:180px;" autocomplete="off">
+        <button class="btn btn-secondary btn-sm" onclick="resetVentesFilters()">✕ Réinitialiser</button>
         <button class="btn btn-secondary btn-sm" onclick="exportVentesCSV()">⬇ Export CSV</button>
       </div>
     </div>
@@ -4389,8 +4402,19 @@ function clearVenteForm() {
   if(firstPm) firstPm.checked = true;
 }
 function renderVentes() {
-  var canal = document.getElementById('ventes-filter-canal') ? document.getElementById('ventes-filter-canal').value : '';
-  var items = DB.ventes.filter(function(v){ return !canal || v.canal === canal; }).slice().reverse();
+  var canal    = document.getElementById('ventes-filter-canal')       ? document.getElementById('ventes-filter-canal').value       : '';
+  var dateFrom = document.getElementById('ventes-filter-date-from')   ? document.getElementById('ventes-filter-date-from').value   : '';
+  var dateTo   = document.getElementById('ventes-filter-date-to')     ? document.getElementById('ventes-filter-date-to').value     : '';
+  var taille   = document.getElementById('ventes-filter-taille')      ? document.getElementById('ventes-filter-taille').value      : '';
+  var desig    = (document.getElementById('ventes-filter-designation') ? document.getElementById('ventes-filter-designation').value : '').toLowerCase().trim();
+  var items = DB.ventes.filter(function(v){
+    if(canal && v.canal !== canal) return false;
+    if(dateFrom && (v.date || '') < dateFrom) return false;
+    if(dateTo && (v.date || '') > dateTo) return false;
+    if(taille && (v.taille || '') !== taille) return false;
+    if(desig && (v.designation || '').toLowerCase().indexOf(desig) === -1 && (v.design || '').toLowerCase().indexOf(desig) === -1) return false;
+    return true;
+  }).slice().reverse();
   var tbody = document.getElementById('ventes-body');
   if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Aucune vente</td></tr>'; return; }
   tbody.innerHTML = items.slice(0, 50).map(function(v,i){
@@ -6883,10 +6907,15 @@ function enregistrerVente() {
   if(invoiceData) openInvoiceModal(invoiceData);
 }
 
-function getGroupedSales(filterCanal){
+function getGroupedSales(filterCanal, filterDateFrom, filterDateTo, filterTaille, filterDesignation){
+  var q = filterDesignation ? filterDesignation.toLowerCase().trim() : '';
   var groups = {};
   (DB.ventes || []).forEach(function(v, idx){
     if(filterCanal && v.canal !== filterCanal) return;
+    if(filterDateFrom && (v.date || '') < filterDateFrom) return;
+    if(filterDateTo && (v.date || '') > filterDateTo) return;
+    if(filterTaille && (v.taille || '') !== filterTaille) return;
+    if(q && (v.designation || '').toLowerCase().indexOf(q) === -1 && (v.design || '').toLowerCase().indexOf(q) === -1) return;
     var key = saleTransactionKey(v, idx);
     if(!groups[key]){
       groups[key] = {
@@ -6912,8 +6941,12 @@ function getGroupedSales(filterCanal){
 
 renderVentes = function() {
   renderSaleChannelSelectors();
-  var canal = document.getElementById('ventes-filter-canal') ? document.getElementById('ventes-filter-canal').value : '';
-  var items = getGroupedSales(canal);
+  var canal    = document.getElementById('ventes-filter-canal')       ? document.getElementById('ventes-filter-canal').value       : '';
+  var dateFrom = document.getElementById('ventes-filter-date-from')   ? document.getElementById('ventes-filter-date-from').value   : '';
+  var dateTo   = document.getElementById('ventes-filter-date-to')     ? document.getElementById('ventes-filter-date-to').value     : '';
+  var taille   = document.getElementById('ventes-filter-taille')      ? document.getElementById('ventes-filter-taille').value      : '';
+  var desig    = document.getElementById('ventes-filter-designation')  ? document.getElementById('ventes-filter-designation').value : '';
+  var items = getGroupedSales(canal, dateFrom, dateTo, taille, desig);
   var tbody = document.getElementById('ventes-body');
   if(!tbody) return;
   if(items.length === 0) { tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Aucune vente</td></tr>'; return; }
@@ -6952,6 +6985,15 @@ renderVentes = function() {
     }).join('');
   }).join('');
 };
+
+function resetVentesFilters(){
+  var fields = ['ventes-filter-canal','ventes-filter-date-from','ventes-filter-date-to','ventes-filter-taille','ventes-filter-designation'];
+  fields.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  renderVentes();
+}
 
 function editVenteGroup(venteKey) {
   var lines = [];
