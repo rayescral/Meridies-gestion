@@ -5295,41 +5295,293 @@ function exportAllBCExcel(){
   toast('Export complet BC téléchargé');
 }
 
+// ── CATALOGUE PRODUIT KNOWLEDGE BASE ──
+var CATALOGUE_KB = {
+  designs: [
+    {nom:'Lou Pescadou',   prefix:'LP', artNum:'001', saison:'S26'},
+    {nom:'Li d\'élo dóu Sud', prefix:'LI', artNum:'002', saison:'S26'},
+    {nom:'Mercatus',       prefix:'MT', artNum:'003', saison:'S26'},
+    {nom:'Massilia',       prefix:'ML', artNum:'004', saison:'S26'},
+    {nom:'Capèu',          prefix:'CP', artNum:'005', saison:'S26'},
+    {nom:'Lou Mistrau',    prefix:'LM', artNum:'006', saison:'S26'},
+    {nom:'Lou Serein',     prefix:'LS', artNum:'007', saison:'S26'},
+    {nom:'Lou Cap Canaio', prefix:'LC', artNum:'008', saison:'S26'},
+    {nom:'Lou Santavél',   prefix:'LV', artNum:'009', saison:'S26'},
+    {nom:'Lou Bagnadou',   prefix:'LB', artNum:'010', saison:'S26'},
+    {nom:'Le Roy d\'ys (T-shirt)',   prefix:'LR', artNum:'011', saison:'S26'},
+    {nom:'Le Roy d\'ys (Casquette)', prefix:'LR', artNum:'012', saison:'S26'},
+    {nom:'La Paiola',      prefix:'LP2', artNum:'013', saison:'S26'},
+    {nom:'Lou Velout',     prefix:'LV2', artNum:'014', saison:'S26'},
+    {nom:'Tote Bag La Ciotat', prefix:'TL', artNum:'015', saison:'S26'},
+    {nom:'Tote Bag Cassis',    prefix:'TC', artNum:'015', saison:'S26'},
+    {nom:'Lou Limounadié', prefix:'LL', artNum:'016', saison:'S26'}
+  ],
+  tissus: [
+    {ref:'E220', couleur:'Blanc',      abr:'BLC', pa:6.25},
+    {ref:'E220', couleur:'Noir',       abr:'NR',  pa:6.25},
+    {ref:'E220', couleur:'Bleu marine',abr:'MAR', pa:6.25},
+    {ref:'E220', couleur:'Sand',       abr:'BEI', pa:6.25},
+    {ref:'NM003',couleur:'Powder blue',abr:'CEL', pa:8.80},
+    {ref:'KP359',couleur:'Noir',       abr:'NR',  pa:6.00},
+    {ref:'FL9303',couleur:'Natural',   abr:'NAT', pa:12.50},
+    {ref:'TK101',couleur:'Rose',       abr:'RSE', pa:5.73},
+    {ref:'TK102',couleur:'Bleu',       abr:'BLE', pa:5.73},
+    {ref:'AUTRE',couleur:'(Autre)',    abr:'AUT', pa:0}
+  ],
+  designs_dtf: [
+    {ref:'D01-RSE', label:'D01 Rose (Pescadou)'},
+    {ref:'D01-BLE', label:'D01 Bleu (Pescadou)'},
+    {ref:'D01-VCL', label:'D01 Vert clair (Pescadou)'},
+    {ref:'D01-VIO', label:'D01 Violet (Pescadou)'},
+    {ref:'D01-BLC', label:'D01 Blanc (Pescadou)'},
+    {ref:'D01-MRN', label:'D01 Marron (Pescadou)'},
+    {ref:'D02-JNE', label:'D02 Jaune (Li d\'élo)'},
+    {ref:'D02-VER', label:'D02 Vert (Li d\'élo)'},
+    {ref:'D02-NR',  label:'D02 Noir (Li d\'élo)'},
+    {ref:'D02-BLC', label:'D02 Blanc (Li d\'élo)'},
+    {ref:'D03-BLC', label:'D03 Blanc (Mercatus)'},
+    {ref:'D03-NR',  label:'D03 Noir (Mercatus)'},
+    {ref:'D04-BLC', label:'D04 Blanc (Massilia)'},
+    {ref:'D04-BFO', label:'D04 Bleu foncé (Massilia)'},
+    {ref:'D05-RSE', label:'D05 Rose (Mistrau)'},
+    {ref:'D05-BLE', label:'D05 Bleu (Mistrau)'},
+    {ref:'D05-VER', label:'D05 Vert (Mistrau)'},
+    {ref:'D05-BLC', label:'D05 Blanc (Mistrau)'},
+    {ref:'D06-RSE', label:'D06 Rose (Cap Canaio)'},
+    {ref:'D06-BLE', label:'D06 Bleu (Cap Canaio)'},
+    {ref:'D06-BEI', label:'D06 Beige (Cap Canaio)'},
+    {ref:'D06-BLC', label:'D06 Blanc (Cap Canaio)'},
+    {ref:'D07-BLC', label:'D07 Blanc (Santavél)'},
+    {ref:'D07-BLE', label:'D07 Bleu (Santavél)'},
+    {ref:'ND',      label:'Sans design (ND)'}
+  ],
+  // prefix letter used for codes — for designs without a DTF
+  couleursDtf: {
+    'RSE':'Rose','BLE':'Bleu','VCL':'Vert clair','VIO':'Violet','BLC':'Blanc',
+    'MRN':'Marron','JNE':'Jaune','VER':'Vert','NR':'Noir','BFO':'Bleu foncé',
+    'BEI':'Beige','NAT':'Natural','MAR':'Marine','CEL':'Ciel','RSE':'Rose',
+    'ND':'—'
+  }
+};
+
 function openAddProduct(){
+  var kb = CATALOGUE_KB;
+
+  // Build design dropdown
+  var designOpts = kb.designs.map(function(d){
+    return '<option value="'+d.nom+'">'+d.nom+'</option>';
+  }).join('');
+
+  // Build tissu dropdown
+  var tissuOpts = kb.tissus.map(function(t){
+    return '<option value="'+t.ref+'|'+t.couleur+'|'+t.abr+'|'+t.pa+'">'
+      + t.ref + ' — ' + t.couleur + '</option>';
+  }).join('');
+
+  // Build DTF design dropdown
+  var dtfOpts = kb.designs_dtf.map(function(d){
+    return '<option value="'+d.ref+'">'+d.label+'</option>';
+  }).join('');
+
   openModal(
-    '<div class="modal-title">Ajouter un produit</div>' +
-    '<div class="grid2" style="margin-bottom:14px;">' +
-      '<div class="field"><label>Réf. design</label><input type="text" class="input" id="np-ref" placeholder="Ex: LP-0100"></div>' +
-      '<div class="field"><label>Code famille</label><input type="text" class="input" id="np-code" placeholder="Ex: LP-0100-001"></div>' +
-    '</div>' +
-    '<div class="grid2" style="margin-bottom:14px;">' +
-      '<div class="field"><label>Design</label><input type="text" class="input" id="np-design" placeholder="Ex: Lou Pescadou"></div>' +
-      '<div class="field"><label>Couleur</label><input type="text" class="input" id="np-couleur" placeholder="Ex: Rose"></div>' +
-    '</div>' +
-    '<div class="grid2" style="margin-bottom:14px;">' +
-      '<div class="field"><label>Tailles (virgules)</label><input type="text" class="input" id="np-tailles" value="XS,S,M,L"></div>' +
-      '<div class="field"><label>PV (€)</label><input type="number" class="input" id="np-pv" value="35" step="0.01"></div>' +
-    '</div>' +
-    '<div class="field" style="margin-bottom:14px;"><label>PA (€)</label><input type="number" class="input input-yellow" id="np-pa" value="0" step="0.01"></div>' +
-    '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>' +
-      '<button class="btn btn-primary" onclick="addProduct()">Ajouter</button>' +
+    '<div class="modal-title">➕ Nouveau produit catalogue</div>'+
+
+    // STEP 1 – Design name
+    '<div class="field" style="margin-bottom:12px;">'+
+      '<label>1. Nom du design</label>'+
+      '<select class="select" id="np-design" onchange="updateProductPreview()" style="width:100%;">'+
+        '<option value="">— Choisir —</option>'+designOpts+
+      '</select>'+
+    '</div>'+
+
+    // STEP 2 – Tissu
+    '<div class="field" style="margin-bottom:12px;">'+
+      '<label>2. Tissu vierge</label>'+
+      '<select class="select" id="np-tissu" onchange="updateProductPreview()" style="width:100%;">'+
+        '<option value="">— Choisir —</option>'+tissuOpts+
+      '</select>'+
+    '</div>'+
+
+    // STEP 3 – Design DTF
+    '<div class="field" style="margin-bottom:12px;">'+
+      '<label>3. Design DTF</label>'+
+      '<select class="select" id="np-dtf" onchange="updateProductPreview()" style="width:100%;">'+
+        '<option value="">— Choisir —</option>'+dtfOpts+
+      '</select>'+
+    '</div>'+
+
+    // STEP 4 – Tailles
+    '<div class="field" style="margin-bottom:12px;">'+
+      '<label>4. Tailles disponibles</label>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;padding:10px 0;">'+
+        ['XS','S','M','L','XL','U'].map(function(t){
+          var checked = (t!=='U') ? ' checked' : '';
+          return '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;">'+
+            '<input type="checkbox" id="np-t-'+t+'"'+checked+' onchange="updateProductPreview()" style="width:18px;height:18px;">'+t+'</label>';
+        }).join('')+
+      '</div>'+
+    '</div>'+
+
+    // STEP 5 – PV
+    '<div class="field" style="margin-bottom:14px;">'+
+      '<label>5. Prix de vente (PV €)</label>'+
+      '<input type="number" class="input" id="np-pv" value="35" step="0.01" oninput="updateProductPreview()" style="width:140px;">'+
+    '</div>'+
+
+    // PREVIEW BOX
+    '<div id="np-preview" style="background:var(--info-bg);border:1px solid var(--info);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;display:none;">'+
+      '<div style="font-weight:700;margin-bottom:6px;color:var(--info);">📋 Aperçu de la référence</div>'+
+      '<div id="np-preview-content"></div>'+
+    '</div>'+
+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;">'+
+      '<button class="btn btn-secondary" onclick="closeModal()">Annuler</button>'+
+      '<button class="btn btn-primary" id="np-btn-add" onclick="addProduct()" disabled>✓ Générer le produit</button>'+
     '</div>'
   );
+  updateProductPreview();
 }
-function addProduct(){
-  var ref = document.getElementById('np-ref').value.trim();
-  var codeFam = document.getElementById('np-code').value.trim();
-  var design = document.getElementById('np-design').value.trim();
-  var couleur = document.getElementById('np-couleur').value.trim();
-  var tailles = document.getElementById('np-tailles').value.split(',').map(function(t){ return t.trim(); }).filter(Boolean);
-  var pv = parseFloat(document.getElementById('np-pv').value) || 0;
-  var pa = parseFloat(document.getElementById('np-pa').value) || 0;
-  if(!ref || !codeFam || !design || !couleur || tailles.length===0){ toast('Champs incomplets'); return; }
-  tailles.forEach(function(t){
-    DB.catalogue.push({code: codeFam + '-' + t, ref: ref, design: design, couleur: couleur, designation: design + ' ' + couleur, taille: t, pv: pv, pa: pa});
+
+function updateProductPreview(){
+  var kb = CATALOGUE_KB;
+
+  var designNom = document.getElementById('np-design').value;
+  var tissuVal  = document.getElementById('np-tissu').value;
+  var dtfRef    = document.getElementById('np-dtf').value;
+  var pv        = parseFloat(document.getElementById('np-pv').value) || 0;
+
+  var previewBox = document.getElementById('np-preview');
+  var previewContent = document.getElementById('np-preview-content');
+  var btnAdd = document.getElementById('np-btn-add');
+
+  if(!designNom || !tissuVal || !dtfRef){
+    previewBox.style.display='none';
+    btnAdd.disabled = true;
+    return;
+  }
+
+  // Get tailles checked
+  var tailles = ['XS','S','M','L','XL','U'].filter(function(t){
+    var el = document.getElementById('np-t-'+t);
+    return el && el.checked;
   });
-  saveDB(); initDatalists(); closeModal(); renderCatalogue(); toast('Produit ajouté');
+  if(!tailles.length){ previewBox.style.display='none'; btnAdd.disabled=true; return; }
+
+  // Find design info
+  var designInfo = kb.designs.find(function(d){ return d.nom===designNom; });
+  if(!designInfo){ previewBox.style.display='none'; btnAdd.disabled=true; return; }
+
+  // Tissu info
+  var tParts = tissuVal.split('|');
+  var tissuRef=tParts[0], tissuCouleur=tParts[1], tissuAbr=tParts[2], pa=parseFloat(tParts[3]||0);
+  // Design DTF abr (last part after -)
+  var dtfAbr = (dtfRef==='ND') ? 'ND' : dtfRef.split('-')[1]; // e.g. D06-RSE → RSE
+  var dtfNum = (dtfRef==='ND') ? 'ND' : dtfRef.split('-')[0]; // e.g. D06
+
+  // Fix prefix for LP/LV ambiguity
+  var prefix = designInfo.prefix;
+  if(prefix==='LP2') prefix='LP';
+  if(prefix==='LV2') prefix='LV';
+
+  // Generate ref: PREFIX-TISSUABR-DTFNUM-DTFABR-ARTNUM
+  var dtfPart = (dtfRef==='ND') ? 'ND-ND' : dtfNum+'-'+dtfAbr;
+  var baseRef  = prefix+'-'+tissuAbr+'-'+dtfPart+'-'+designInfo.artNum;
+
+  // Couleur designation: "TissuCouleur / DtfCouleur"
+  var dtfCouleurLabel = CATALOGUE_KB.couleursDtf[dtfAbr] || dtfAbr;
+  var couleurStr = (dtfRef==='ND') ? tissuCouleur : tissuCouleur+' / '+dtfCouleurLabel;
+  var designation = designNom+' '+couleurStr;
+
+  // Saison
+  var saison = designInfo.saison;
+
+  // Check for duplicate ref
+  var exists = (DB.catalogue||[]).some(function(p){ return p.ref===baseRef; });
+
+  var paComputed = pa + (dtfRef==='ND' ? 0 : 4.61); // rough DTF cost estimate if design
+  var margin = pv > 0 ? Math.round((1 - paComputed/pv)*100) : 0;
+
+  var codes = tailles.map(function(t){ return baseRef+'-'+t; });
+
+  previewContent.innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:12px;">'+
+    '<tr><td style="padding:3px 6px;color:var(--text2)">Référence</td><td style="padding:3px 6px;font-weight:700;font-family:monospace;">'+baseRef+'</td></tr>'+
+    '<tr><td style="padding:3px 6px;color:var(--text2)">Désignation</td><td style="padding:3px 6px;">'+designation+'</td></tr>'+
+    '<tr><td style="padding:3px 6px;color:var(--text2)">Tissu</td><td style="padding:3px 6px;">'+tissuRef+' — '+tissuCouleur+'</td></tr>'+
+    (dtfRef!=='ND' ? '<tr><td style="padding:3px 6px;color:var(--text2)">Design DTF</td><td style="padding:3px 6px;">'+dtfRef+'</td></tr>' : '')+
+    '<tr><td style="padding:3px 6px;color:var(--text2)">Codes article</td><td style="padding:3px 6px;font-family:monospace;font-size:11px;">'+codes.join(' · ')+'</td></tr>'+
+    '<tr><td style="padding:3px 6px;color:var(--text2)">PV</td><td style="padding:3px 6px;">'+pv.toFixed(2)+' €</td></tr>'+
+    '<tr><td style="padding:3px 6px;color:var(--text2)">Saison</td><td style="padding:3px 6px;">'+saison+'</td></tr>'+
+    (exists ? '<tr><td colspan="2" style="padding:6px;color:#e53935;font-weight:700;">⚠️ Référence déjà existante dans le catalogue !</td></tr>' : '')+
+    '</table>';
+
+  previewBox.style.display='block';
+  btnAdd.disabled = exists || tailles.length===0;
+
+  // Store computed values for addProduct()
+  previewBox.dataset.ref        = baseRef;
+  previewBox.dataset.design     = designNom;
+  previewBox.dataset.couleur    = couleurStr;
+  previewBox.dataset.designation = designation;
+  previewBox.dataset.tailles    = tailles.join(',');
+  previewBox.dataset.pv         = pv;
+  previewBox.dataset.tissuRef   = tissuRef;
+  previewBox.dataset.tissuColor = tissuCouleur;
+  previewBox.dataset.dtfRef     = dtfRef;
+  previewBox.dataset.saison     = saison;
+}
+
+function addProduct(){
+  var box = document.getElementById('np-preview');
+  if(!box || box.style.display==='none'){ toast('Compléter le formulaire d\'abord'); return; }
+
+  var baseRef   = box.dataset.ref;
+  var designNom = box.dataset.design;
+  var couleur   = box.dataset.couleur;
+  var desig     = box.dataset.designation;
+  var tailles   = box.dataset.tailles.split(',');
+  var pv        = parseFloat(box.dataset.pv)||0;
+  var tissuRef  = box.dataset.tissuRef;
+  var tissuColor = box.dataset.tissuColor;
+  var dtfRef    = box.dataset.dtfRef;
+  var saison    = box.dataset.saison;
+
+  if(!baseRef || !tailles.length){ toast('Données manquantes'); return; }
+
+  // 1. Add to catalogue
+  tailles.forEach(function(t){
+    DB.catalogue.push({
+      code: baseRef+'-'+t,
+      ref: baseRef,
+      design: designNom,
+      couleur: couleur,
+      designation: desig,
+      taille: t,
+      pv: pv,
+      pa: 0,
+      saison: saison
+    });
+  });
+
+  // 2. Add to nomenclatures
+  var hasDtf = (dtfRef && dtfRef!=='ND');
+  DB.nomenclatures = DB.nomenclatures || [];
+  var alreadyNom = DB.nomenclatures.some(function(n){ return n.refProduit===baseRef; });
+  if(!alreadyNom){
+    DB.nomenclatures.push({
+      refProduit: baseRef,
+      designation: desig,
+      viergeRef: tissuRef,
+      viergeColor: tissuColor,
+      designRef: hasDtf ? dtfRef : ''
+    });
+  }
+
+  saveDB();
+  initDatalists();
+  closeModal();
+  renderCatalogue();
+  toast('✓ '+tailles.length+' article(s) créé(s) — réf. '+baseRef);
 }
 
 function openAddStockVierge(){
