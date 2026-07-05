@@ -1997,16 +1997,20 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
           </div>
         </div>
 
-        <!-- 5. PV + Saison -->
+        <!-- 5. PV + PA + Saison -->
         <div class="grid2" style="gap:12px;margin-bottom:14px;">
           <div class="field">
             <label>⑤ Prix de vente (PV €)</label>
             <input type="number" class="input" id="np2-pv" value="35" step="0.01" oninput="np2Update()">
           </div>
           <div class="field">
-            <label>Saison</label>
-            <input type="text" class="input" id="np2-saison" value="S26" oninput="np2Update()" style="width:80px;">
+            <label>Prix d'achat (PA €)</label>
+            <input type="number" class="input input-yellow" id="np2-pa" value="0" step="0.01" oninput="np2Update()">
           </div>
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label>Saison</label>
+          <input type="text" class="input" id="np2-saison" value="S26" oninput="np2Update()" style="width:100px;">
         </div>
 
         <!-- PREVIEW -->
@@ -7398,6 +7402,8 @@ function renderNouveauProduit() {
   var tSel = document.getElementById('np2-tissu');
   var dtfSel = document.getElementById('np2-dtf');
   if(!dSel) return;
+  // Force reset selects to avoid browser autocomplete keeping stale values
+  dSel.value = ''; tSel.value = ''; dtfSel.value = '';
 
   if(dSel.options.length <= 1) {
     NP2_KB.designs.forEach(function(d){
@@ -7431,6 +7437,7 @@ function np2Calc() {
   var tissuVal  = (document.getElementById('np2-tissu')||{}).value || '';
   var dtfRef    = (document.getElementById('np2-dtf')||{}).value || '';
   var pv        = parseFloat((document.getElementById('np2-pv')||{}).value) || 0;
+  var pa        = parseFloat((document.getElementById('np2-pa')||{}).value) || 0;
   var saison    = ((document.getElementById('np2-saison')||{}).value || 'S26').trim();
 
   if(!designNom || !tissuVal || !dtfRef) return null;
@@ -7462,8 +7469,9 @@ function np2Calc() {
 
   return {
     baseRef: baseRef, designNom: designNom, couleur: couleur,
-    designation: designation, tailles: tailles, pv: pv, saison: saison,
-    tissuRef: tissuRef, tissuCouleur: tissuCouleur, dtfRef: dtfRef, exists: exists
+    designation: designation, tailles: tailles, pv: pv, pa: pa, saison: saison,
+    tissuRef: tissuRef, tissuCouleur: tissuCouleur, dtfRef: dtfRef, exists: exists,
+    tissuPa: tissuPa
   };
 }
 
@@ -7495,6 +7503,7 @@ function np2Update() {
     '<span style="color:var(--text2);font-size:12px;">Codes</span>' +
     '<span style="font-family:monospace;font-size:11px;word-break:break-all;">'+codes.join(' &middot; ')+'</span>' +
     '<span style="color:var(--text2);font-size:12px;">PV</span><span>'+r.pv.toFixed(2)+' €</span>' +
+    '<span style="color:var(--text2);font-size:12px;">PA</span><span>'+r.pa.toFixed(2)+' €'+(r.pa>0 && r.pv>0 ? ' <span style=\"color:var(--success);font-weight:600;\">(marge '+Math.round((1-r.pa/r.pv)*100)+'%)</span>' : '')+'</span>' +
     '<span style="color:var(--text2);font-size:12px;">Saison</span><span>'+r.saison+'</span>' +
     '</div>';
 
@@ -7519,7 +7528,7 @@ function np2Generate() {
       code: r.baseRef+'-'+t, ref: r.baseRef,
       design: r.designNom, couleur: r.couleur,
       designation: r.designation, taille: t,
-      pv: r.pv, pa: 0, saison: r.saison
+      pv: r.pv, pa: r.pa, saison: r.saison
     });
   });
 
@@ -7544,6 +7553,7 @@ function np2Generate() {
     designation: r.designation,
     tailles: r.tailles,
     pv: r.pv,
+    pa: r.pa,
     saison: r.saison,
     tissuRef: r.tissuRef,
     tissuCouleur: r.tissuCouleur,
@@ -7555,6 +7565,8 @@ function np2Generate() {
   if(typeof renderCatalogue==='function') renderCatalogue();
 
   // Reset form
+  var paEl = document.getElementById('np2-pa');
+  if(paEl) paEl.value = '0';
   ['np2-design','np2-tissu','np2-dtf'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.value = '';
@@ -7596,7 +7608,8 @@ function renderNp2History() {
           '<span style="background:var(--bg2);border-radius:5px;padding:2px 7px;font-size:11px;">'+h.tissuRef+' '+h.tissuCouleur+'</span>' +
           '<span style="background:var(--bg2);border-radius:5px;padding:2px 7px;font-size:11px;">'+dtfLabel+'</span>' +
           '<span style="background:var(--bg2);border-radius:5px;padding:2px 7px;font-size:11px;">'+taillesStr+'</span>' +
-          '<span style="background:var(--success-bg);color:var(--success);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;">'+h.pv+' €</span>' +
+          '<span style="background:var(--success-bg);color:var(--success);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;">PV '+h.pv+' €</span>' +
+          (h.pa ? '<span style="background:var(--warning-bg,#fff8e1);color:var(--warning,#b45309);border-radius:5px;padding:2px 7px;font-size:11px;">PA '+h.pa+' €</span>' : '') +
           '<span style="background:var(--bg2);border-radius:5px;padding:2px 7px;font-size:11px;">'+h.saison+'</span>' +
         '</div>' +
       '</div>' +
