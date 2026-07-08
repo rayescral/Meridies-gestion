@@ -3647,17 +3647,30 @@ function renderDashboard() {
   var prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
   var ymPrev = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0');
 
+  // Les lignes de vente ne stockent pas le prix d'achat (pa) : on le récupère depuis le catalogue
+  // (par code article), sinon la marge brute retombait à 0 de coût = 100% du CA (bug).
+  var paByCode = {};
+  (DB.catalogue||[]).forEach(function(p){ if(p.code && paByCode[p.code]===undefined) paByCode[p.code] = p.pa||0; });
+  function paForVente(v){
+    if(v.code && paByCode[v.code]!==undefined) return paByCode[v.code];
+    if(v.ref){
+      var match = (DB.catalogue||[]).find(function(p){ return p.ref===v.ref; });
+      if(match) return match.pa||0;
+    }
+    return 0;
+  }
+
   var caMois=0, caPrev=0, margeMois=0, nbArticles=0;
   (DB.ventes||[]).forEach(function(v){
     var m = (v.date||'').substring(0,7);
     var ca = (v.pv||0)*(v.qte||1);
-    var pa = (v.pa||0)*(v.qte||1);
+    var pa = paForVente(v)*(v.qte||1);
     nbArticles += (v.qte||1);
     if(m===ym){ caMois+=ca; margeMois+=(ca-pa); }
     if(m===ymPrev){ caPrev+=ca; }
   });
   var caTotal=DB.ventes.reduce(function(s,v){return s+(v.pv||0)*(v.qte||1);},0);
-  var margeTotal=DB.ventes.reduce(function(s,v){var ca=(v.pv||0)*(v.qte||1);var pa=(v.pa||0)*(v.qte||1);return s+(ca-pa);},0);
+  var margeTotal=DB.ventes.reduce(function(s,v){var ca=(v.pv||0)*(v.qte||1);var pa=paForVente(v)*(v.qte||1);return s+(ca-pa);},0);
   var margePct = caTotal>0 ? Math.round(margeTotal/caTotal*100) : 0;
   var transactions=getSalesTransactions();
   var stockFini=DB.stockFini.reduce(function(s,i){return s+(i.stock||0);},0);
@@ -3709,9 +3722,10 @@ function renderDashboard() {
   var last=(DB.ventes||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,8);
   document.getElementById('dash-last-sales').innerHTML = last.length? last.map(function(v){
     var ca=(v.pv||0)*(v.qte||1);
-    var pa=(v.pa||0)*(v.qte||1);
+    var vPa=paForVente(v);
+    var pa=vPa*(v.qte||1);
     var marge=ca-pa;
-    var margeStr = (v.pa>0) ? '<span style="color:'+(marge>=0?'var(--success)':'var(--danger)')+'">'+fmt(marge)+'</span>' : '<span style="color:var(--hint)">—</span>';
+    var margeStr = (vPa>0) ? '<span style="color:'+(marge>=0?'var(--success)':'var(--danger)')+'">'+fmt(marge)+'</span>' : '<span style="color:var(--hint)">—</span>';
     return '<tr><td>'+formatDate(v.date)+'</td><td>'+escapeHtml(v.designation||'')+'</td><td>'+escapeHtml(v.canal||'')+'</td><td class="r mono">'+fmt(ca)+'</td><td class="r mono">'+margeStr+'</td></tr>';
   }).join('') : '<tr><td colspan="5" class="empty-state">Aucune vente</td></tr>';
 
