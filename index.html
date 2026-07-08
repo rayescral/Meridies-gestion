@@ -5780,7 +5780,7 @@ function addSV(){
 }
 
 function openAddStockDTF() {
-  var DESIGN_REFS = [{"ref":"D01-RSE","label":"Pêcheur — Rose"},{"ref":"D01-BLE","label":"Pêcheur — Bleu"},{"ref":"D01-VCL","label":"Pêcheur — Vert clair"},{"ref":"D01-VIO","label":"Pêcheur — Violet"},{"ref":"D01-BLC","label":"Pêcheur — Blanc"},{"ref":"D01-MRN","label":"Pêcheur — Marron"},{"ref":"D02-JNE","label":"Tableau — Jaune"},{"ref":"D02-VER","label":"Tableau — Vert"},{"ref":"D02-NR","label":"Tableau — Noir"},{"ref":"D02-BLC","label":"Tableau — Blanc"},{"ref":"D03-BLC","label":"Marché La Ciotat — Blanc"},{"ref":"D03-NR","label":"Marché La Ciotat — Noir"},{"ref":"D04-BLC","label":"Vallon des Auffes — Blanc"},{"ref":"D04-BFO","label":"Vallon des Auffes — Bleu foncé"},{"ref":"D05-RSE","label":"Mots — Rose"},{"ref":"D05-BLE","label":"Mots — Bleu"},{"ref":"D05-VER","label":"Mots — Vert"},{"ref":"D05-BLC","label":"Mots — Blanc"},{"ref":"D06-RSE","label":"Cap Canaille — Rose"},{"ref":"D06-BLE","label":"Cap Canaille — Bleu"},{"ref":"D06-BEI","label":"Cap Canaille — Beige"},{"ref":"D06-BLC","label":"Cap Canaille — Blanc"},{"ref":"D07-BLC","label":"Vélodrome — Blanc"},{"ref":"D07-BLE","label":"Vélodrome — Bleu"}];
+  var DESIGN_REFS = [{"ref":"D01-RSE","label":"Pêcheur — Rose"},{"ref":"D01-BLE","label":"Pêcheur — Bleu"},{"ref":"D01-VCL","label":"Pêcheur — Vert clair"},{"ref":"D01-VIO","label":"Pêcheur — Violet"},{"ref":"D01-BLC","label":"Pêcheur — Blanc"},{"ref":"D01-MRN","label":"Pêcheur — Marron"},{"ref":"D02-JNE","label":"Tableau — Jaune"},{"ref":"D02-VER","label":"Tableau — Vert"},{"ref":"D02-NR","label":"Tableau — Noir"},{"ref":"D02-BLC","label":"Tableau — Blanc"},{"ref":"D03-BLC","label":"Marché La Ciotat — Blanc"},{"ref":"D03-NR","label":"Marché La Ciotat — Noir"},{"ref":"D04-BLC","label":"Vallon des Auffes — Blanc"},{"ref":"D04-BFO","label":"Vallon des Auffes — Bleu foncé"},{"ref":"D05-RSE","label":"Mots — Rose"},{"ref":"D05-BLE","label":"Mots — Bleu"},{"ref":"D05-VER","label":"Mots — Vert"},{"ref":"D05-BLC","label":"Mots — Blanc"},{"ref":"D06-RSE","label":"Cap Canaille — Rose"},{"ref":"D06-BLE","label":"Cap Canaille — Bleu"},{"ref":"D06-BEI","label":"Cap Canaille — Beige"},{"ref":"D06-BLC","label":"Cap Canaille — Blanc"},{"ref":"D07-BLC","label":"Vélodrome — Blanc"},{"ref":"D07-BLE","label":"Vélodrome — Bleu"},{"ref":"D08-BLE","label":"Boulomane — Bleu"}];
   var existingRefs = {};
   (DB.stockDTF||[]).forEach(function(d){ existingRefs[d.ref] = d; });
   var datalistOpts = DESIGN_REFS.map(function(d){
@@ -5822,7 +5822,7 @@ function onSDRefChange(){
   var nomEl = document.getElementById('nsd-nom');
   if(!nomEl) return;
   // Auto-fill nom from design labels
-  var DESIGN_LABELS = {"D01-RSE": "Pêcheur — Rose", "D01-BLE": "Pêcheur — Bleu", "D01-VCL": "Pêcheur — Vert clair", "D01-VIO": "Pêcheur — Violet", "D01-BLC": "Pêcheur — Blanc", "D01-MRN": "Pêcheur — Marron", "D02-JNE": "Tableau — Jaune", "D02-VER": "Tableau — Vert", "D02-NR": "Tableau — Noir", "D02-BLC": "Tableau — Blanc", "D03-BLC": "Marché La Ciotat — Blanc", "D03-NR": "Marché La Ciotat — Noir", "D04-BLC": "Vallon des Auffes — Blanc", "D04-BFO": "Vallon des Auffes — Bleu foncé", "D05-RSE": "Mots — Rose", "D05-BLE": "Mots — Bleu", "D05-VER": "Mots — Vert", "D05-BLC": "Mots — Blanc", "D06-RSE": "Cap Canaille — Rose", "D06-BLE": "Cap Canaille — Bleu", "D06-BEI": "Cap Canaille — Beige", "D06-BLC": "Cap Canaille — Blanc", "D07-BLC": "Vélodrome — Blanc", "D07-BLE": "Vélodrome — Bleu"};
+  var DESIGN_LABELS = {"D01-RSE": "Pêcheur — Rose", "D01-BLE": "Pêcheur — Bleu", "D01-VCL": "Pêcheur — Vert clair", "D01-VIO": "Pêcheur — Violet", "D01-BLC": "Pêcheur — Blanc", "D01-MRN": "Pêcheur — Marron", "D02-JNE": "Tableau — Jaune", "D02-VER": "Tableau — Vert", "D02-NR": "Tableau — Noir", "D02-BLC": "Tableau — Blanc", "D03-BLC": "Marché La Ciotat — Blanc", "D03-NR": "Marché La Ciotat — Noir", "D04-BLC": "Vallon des Auffes — Blanc", "D04-BFO": "Vallon des Auffes — Bleu foncé", "D05-RSE": "Mots — Rose", "D05-BLE": "Mots — Bleu", "D05-VER": "Mots — Vert", "D05-BLC": "Mots — Blanc", "D06-RSE": "Cap Canaille — Rose", "D06-BLE": "Cap Canaille — Bleu", "D06-BEI": "Cap Canaille — Beige", "D06-BLC": "Cap Canaille — Blanc", "D07-BLC": "Vélodrome — Blanc", "D07-BLE": "Vélodrome — Bleu", "D08-BLE": "Boulomane — Bleu"};
   var label = DESIGN_LABELS[ref];
   if(label && !nomEl.value) nomEl.value = label;
   if(!label){
@@ -7498,7 +7498,10 @@ function np2Calc() {
   var dtfNum = (dtfRef==='ND') ? 'ND' : dtfRef.split('-')[0];
   var dtfPart = (dtfRef==='ND') ? 'ND-ND' : dtfNum+'-'+dtfAbr;
 
-  var prefix = designInfo.prefix.replace('2',''); // LP2→LP, LV2→LV
+  var prefix = designInfo.prefix;
+  if(prefix==='LP2') prefix='LP';
+  if(prefix==='LV2') prefix='LV';
+  if(prefix==='LR2') prefix='LR'; // LP2→LP, LV2→LV, LR2→LR (références historiques). Les nouveaux préfixes (ex: LB2) restent tels quels.
   var baseRef = prefix+'-'+tissuAbr+'-'+dtfPart+'-'+designInfo.artNum;
 
   var dtfCouleurLabel = NP2_KB.dtfColors[dtfAbr] || dtfAbr;
