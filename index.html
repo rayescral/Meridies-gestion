@@ -4461,8 +4461,23 @@ function getNomenclatureForProduct(catalogueItem){
 // ============================================================
 // VENTES (Ajout barre de recherche Datalist)
 // ============================================================
+// Se souvenir de la dernière date de vente saisie (ex: marché la veille, saisi le lendemain)
+// afin que le champ Date ne se réinitialise plus sur "aujourd'hui" à chaque ouverture de la page
+// ou à chaque nouvelle vente — cela évite un décalage d'1 jour dans le dashboard "CA journalier".
+function getLastVenteDate(){
+  try {
+    var d = localStorage.getItem('meridies_last_vente_date');
+    if (d) return d;
+  } catch(e) {}
+  return today();
+}
+function setLastVenteDate(d){
+  if (!d) return;
+  try { localStorage.setItem('meridies_last_vente_date', d); } catch(e) {}
+}
+
 function renderVentePage() {
-  document.getElementById('vente-date').value = today();
+  document.getElementById('vente-date').value = getLastVenteDate();
   renderVentes();
 }
 function onVenteCodeChange() {
@@ -7100,7 +7115,7 @@ clearVenteForm = function() {
   clearVenteLineFields();
   var n = document.getElementById('vente-numcde'); if(n) n.value='';
   var e = document.getElementById('vente-email'); if(e) e.value='';
-  var d = document.getElementById('vente-date'); if(d && !d.value) d.value = today();
+  var d = document.getElementById('vente-date'); if(d && !d.value) d.value = getLastVenteDate();
 };
 
 function renderSaleCart(){
@@ -7218,6 +7233,7 @@ function enregistrerVente() {
   }
   if(!currentSaleItems.length){ toast('Ajoute au moins un article à la vente'); return; }
   var date = document.getElementById('vente-date').value || today();
+  setLastVenteDate(date); // se souvenir de la date saisie pour la prochaine vente / le prochain chargement de page
   var canal = document.getElementById('vente-canal').value || getAvailableSaleChannels()[0];
   var numCde = document.getElementById('vente-numcde').value || '';
   var email = document.getElementById('vente-email').value || '';
