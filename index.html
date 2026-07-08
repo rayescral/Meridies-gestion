@@ -1944,7 +1944,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <span class="card-title">Catalogue produits finis (<span id="cat-count">0</span>)</span>
       <div class="section-actions">
         <input type="text" class="input input-sm" placeholder="Rechercher..." style="width:200px;" oninput="filterCatalogue(this.value)">
-
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('cat-body','Catalogue produits finis','MERIDIES_Catalogue')">📊 Excel</button>
       </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Code Article</th><th>Saison</th><th>Design</th><th>Désignation</th><th>Couleur</th><th>Taille</th><th class="r">PV (€)</th><th class="r">PA (€)</th><th class="r">Marge</th><th></th></tr></thead><tbody id="cat-body"></tbody></table></div>
@@ -2044,7 +2044,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header">
       <span class="card-title">Stock Produits vierges</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddStockVierge()">+ Entrée de stock</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('sv-body','Stock Produits vierges','MERIDIES_Stock_Vierge')">📊 Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddStockVierge()">+ Entrée de stock</button>
+      </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Référence</th><th>Couleur</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th class="r">Total</th><th class="r">En cde</th><th class="r">Projeté</th><th class="r">PA TTC (€)</th><th class="r">Valeur</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sv-body"></tbody></table></div>
   </div>
@@ -2066,7 +2069,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header">
       <span class="card-title">Stock Designs</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddStockDTF()">+ Entrée de stock</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('sd-body','Stock Designs','MERIDIES_Stock_DTF')">📊 Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddStockDTF()">+ Entrée de stock</button>
+      </div>
     </div>
     <div class="table-wrap"><table style="table-layout:fixed;"><colgroup><col style="width:140px"><col style="min-width:180px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:90px"><col style="width:90px"><col style="width:70px"><col style="width:90px"><col style="width:44px"></colgroup><thead><tr><th>Réf. Design</th><th>Désignation</th><th class="c">Stock</th><th class="c">En cde</th><th class="c">Projeté</th><th class="r">PA (€)</th><th class="r">Valeur</th><th class="c">Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sd-body"></tbody></table></div>
   </div>
@@ -2088,7 +2094,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header">
       <span class="card-title">Stock Produits finis (prêts à vendre)</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddStockFini()">+ Assembler un produit</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('sf-body','Stock Produits finis','MERIDIES_Stock_Fini')">📊 Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddStockFini()">+ Assembler un produit</button>
+      </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Code Article</th><th>Désignation</th><th>Taille</th><th>Stock</th><th class="r">PV (€)</th><th class="r">Valeur PV</th><th>Seuil</th><th>Statut</th><th></th></tr></thead><tbody id="sf-body"></tbody></table></div>
   </div>
@@ -2116,6 +2125,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="card-header" style="padding:0 16px 14px;">
       <span class="card-title">Nomenclature des produits</span>
       <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('nom-body','Nomenclature des produits','MERIDIES_Nomenclature')">📊 Excel</button>
         <button class="btn btn-secondary btn-sm" onclick="autoGenerateNomenclature()">⚡ Générer automatiquement</button>
         <button class="btn btn-danger btn-sm" onclick="deleteAllNomenclatures()">🗑 Tout supprimer</button>
         <button class="btn btn-primary btn-sm" onclick="openAddNomenclature()">+ Ajouter une règle</button>
@@ -2228,6 +2238,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <input type="search" class="input input-sm" id="ventes-filter-designation" oninput="renderVentes()" placeholder="🔍 Désignation…" style="width:180px;" autocomplete="off">
         <button class="btn btn-secondary btn-sm" onclick="resetVentesFilters()">✕ Réinitialiser</button>
         <button class="btn btn-secondary btn-sm" onclick="exportVentesCSV()">⬇ Export CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('ventes-body','Historique des ventes','MERIDIES_Historique_Ventes')">📊 Excel</button>
       </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Canal</th><th>Code Article</th><th>Désignation</th><th>Taille</th><th class="r">Qté</th><th class="r">PV (€)</th><th class="r">Total</th><th>Paiement</th><th>N° Cde</th><th></th></tr></thead><tbody id="ventes-body"></tbody></table></div>
@@ -2237,7 +2248,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 <div class="page" id="page-fournisseurs">
   <div class="card">
     <div class="card-header"><span class="card-title">Base fournisseurs & Évaluation</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddFournisseur()">+ Ajouter un fournisseur</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('fourn-body','Base fournisseurs','MERIDIES_Fournisseurs')">📊 Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddFournisseur()">+ Ajouter un fournisseur</button>
+      </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Nom du Fournisseur</th><th>Produits / Interventions</th><th>Contact</th><th class="c">Qualité</th><th class="c">Prix</th><th class="c">Délais</th><th class="c">Com.</th><th class="c">Note / 5</th><th></th></tr></thead><tbody id="fourn-body"></tbody></table></div>
   </div>
@@ -2277,7 +2291,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
   <div class="card">
     <div class="card-header"><span class="card-title">Historique des bons de commande</span>
-      <button class="btn btn-secondary btn-sm" onclick="exportAllBCExcel()">⬇ Export CSV</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportAllBCExcel()">⬇ Export CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('bc-hist-body','Historique des bons de commande','MERIDIES_Bons_Commande')">📊 Excel</button>
+      </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>N° BC</th><th>Date</th><th>Fournisseur</th><th>Articles</th><th class="r">Cmdé</th><th class="r">Reçu</th><th class="r">Reste</th><th class="r">Total HT</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="bc-hist-body"></tbody></table></div>
   </div>
@@ -2295,6 +2312,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <span class="card-title">Tableau — <span id="smap-count"></span></span>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="text" id="smap-filter" class="input input-sm" placeholder="Filtrer..." style="width:180px;" oninput="renderSmapTable()">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('smap-body','Correspondances Shopify','MERIDIES_Correspondances_Shopify')">📊 Excel</button>
         <button class="btn btn-success btn-sm" onclick="smapSave()">💾 Sauvegarder</button>
       </div>
     </div>
@@ -2341,6 +2359,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <div class="section-actions">
         <select class="select input-sm" id="todo-filter" onchange="renderTodos()" style="width:120px;"><option value="">Toutes</option><option value="A TRAITER">A traiter</option><option value="EN COURS">En cours</option><option value="EN ATTENTE">En attente</option><option value="TERMINER">Terminé</option></select>
         <select class="select input-sm" id="todo-view-mode" onchange="renderTodos()" style="width:120px;"><option value="table">Tableau</option><option value="kanban">Kanban</option></select>
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('todo-body','Gestion des tâches','MERIDIES_Taches')">📊 Excel</button>
         <button class="btn btn-primary btn-sm" onclick="openAddTodo()">+ Nouvelle tâche</button>
       </div>
     </div>
@@ -2461,6 +2480,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     </div>
     <div style="margin-bottom:12px;">
       <button class="btn btn-secondary btn-sm" onclick="resetPnlFilters()">✕ Réinitialiser les filtres</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('pnl-detailed-body','Compte de résultat détaillé','MERIDIES_Compte_Resultat')">📊 Excel</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -2478,7 +2498,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header">
       <span class="card-title">Journal de bord / Notes par marché</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddMarketSession()">+ Nouvelle session</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('journal-body','Journal de bord','MERIDIES_Journal')">📊 Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddMarketSession()">+ Nouvelle session</button>
+      </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Ville</th><th>Statut</th><th class="r">CA</th><th>Météo</th><th>Top produits</th><th>Retours clients</th><th></th></tr></thead><tbody id="journal-body"></tbody></table></div>
   </div>
@@ -2498,7 +2521,10 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   <div class="card">
     <div class="card-header">
       <span class="card-title">Gestion des retours / SAV</span>
-      <button class="btn btn-primary btn-sm" onclick="openAddReturn()">+ Enregistrer un retour</button>
+      <div class="section-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportDomTableToExcel('sav-body','Gestion des retours / SAV','MERIDIES_SAV')">📊 Excel</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddReturn()">+ Enregistrer un retour</button>
+      </div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>Date</th><th>Commande</th><th>Produit</th><th>Raison</th><th>Action</th><th>Statut</th><th class="r">Montant</th><th></th></tr></thead><tbody id="sav-body"></tbody></table></div>
   </div>
@@ -2855,6 +2881,18 @@ function ensureBaseSeedData() {
       }
     });
     DB.preferences.migrations.v10_fixFabNoNom = true;
+    changed++;
+  }
+
+  // Migration v11 : les ventes Shopify sont toujours payées en ligne — marquer paiement = 'Internet'
+  if (!DB.preferences.migrations.v11_shopifyPaiementInternet) {
+    (DB.ventes || []).forEach(function(v) {
+      if (v && v.canal === 'Shopify' && !v.paiement) {
+        v.paiement = 'Internet';
+        changed++;
+      }
+    });
+    DB.preferences.migrations.v11_shopifyPaiementInternet = true;
     changed++;
   }
 
@@ -7338,8 +7376,8 @@ renderVentes = function() {
           ? ' <span class="badge badge-info" style="margin-left:6px;vertical-align:middle;">Commande groupée</span>'
           : '<div style="font-size:10px;color:var(--hint);margin-top:3px;">↳ même commande</div>';
       }
-      var paiementEmoji = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Autre':'📝'};
-      var pm = line.paiement || '—';
+      var paiementEmoji = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Internet':'🌐','Autre':'📝'};
+      var pm = line.paiement || (v.canal === 'Shopify' ? 'Internet' : '—');
       var pmBadge = pm !== '—' ? '<span class="badge badge-neutral" style="font-size:10px;">'+(paiementEmoji[pm]||'')+ ' ' +escapeHtml(pm)+'</span>' : '—';
       return '<tr'+(grouped && firstLine ? ' style="background:rgba(0,0,0,0.015);"' : '')+'>'+
         '<td>'+formatDate(v.date)+'</td>'+
@@ -10166,6 +10204,7 @@ async function fusionShopifyVentes(orders) {
       shopifyOrderId: order.shopify_order_id,
       date: dateStr,
       canal: 'Shopify',
+      paiement: 'Internet', // toutes les ventes Shopify sont payées en ligne
       numCde: order.order_name || '',
       email: order.customer_email || '',
       qte: line.quantity || 1,
@@ -12022,15 +12061,16 @@ window.smapAddRow = smapAddRow;
     var host = document.getElementById('pnl-payment-dashboard');
     if(!host) return;
     var f = getPnlFilterValues();
-    var methods = ['Espèces','Carte','Virement','Autre'];
-    var emojis = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Autre':'📝'};
+    var methods = ['Espèces','Carte','Virement','Internet','Autre'];
+    var emojis = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Internet':'🌐','Autre':'📝'};
     var totals = {}, counts = {};
     methods.forEach(function(m){ totals[m] = 0; counts[m] = 0; });
 
     (DB.ventes || []).forEach(function(v){
       if(f.dateFrom && (v.date||'') < f.dateFrom) return;
       if(f.dateTo && (v.date||'') > f.dateTo) return;
-      var pm = v.paiement || 'Espèces';
+      // Les ventes Shopify sont toujours des paiements en ligne, même sur d'anciennes lignes sans champ paiement
+      var pm = v.paiement || (v.canal === 'Shopify' ? 'Internet' : 'Espèces');
       if(methods.indexOf(pm) === -1) pm = 'Autre';
       totals[pm] += (v.pv||0) * (v.qte||1);
       counts[pm] += (v.qte||1);
@@ -12070,6 +12110,96 @@ window.smapAddRow = smapAddRow;
     __pnl_prev_renderCompta();
     renderDetailedPnlFiltered();
   };
+})();
+
+// ============================================================
+// PATCH — Export Excel générique pour tous les tableaux du site
+// ============================================================
+(function(){
+  function xlsEsc(v){
+    if (v === null || v === undefined) return '';
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function styledExcelExport(title, headers, rows, filenameBase){
+    var sheetName = (title || 'Export').replace(/[\\\/\?\*\[\]:]/g, ' ').substring(0, 31);
+    var thead = '<tr>' + headers.map(function(h){
+      return '<th style="background:#2b2420;color:#ffffff;font-weight:bold;padding:7px 12px;border:1px solid #999999;font-family:Calibri,Arial,sans-serif;font-size:12px;white-space:nowrap;">' + xlsEsc(h) + '</th>';
+    }).join('') + '</tr>';
+
+    var tbodyHtml = rows.map(function(r, i){
+      var bg = (i % 2 === 0) ? '#ffffff' : '#f4ede2';
+      return '<tr>' + r.map(function(c){
+        var isNum = typeof c === 'number';
+        return '<td style="background:' + bg + ';padding:5px 12px;border:1px solid #dddddd;font-family:Calibri,Arial,sans-serif;font-size:11px;' + (isNum ? 'text-align:right;' : '') + '">' + xlsEsc(c) + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+
+    var html =
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="UTF-8">' +
+      '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>' + xlsEsc(sheetName) + '</x:Name>' +
+      '<x:WorksheetOptions><x:DisplayGridlines/><x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>1</x:SplitHorizontal><x:TopRowBottomPane>1</x:TopRowBottomPane></x:WorksheetOptions>' +
+      '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+      '</head><body>' +
+      '<div style="font-family:Calibri,Arial,sans-serif;font-size:16px;font-weight:bold;color:#2b2420;margin-bottom:6px;">MERIDIES — ' + xlsEsc(title || '') + '</div>' +
+      '<div style="font-family:Calibri,Arial,sans-serif;font-size:11px;color:#888888;margin-bottom:10px;">Exporté le ' + xlsEsc(formatDate(today())) + ' · ' + rows.length + ' ligne(s)</div>' +
+      '<table border="1" cellspacing="0" style="border-collapse:collapse;">' + thead + tbodyHtml + '</table>' +
+      '</body></html>';
+
+    var blob = new Blob(['﻿' + html], {type: 'application/vnd.ms-excel;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (filenameBase || 'MERIDIES_export') + '_' + today() + '.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if (typeof recordAction === 'function') recordAction('Export Excel : ' + (title || filenameBase));
+    if (typeof toast === 'function') toast('📊 Export Excel généré : ' + (title || ''));
+  }
+
+  function exportDomTableToExcel(tbodyIdOrEl, title, filenameBase){
+    var tbody = typeof tbodyIdOrEl === 'string' ? document.getElementById(tbodyIdOrEl) : tbodyIdOrEl;
+    if (!tbody) { if (typeof toast === 'function') toast('Tableau introuvable'); return; }
+    var table = tbody.closest ? tbody.closest('table') : null;
+    if (!table) { if (typeof toast === 'function') toast('Tableau introuvable'); return; }
+
+    var headerCells = table.querySelectorAll('thead th');
+    var headers = [];
+    for (var i = 0; i < headerCells.length; i++) {
+      headers.push((headerCells[i].textContent || '').replace(/\s+/g, ' ').trim());
+    }
+
+    var bodyRows = tbody.querySelectorAll('tr');
+    var rows = [];
+    for (var r = 0; r < bodyRows.length; r++) {
+      var tr = bodyRows[r];
+      if (tr.querySelector('.empty-state')) continue;
+      var cells = tr.querySelectorAll('td');
+      if (!cells.length) continue;
+      var rowVals = [];
+      for (var c = 0; c < cells.length; c++) {
+        var clone = cells[c].cloneNode(true);
+        var interactive = clone.querySelectorAll('button, .btn-icon, input, select, textarea');
+        for (var k = interactive.length - 1; k >= 0; k--) {
+          if (interactive[k].parentNode) interactive[k].parentNode.removeChild(interactive[k]);
+        }
+        rowVals.push((clone.textContent || '').replace(/\s+/g, ' ').trim());
+      }
+      rows.push(rowVals);
+    }
+
+    if (!rows.length) { if (typeof toast === 'function') toast('Aucune ligne à exporter (vérifie les filtres)'); return; }
+
+    if (headers.length && headers[headers.length - 1] === '') {
+      headers = headers.slice(0, -1);
+      rows = rows.map(function(row){ return row.slice(0, headers.length); });
+    }
+
+    styledExcelExport(title, headers, rows, filenameBase);
+  }
+
+  window.styledExcelExport = styledExcelExport;
+  window.exportDomTableToExcel = exportDomTableToExcel;
 })();
 </script>
 </body>
