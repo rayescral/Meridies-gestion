@@ -321,6 +321,23 @@ tr:hover td{background:var(--surface2);}
   box-shadow:0 0 0 1px var(--gold);
 }
 .pm-icon{font-size:16px;}
+/* ===== MULTI-SELECT DROPDOWN (filtres charges) ===== */
+.multi-select{position:relative;}
+.multi-select-toggle{width:100%;text-align:left;cursor:pointer;background:var(--surface2);}
+.multi-select-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:80;
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);
+  box-shadow:0 8px 24px rgba(0,0,0,0.22);
+  max-height:260px;overflow-y:auto;padding:8px;
+}
+.multi-select-dropdown label{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
+  font-size:13px;cursor:pointer;color:var(--text);
+}
+.multi-select-dropdown label:hover{background:var(--surface2);}
+.multi-select-dropdown label input{flex-shrink:0;}
+.msd-actions{display:flex;gap:12px;padding:2px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:6px;}
+.msd-actions a{font-size:11px;color:var(--gold);cursor:pointer;text-decoration:underline;}
 .progress-lite{height:8px;background:var(--surface3);border-radius:999px;overflow:hidden;}
 .progress-lite > div{height:100%;background:var(--gold);}
 .tag{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--surface3);color:var(--muted);}
@@ -2450,6 +2467,36 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="kpi-grid" id="pnl-payment-dashboard"></div>
   </div>
   <div class="card">
+    <div class="card-header"><span class="card-title">Comparatifs</span></div>
+    <div class="grid3" style="margin-bottom:14px;gap:10px;">
+      <div class="field">
+        <label>Période</label>
+        <select class="select" id="compare-granularity" onchange="renderComptaComparisons()">
+          <option value="day">Jour</option>
+          <option value="week">Semaine</option>
+          <option value="month" selected>Mois</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Année</label>
+        <select class="select" id="compare-year" onchange="renderComptaComparisons()"></select>
+      </div>
+      <div class="field multi-select">
+        <label>Canaux à comparer</label>
+        <button type="button" class="input multi-select-toggle" id="compare-channel-toggle" onclick="toggleCompareChannelDropdown()">Tous les canaux</button>
+        <div id="compare-channel-dropdown" class="multi-select-dropdown" style="display:none;"></div>
+      </div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;">Entrées vs Charges</div>
+      <div style="position:relative;height:260px;"><canvas id="compare-flow-chart"></canvas></div>
+    </div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;">Chiffre d'affaires par canal</div>
+      <div style="position:relative;height:260px;"><canvas id="compare-channel-chart"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
     <div class="card-header">
       <span class="card-title">Compte de résultat détaillé</span>
       <button class="btn btn-primary btn-sm" onclick="openAddCashflow()">+ Ajouter une ligne</button>
@@ -2471,12 +2518,16 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <label>Au</label>
         <input type="date" class="input" id="pnl-filter-date-to" onchange="renderDetailedPnlFiltered()">
       </div>
-      <div class="field">
-        <label>Catégorie</label>
-        <select class="select" id="pnl-filter-category" onchange="renderDetailedPnlFiltered()">
-          <option value="">Toutes catégories</option>
-        </select>
+      <div class="field multi-select">
+        <label>Moyen de paiement</label>
+        <button type="button" class="input multi-select-toggle" id="pnl-payment-toggle" onclick="togglePnlDropdown('payment')">Tous les moyens</button>
+        <div id="pnl-payment-dropdown" class="multi-select-dropdown" style="display:none;"></div>
       </div>
+    </div>
+    <div class="field multi-select" style="margin-bottom:12px;">
+      <label>Catégories (sélection multiple)</label>
+      <button type="button" class="input multi-select-toggle" id="pnl-category-toggle" onclick="togglePnlDropdown('category')">Toutes les catégories</button>
+      <div id="pnl-category-dropdown" class="multi-select-dropdown" style="display:none;"></div>
     </div>
     <div style="margin-bottom:12px;">
       <button class="btn btn-secondary btn-sm" onclick="resetPnlFilters()">✕ Réinitialiser les filtres</button>
@@ -2485,7 +2536,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Date</th><th>Nature</th><th>Origine</th><th>Catégorie</th><th>Libellé</th><th class="r">Montant</th><th></th></tr>
+          <tr><th>Date</th><th>Nature</th><th>Origine</th><th>Catégorie</th><th>Libellé</th><th>Paiement</th><th class="r">Montant</th><th></th></tr>
         </thead>
         <tbody id="pnl-detailed-body"></tbody>
         <tfoot id="pnl-detailed-foot"></tfoot>
@@ -12260,5 +12311,492 @@ window.smapAddRow = smapAddRow;
   window.exportDomTableToExcel = exportDomTableToExcel;
 })();
 </script>
+<script>
+// ============================================================
+// PATCH v5 — Moyen de paiement des charges, filtres multi-sélection
+// (catégories + moyens de paiement) et comparatifs temporels / canaux
+// ============================================================
+(function(){
+  'use strict';
+
+  var CHARGE_PAYMENT_METHODS = ['Espèces','Carte','Virement','Autre'];
+  var PM_EMOJI = {'Espèces':'💵','Carte':'💳','Virement':'🏦','Internet':'🌐','Autre':'📝','Non renseigné':'❔'};
+  var MSD_NONE = ' __none__';
+
+  function msdEnsureExpanded(set, items){
+    if(set.size===0){ items.forEach(function(it){ set.add(it); }); }
+    else if(set.has(MSD_NONE)){ set.delete(MSD_NONE); }
+  }
+  function msdNormalize(set, items){
+    if(set.size===0){ set.add(MSD_NONE); return; }
+    if(!set.has(MSD_NONE) && set.size===items.length){
+      var full = items.every(function(it){ return set.has(it); });
+      if(full) set.clear();
+    }
+  }
+  function msdMatches(set, value){
+    if(set.size===0) return true;
+    if(set.has(MSD_NONE)) return false;
+    return set.has(value);
+  }
+  function renderMultiCheckboxes(hostId, toggleBtnId, items, set, labelPlural, onChange){
+    var host = document.getElementById(hostId);
+    if(!host) return;
+    var isAll = set.size===0;
+    var isNone = set.has(MSD_NONE);
+    var html = '<div class="msd-actions"><a data-act="all">Tout cocher</a><a data-act="none">Tout décocher</a></div>';
+    html += items.length ? items.map(function(item){
+      var checked = isAll || (!isNone && set.has(item));
+      return '<label><input type="checkbox" data-val="'+escapeHtml(item)+'" '+(checked?'checked':'')+'>'+escapeHtml(item)+'</label>';
+    }).join('') : '<div style="padding:6px;font-size:12px;color:var(--muted);">Aucune valeur</div>';
+    host.innerHTML = html;
+    host.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+      cb.onchange = function(){
+        var val = cb.getAttribute('data-val');
+        msdEnsureExpanded(set, items);
+        if(cb.checked) set.add(val); else set.delete(val);
+        msdNormalize(set, items);
+        onChange();
+      };
+    });
+    var allA = host.querySelector('[data-act="all"]');
+    var noneA = host.querySelector('[data-act="none"]');
+    if(allA) allA.onclick = function(){ set.clear(); onChange(); };
+    if(noneA) noneA.onclick = function(){ set.clear(); set.add(MSD_NONE); onChange(); };
+    var btn = document.getElementById(toggleBtnId);
+    if(btn){
+      if(!items.length) btn.textContent = 'Aucune valeur';
+      else if(isAll) btn.textContent = 'Tous les ' + labelPlural;
+      else if(isNone) btn.textContent = 'Aucun sélectionné';
+      else btn.textContent = set.size + ' / ' + items.length + ' ' + labelPlural;
+    }
+  }
+  document.addEventListener('click', function(e){
+    document.querySelectorAll('.multi-select-dropdown').forEach(function(dd){
+      var wrap = dd.closest('.multi-select');
+      if(wrap && !wrap.contains(e.target)) dd.style.display = 'none';
+    });
+  });
+  window.togglePnlDropdown = function(which){
+    var id = which==='payment' ? 'pnl-payment-dropdown' : 'pnl-category-dropdown';
+    document.querySelectorAll('.multi-select-dropdown').forEach(function(dd){ if(dd.id!==id) dd.style.display='none'; });
+    var el = document.getElementById(id);
+    if(el) el.style.display = (el.style.display==='none' || !el.style.display) ? 'block' : 'none';
+  };
+  window.toggleCompareChannelDropdown = function(){
+    document.querySelectorAll('.multi-select-dropdown').forEach(function(dd){ if(dd.id!=='compare-channel-dropdown') dd.style.display='none'; });
+    var el = document.getElementById('compare-channel-dropdown');
+    if(el) el.style.display = (el.style.display==='none' || !el.style.display) ? 'block' : 'none';
+  };
+
+  buildAutoCashflows = function(){
+    var auto = [];
+    var seenSales = {};
+    (DB.ventes||[]).forEach(function(v, idx){
+      var key = v.venteId || ('legacy_'+(v.id||idx));
+      if(seenSales[key]) return;
+      seenSales[key] = true;
+      var amount = 0, pm = '';
+      (DB.ventes||[]).forEach(function(line, lineIdx){
+        var k = line.venteId || ('legacy_'+(line.id||lineIdx));
+        if(k===key){ amount += (line.pv||0)*(line.qte||1); if(!pm) pm = line.paiement||''; }
+      });
+      if(!pm) pm = (v.canal==='Shopify') ? 'Internet' : '';
+      auto.push({
+        date:v.date, type:'entrée', category:'Vente', canal:v.canal||'Vente',
+        paiement: pm || 'Non renseigné',
+        label:(v.canal||'Vente') + (v.numCde?' · '+v.numCde:''), amount:amount, auto:true
+      });
+    });
+    (DB.bonsCommande||[]).forEach(function(b){
+      var raw = String(b.paiement||'').toLowerCase();
+      var pm = 'Autre';
+      if(raw.indexOf('virement')>-1) pm = 'Virement';
+      else if(raw.indexOf('comptant')>-1) pm = 'Espèces';
+      auto.push({date:b.date||today(), type:'sortie', category:'Achat fournisseur', canal:'Achat', paiement:pm, label:b.id+' · '+(b.fournisseur||''), amount:b.total||0, auto:true});
+    });
+    (DB.marketSessions||[]).forEach(function(m){
+      if((m.ca||0)>0) auto.push({date:m.date, type:'entrée', category:'Marché', canal:'Marché', paiement:'Non renseigné', label:m.city||'Marché', amount:m.ca||0, auto:true});
+      if((m.fees||0)>0) auto.push({date:m.date, type:'sortie', category:'Frais marché', canal:'Marché', paiement:'Non renseigné', label:m.city||'Marché', amount:m.fees||0, auto:true});
+    });
+    return auto.concat(buildRecurringCashflows());
+  };
+
+  var __v5_prev_allCashflows = allCashflows;
+  allCashflows = function(){
+    var flows = __v5_prev_allCashflows();
+    return flows.map(function(f){
+      var out = Object.assign({}, f);
+      if(!out.paiement){
+        if(out.recurringId){
+          var rc = (DB.recurringCharges||[]).filter(function(c){ return String(c.id)===String(out.recurringId); })[0];
+          out.paiement = (rc && rc.paiement) || 'Non renseigné';
+        } else {
+          out.paiement = 'Non renseigné';
+        }
+      }
+      if(!out.canal) out.canal = (normalizeCashflowType(out.type)==='sortie') ? 'Charge' : 'Autre';
+      return out;
+    });
+  };
+
+  function paymentRadioHtml(name, selected){
+    return '<div class="payment-method-selector">' + CHARGE_PAYMENT_METHODS.map(function(m){
+      return '<label class="pm-option"><input type="radio" name="'+name+'" value="'+m+'"'+(selected===m?' checked':'')+'><span class="pm-chip"><span class="pm-icon">'+(PM_EMOJI[m]||'')+'</span>'+m+'</span></label>';
+    }).join('') + '</div>';
+  }
+  function readPaymentRadio(name){
+    var el = document.querySelector('input[name="'+name+'"]:checked');
+    return el ? el.value : 'Espèces';
+  }
+
+  openAddCashflow = function(prefillCategory){
+    var options = getAvailableChargeCategories();
+    if(prefillCategory && options.indexOf(prefillCategory) === -1) options.unshift(prefillCategory);
+    openModal(
+      '<div class="modal-title">Ajouter un flux</div>'+
+      '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-date" value="'+today()+'"></div><div class="field"><label>Type</label><select class="select" id="cf-type"><option value="entrée">Entrée</option><option value="sortie" selected>Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-amount" step="0.01"></div></div>'+
+      '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="cf-category">'+options.map(function(cat){return '<option value="'+escapeHtml(cat)+'"'+(((prefillCategory||'')===cat)?' selected':'')+'>'+escapeHtml(cat)+'</option>';}).join('')+'</select></div><div class="field"><label>Libellé</label><input class="input" id="cf-label" placeholder="Ex: Abonnement mensuel Shopify"></div></div>'+
+      '<div class="field" style="margin-bottom:12px;"><label>💳 Moyen de paiement</label>'+paymentRadioHtml('cf-paiement','Espèces')+'</div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCashflow()">Enregistrer</button></div>'
+    );
+  };
+
+  saveCashflow = function(){
+    var f = {
+      id: Date.now(),
+      date: document.getElementById('cf-date').value,
+      type: normalizeCashflowType(document.getElementById('cf-type').value),
+      category: document.getElementById('cf-category').value,
+      label: document.getElementById('cf-label').value,
+      amount: parseFloat(document.getElementById('cf-amount').value)||0,
+      paiement: readPaymentRadio('cf-paiement')
+    };
+    if(!f.date||!f.label||!f.amount){ toast('Champs incomplets'); return; }
+    DB.cashflows.unshift(f); saveDB(); closeModal(); renderCompta(); recordAction('Flux manuel ajouté : '+f.label);
+  };
+
+  editCashflow = function(i){
+    var f = DB.cashflows[i]; if(!f) return;
+    var options = getAvailableChargeCategories ? getAvailableChargeCategories() : ['Autre'];
+    if(f.category && options.indexOf(f.category) === -1) options.unshift(f.category);
+    openModal(
+      '<div class="modal-title">Modifier le flux</div>'+
+      '<div class="grid3" style="margin-bottom:12px;"><div class="field"><label>Date</label><input type="date" class="input" id="cf-edit-date" value="'+(f.date||today())+'"></div><div class="field"><label>Type</label><select class="select" id="cf-edit-type"><option value="entrée"'+(normalizeCashflowType(f.type)==='entrée'?' selected':'')+'>Entrée</option><option value="sortie"'+(normalizeCashflowType(f.type)==='sortie'?' selected':'')+'>Sortie</option></select></div><div class="field"><label>Montant (€)</label><input type="number" class="input input-yellow" id="cf-edit-amount" step="0.01" value="'+(f.amount||0)+'"></div></div>'+
+      '<div class="grid2" style="margin-bottom:12px;"><div class="field"><label>Catégorie</label><select class="select" id="cf-edit-category">'+options.map(function(cat){return '<option value="'+escapeHtml(cat)+'"'+((f.category||'')===cat?' selected':'')+'>'+escapeHtml(cat)+'</option>';}).join('')+'</select></div><div class="field"><label>Libellé</label><input class="input" id="cf-edit-label" value="'+escapeHtml(f.label||'')+'"></div></div>'+
+      '<div class="field" style="margin-bottom:12px;"><label>💳 Moyen de paiement</label>'+paymentRadioHtml('cf-edit-paiement', f.paiement||'Espèces')+'</div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-danger" onclick="deleteCashflow('+i+');closeModal()">Supprimer</button><button class="btn btn-primary" onclick="saveEditedCashflow('+i+')">Enregistrer</button></div>'
+    );
+  };
+
+  saveEditedCashflow = function(i){
+    var f = DB.cashflows[i]; if(!f) return;
+    f.date = document.getElementById('cf-edit-date').value;
+    f.type = normalizeCashflowType(document.getElementById('cf-edit-type').value);
+    f.amount = parseFloat(document.getElementById('cf-edit-amount').value)||0;
+    f.category = document.getElementById('cf-edit-category').value;
+    f.label = document.getElementById('cf-edit-label').value;
+    f.paiement = readPaymentRadio('cf-edit-paiement');
+    if(!f.date||!f.label||!f.amount){ toast('Champs incomplets'); return; }
+    saveDB(); closeModal(); renderCompta(); recordAction('Flux modifié : '+f.label); toast('Flux modifié');
+  };
+
+  openRecurringChargeForm = function(i){
+    var categories = getAvailableChargeCategories();
+    var charge = i == null
+      ? {label:'', amount:'', frequency:'monthly', startDate:today(), active:true, category:(categories[0] || 'Charge récurrente'), dayOfMonth:(new Date().getDate()), showInCalendar:true, paiement:'Virement'}
+      : Object.assign({paiement:'Virement'}, (DB.recurringCharges || [])[i]);
+    var dayOfMonth = (typeof inferRecurringChargeDay === 'function') ? inferRecurringChargeDay(charge) : (charge.dayOfMonth || 1);
+    if(typeof charge.showInCalendar === 'undefined') charge.showInCalendar = true;
+
+    openModal(
+      '<div class="modal-title">' + (i == null ? 'Nouvelle charge récurrente' : 'Modifier la charge récurrente') + '</div>' +
+      '<div class="modal-sub">Définis un abonnement mensuel comme Shopify, Boxtal ou tout autre prélèvement automatique.</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Libellé</label><input class="input" id="rc-label" value="' + escapeHtml(charge.label || '') + '" placeholder="Ex: Shopify"></div>' +
+        '<div class="field"><label>Montant mensuel (€)</label><input type="number" class="input input-yellow" id="rc-amount" step="0.01" min="0" value="' + escapeHtml(String(charge.amount || '')) + '"></div>' +
+      '</div>' +
+      '<div class="grid3" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Catégorie</label><select class="select" id="rc-category">' + categories.map(function(cat){ return '<option value="' + escapeHtml(cat) + '"' + ((charge.category || '') === cat ? ' selected' : '') + '>' + escapeHtml(cat) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="field"><label>Jour de prélèvement</label><input type="number" class="input input-yellow" id="rc-day" min="1" max="31" value="' + dayOfMonth + '"></div>' +
+        '<div class="field"><label>Date de début</label><input type="date" class="input" id="rc-start" value="' + escapeHtml(charge.startDate || today()) + '"></div>' +
+      '</div>' +
+      '<div class="grid2" style="margin-bottom:12px;">' +
+        '<div class="field"><label>Active</label><select class="select" id="rc-active"><option value="true"' + (charge.active !== false ? ' selected' : '') + '>Oui</option><option value="false"' + (charge.active === false ? ' selected' : '') + '>Non</option></select></div>' +
+        '<div class="field"><label>Afficher dans le calendrier</label><select class="select" id="rc-calendar"><option value="true"' + (charge.showInCalendar !== false ? ' selected' : '') + '>Oui</option><option value="false"' + (charge.showInCalendar === false ? ' selected' : '') + '>Non</option></select></div>' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:12px;"><label>💳 Moyen de paiement</label>'+paymentRadioHtml('rc-paiement', charge.paiement||'Virement')+'</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveRecurringCharge(' + (i == null ? 'null' : i) + ')">' + (i == null ? 'Créer' : 'Enregistrer') + '</button></div>'
+    );
+  };
+
+  saveRecurringCharge = function(i){
+    var label = (document.getElementById('rc-label').value || '').trim();
+    var amount = parseFloat(document.getElementById('rc-amount').value) || 0;
+    var startDate = document.getElementById('rc-start').value;
+    var dayInput = document.getElementById('rc-day');
+    var dayOfMonth = dayInput ? Math.min(31, Math.max(1, parseInt(dayInput.value, 10) || 1)) : 1;
+    var charge = {
+      id: i == null ? Date.now() : (((DB.recurringCharges || [])[i] || {}).id || Date.now()),
+      label: label,
+      amount: amount,
+      frequency: 'monthly',
+      startDate: startDate,
+      active: document.getElementById('rc-active').value === 'true',
+      category: document.getElementById('rc-category').value,
+      dayOfMonth: dayOfMonth,
+      showInCalendar: document.getElementById('rc-calendar') ? document.getElementById('rc-calendar').value === 'true' : true,
+      paiement: readPaymentRadio('rc-paiement')
+    };
+    if(!charge.label || !charge.amount || !charge.startDate){ toast('Libellé, montant et date de début requis'); return; }
+    if(i == null) (DB.recurringCharges = DB.recurringCharges || []).unshift(charge); else DB.recurringCharges[i] = charge;
+    saveDB('Charge récurrente enregistrée : ' + charge.label);
+    closeModal();
+    renderCompta();
+    if(typeof renderCalendarPlanning === 'function') renderCalendarPlanning();
+    recordAction('Charge récurrente enregistrée : ' + charge.label);
+    toast('Charge récurrente enregistrée');
+  };
+
+  renderDetailedPnlTable = function(flows){
+    var tbody = document.getElementById('pnl-detailed-body');
+    var tfoot = document.getElementById('pnl-detailed-foot');
+    if(!tbody || !tfoot) return;
+
+    var rows = (flows || []).slice().sort(function(a,b){ return (b.date || '').localeCompare(a.date || ''); });
+
+    var totalProducts = rows.filter(function(f){ return normalizeCashflowType(f.type)==='entrée'; }).reduce(function(s,f){ return s + (Number(f.amount) || 0); }, 0);
+    var totalCharges = rows.filter(function(f){ return normalizeCashflowType(f.type)==='sortie'; }).reduce(function(s,f){ return s + (Number(f.amount) || 0); }, 0);
+    var result = totalProducts - totalCharges;
+
+    tbody.innerHTML = rows.length ? rows.map(function(f){
+      var isEntry = normalizeCashflowType(f.type)==='entrée';
+      var badgeClass = isEntry ? 'badge-ok' : 'badge-warn';
+      var amountDisplay = (isEntry ? '' : '-') + fmt(Number(f.amount) || 0);
+
+      var deleteBtn = '', editBtn = '';
+      if ((DB.cashflows || []).some(function(x){ return String(x.id) === String(f.id); })) {
+        var manualIndex = (DB.cashflows || []).findIndex(function(x){ return String(x.id) === String(f.id); });
+        if (manualIndex > -1) {
+          editBtn = '<button class="btn-icon" onclick="editCashflow(' + manualIndex + ')" title="Modifier">✏️</button>';
+          deleteBtn = '<button class="btn-icon" onclick="deleteCashflow(' + manualIndex + ')" title="Supprimer">🗑</button>';
+        }
+      }
+      var pm = f.paiement || 'Non renseigné';
+      var pmBadge = '<span class="tag">'+(PM_EMOJI[pm]||'')+' '+escapeHtml(pm)+'</span>';
+
+      return '' +
+        '<tr>' +
+          '<td class="mono">' + formatDate(f.date || '') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + cashflowNatureLabel(f.type) + '</span></td>' +
+          '<td>' + escapeHtml(cashflowOriginLabel(f)) + '</td>' +
+          '<td>' + escapeHtml(f.category || '') + '</td>' +
+          '<td>' + escapeHtml(f.label || '') + '</td>' +
+          '<td>' + pmBadge + '</td>' +
+          '<td class="r mono">' + amountDisplay + '</td>' +
+          '<td><div style="display:flex;gap:4px;">' + editBtn + deleteBtn + '</div></td>' +
+        '</tr>';
+    }).join('') : '<tr><td colspan="8" class="empty-state">Aucune ligne comptable</td></tr>';
+
+    tfoot.innerHTML =
+      '<tr><th colspan="6" class="r">Total produits</th><th class="r mono">' + fmt(totalProducts) + '</th><th></th></tr>' +
+      '<tr><th colspan="6" class="r">Total charges</th><th class="r mono">-' + fmt(totalCharges) + '</th><th></th></tr>' +
+      '<tr><th colspan="6" class="r">Résultat net</th><th class="r mono">' + fmt(result) + '</th><th></th></tr>';
+  };
+
+  var pnlCategorySet = new Set();
+  var pnlPaymentSet = new Set();
+  var compareChannelSet = new Set();
+
+  function getPnlBaseFilters(){
+    return {
+      nature:   (document.getElementById('pnl-filter-nature')    || {}).value || '',
+      dateFrom: (document.getElementById('pnl-filter-date-from') || {}).value || '',
+      dateTo:   (document.getElementById('pnl-filter-date-to')   || {}).value || ''
+    };
+  }
+
+  function filterPnlFlowsV2(flows){
+    var f = getPnlBaseFilters();
+    return (flows||[]).filter(function(row){
+      if(f.nature && normalizeCashflowType(row.type) !== f.nature) return false;
+      if(f.dateFrom && (row.date||'') < f.dateFrom) return false;
+      if(f.dateTo && (row.date||'') > f.dateTo) return false;
+      if(!msdMatches(pnlCategorySet, row.category||'')) return false;
+      if(!msdMatches(pnlPaymentSet, row.paiement||'Non renseigné')) return false;
+      return true;
+    });
+  }
+
+  function renderPaymentMethodDashboardV2(){
+    var host = document.getElementById('pnl-payment-dashboard');
+    if(!host) return;
+    var f = getPnlBaseFilters();
+    var methods = ['Espèces','Carte','Virement','Internet','Autre'];
+    var totals = {}, counts = {};
+    methods.forEach(function(m){ totals[m] = 0; counts[m] = 0; });
+    (DB.ventes || []).forEach(function(v){
+      if(f.dateFrom && (v.date||'') < f.dateFrom) return;
+      if(f.dateTo && (v.date||'') > f.dateTo) return;
+      var pm = v.paiement || (v.canal === 'Shopify' ? 'Internet' : 'Espèces');
+      if(methods.indexOf(pm) === -1) pm = 'Autre';
+      totals[pm] += (v.pv||0) * (v.qte||1);
+      counts[pm] += (v.qte||1);
+    });
+    var grandTotal = methods.reduce(function(s,m){ return s + totals[m]; }, 0);
+    host.innerHTML = methods.map(function(m){
+      var pct = grandTotal > 0 ? Math.round(totals[m] / grandTotal * 100) : 0;
+      return '<div class="kpi"><div class="kpi-label">'+(PM_EMOJI[m]||'')+' '+m+'</div>'+
+        '<div class="kpi-value">'+fmt(totals[m])+'</div>'+
+        '<div class="kpi-sub">'+counts[m]+' article(s) · '+pct+'%</div></div>';
+    }).join('') +
+    '<div class="kpi kpi-accent"><div class="kpi-label">Total encaissé (ventes)</div>'+
+      '<div class="kpi-value">'+fmt(grandTotal)+'</div></div>';
+  }
+  window.renderPaymentMethodDashboard = renderPaymentMethodDashboardV2;
+
+  window.renderDetailedPnlFiltered = function(){
+    var flows = allCashflows();
+
+    var catItems = Array.from(new Set(flows.map(function(f){ return f.category||''; }).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b,'fr'); });
+    var payItems = Array.from(new Set(flows.map(function(f){ return f.paiement||'Non renseigné'; }).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b,'fr'); });
+
+    renderMultiCheckboxes('pnl-category-dropdown', 'pnl-category-toggle', catItems, pnlCategorySet, 'les catégories', window.renderDetailedPnlFiltered);
+    renderMultiCheckboxes('pnl-payment-dropdown', 'pnl-payment-toggle', payItems, pnlPaymentSet, 'les moyens', window.renderDetailedPnlFiltered);
+
+    renderDetailedPnlTable(filterPnlFlowsV2(flows));
+    renderPaymentMethodDashboardV2();
+  };
+
+  window.resetPnlFilters = function(){
+    ['pnl-filter-nature','pnl-filter-date-from','pnl-filter-date-to'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.value = '';
+    });
+    pnlCategorySet.clear();
+    pnlPaymentSet.clear();
+    window.renderDetailedPnlFiltered();
+  };
+
+  var MONTH_NAMES_FR = ['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
+
+  function periodKeyFor(dateStr, granularity){
+    if(!dateStr) return null;
+    if(granularity === 'day') return dateStr;
+    if(granularity === 'month') return dateStr.slice(0,7);
+    var d = new Date(dateStr+'T00:00:00');
+    if(isNaN(d.getTime())) return null;
+    var target = new Date(d.valueOf());
+    var dayNr = (d.getDay()+6)%7;
+    target.setDate(target.getDate()-dayNr+3);
+    var firstThursday = new Date(target.getFullYear(),0,4);
+    var diff = target - firstThursday;
+    var week = 1 + Math.round(diff/(7*24*3600*1000));
+    return target.getFullYear()+'-S'+(week<10?'0':'')+week;
+  }
+  function formatPeriodLabel(key, granularity){
+    if(!key) return '';
+    if(granularity === 'month'){
+      var parts = key.split('-'); var y=parts[0], m=parseInt(parts[1],10)-1;
+      return (MONTH_NAMES_FR[m]||'') + ' ' + y;
+    }
+    if(granularity === 'week') return key.replace('-S',' · Sem. ');
+    return formatDate(key);
+  }
+
+  window.populateCompareYearOptions = function(){
+    var sel = document.getElementById('compare-year');
+    if(!sel) return;
+    var flows = allCashflows();
+    var years = {};
+    flows.forEach(function(f){ var y=(f.date||'').slice(0,4); if(y) years[y]=true; });
+    years[String(new Date().getFullYear())] = true;
+    var list = Object.keys(years).sort().reverse();
+    var current = sel.value;
+    sel.innerHTML = list.map(function(y){ return '<option value="'+y+'">'+y+'</option>'; }).join('');
+    sel.value = list.indexOf(current) > -1 ? current : list[0];
+  };
+
+  window.renderComptaComparisons = function(){
+    var granEl = document.getElementById('compare-granularity');
+    var yearEl = document.getElementById('compare-year');
+    if(!granEl || !yearEl || !yearEl.value) return;
+    var granularity = granEl.value || 'month';
+    var year = yearEl.value;
+    var flows = allCashflows().filter(function(f){ return (f.date||'').slice(0,4) === year; });
+
+    var buckets = {};
+    flows.forEach(function(f){
+      var key = periodKeyFor(f.date, granularity);
+      if(!key) return;
+      if(!buckets[key]) buckets[key] = {entree:0, sortie:0};
+      if(normalizeCashflowType(f.type)==='entrée') buckets[key].entree += (f.amount||0);
+      else buckets[key].sortie += (f.amount||0);
+    });
+    var keys = Object.keys(buckets).sort();
+    var labels = keys.map(function(k){ return formatPeriodLabel(k, granularity); });
+    var entreeData = keys.map(function(k){ return Math.round(buckets[k].entree*100)/100; });
+    var sortieData = keys.map(function(k){ return Math.round(buckets[k].sortie*100)/100; });
+
+    var flowEl = document.getElementById('compare-flow-chart');
+    if(flowEl && window.Chart){
+      if(flowEl._c){ try{ flowEl._c.destroy(); }catch(e){} }
+      flowEl._c = new Chart(flowEl, {
+        type:'bar',
+        data:{ labels:labels, datasets:[
+          {label:'Entrées', data:entreeData, backgroundColor:'rgba(34,197,94,0.75)'},
+          {label:'Charges', data:sortieData, backgroundColor:'rgba(239,68,68,0.75)'}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}}}
+      });
+    }
+
+    var allChannels = getAvailableSaleChannels().slice();
+    if(allChannels.indexOf('Marché')===-1) allChannels.push('Marché');
+    renderMultiCheckboxes('compare-channel-dropdown', 'compare-channel-toggle', allChannels, compareChannelSet, 'les canaux', window.renderComptaComparisons);
+    var activeChannels = allChannels.filter(function(c){ return msdMatches(compareChannelSet, c); });
+
+    var chBuckets = {};
+    flows.forEach(function(f){
+      if(normalizeCashflowType(f.type)!=='entrée') return;
+      if(f.category!=='Vente' && f.category!=='Marché') return;
+      var canal = f.canal || 'Autre';
+      if(activeChannels.indexOf(canal)===-1) return;
+      var key = periodKeyFor(f.date, granularity);
+      if(!key) return;
+      if(!chBuckets[key]) chBuckets[key] = {};
+      chBuckets[key][canal] = (chBuckets[key][canal]||0) + (f.amount||0);
+    });
+    var chKeys = Object.keys(chBuckets).sort();
+    var chLabels = chKeys.map(function(k){ return formatPeriodLabel(k, granularity); });
+    var palette = ['#C7A57A','#8A5A34','#22C55E','#3B82F6','#EF4444','#A855F7','#F59E0B','#14B8A6'];
+    var datasets = activeChannels.map(function(ch, i){
+      return {
+        label: ch,
+        data: chKeys.map(function(k){ return Math.round(((chBuckets[k] && chBuckets[k][ch]) || 0)*100)/100; }),
+        backgroundColor: palette[i % palette.length]
+      };
+    });
+
+    var chEl = document.getElementById('compare-channel-chart');
+    if(chEl && window.Chart){
+      if(chEl._c){ try{ chEl._c.destroy(); }catch(e){} }
+      chEl._c = new Chart(chEl, {
+        type:'bar',
+        data:{ labels: chLabels, datasets: datasets },
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}}, scales:{x:{stacked:true},y:{stacked:true}}}
+      });
+    }
+  };
+
+  var __v5_prev_renderCompta = renderCompta;
+  renderCompta = function(){
+    __v5_prev_renderCompta();
+    window.populateCompareYearOptions();
+    window.renderComptaComparisons();
+  };
+})();
+</script>
+
 </body>
 </html>
