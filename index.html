@@ -372,6 +372,35 @@ body.dark .sidebar-footer{color:rgba(255,255,255,0.4);}
 .switch-slider:before{content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s;}
 .switch input:checked + .switch-slider{background:var(--gold);}
 .switch input:checked + .switch-slider:before{transform:translateX(20px);}
+/* ── Mode Démo : floute les données réelles sans casser la structure ── */
+body.demo-mode .kpi-value,
+body.demo-mode .kpi-sub,
+body.demo-mode .metric-box .value,
+body.demo-mode .metric-box .inline-stat,
+body.demo-mode .inline-stat,
+body.demo-mode .table-wrap table tbody td,
+body.demo-mode .reco-item,
+body.demo-mode .client-card,
+body.demo-mode .role-chip,
+body.demo-mode canvas,
+body.demo-mode .alert-pill,
+body.demo-mode .badge,
+body.demo-mode .badge-nav,
+body.demo-mode #ch-perf-summary,
+body.demo-mode #dashboard-year-note,
+body.demo-mode input[readonly],
+body.demo-mode textarea[readonly] {
+  filter: blur(6px);
+  transition: filter .15s;
+  user-select: none;
+}
+body.demo-mode .table-wrap table tbody td:hover,
+body.demo-mode .kpi:hover .kpi-value,
+body.demo-mode .metric-box:hover .value {
+  filter: blur(0);
+}
+.demo-mode-banner{display:none;align-items:center;gap:6px;background:rgba(220,38,38,0.12);color:#DC2626;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:700;letter-spacing:.03em;margin-top:8px;text-align:center;justify-content:center;}
+body.demo-mode .demo-mode-banner{display:flex;}
 .kanban-board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
 .kanban-col{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:10px;min-height:280px;}
 .kanban-col h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;}
@@ -1853,6 +1882,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <span style="font-size:12px;color:rgba(255,255,255,0.75);">Mode sombre</span>
       <label class="switch"><input type="checkbox" id="theme-toggle" onchange="toggleTheme()"><span class="switch-slider"></span></label>
     </div>
+    <div class="toggle-row" style="margin-top:8px;">
+      <span style="font-size:12px;color:rgba(255,255,255,0.75);" title="Floute toutes les données réelles pour montrer le site sans rien dévoiler">🎭 Mode Démo</span>
+      <label class="switch"><input type="checkbox" id="demo-mode-toggle" onchange="toggleDemoMode()"><span class="switch-slider"></span></label>
+    </div>
+    <div class="demo-mode-banner">🎭 MODE DÉMO — données masquées</div>
   </div>
   <div class="sidebar-footer">Meridies Brand © 2026<br>Données stockées localement</div>
 </div>
@@ -6652,6 +6686,31 @@ function toggleTheme(){
   applyTheme(chk && chk.checked ? 'dark' : 'light');
   saveDB();
 }
+// ── Mode Démo : floute toutes les données réelles (structure du site visible, rien de sensible) ──
+// Volontairement stocké en dehors de DB (localStorage seul) pour ne jamais être synchronisé/exporté.
+function applyDemoMode(active){
+  document.body.classList.toggle('demo-mode', !!active);
+  var chk = document.getElementById('demo-mode-toggle');
+  if(chk) chk.checked = !!active;
+}
+function toggleDemoMode(){
+  var chk = document.getElementById('demo-mode-toggle');
+  var active = !!(chk && chk.checked);
+  applyDemoMode(active);
+  try{ localStorage.setItem('meridies_demo_mode', active ? '1' : '0'); }catch(e){}
+}
+(function initDemoModeFromStorage(){
+  function restore(){
+    var saved = '0';
+    try{ saved = localStorage.getItem('meridies_demo_mode') || '0'; }catch(e){}
+    applyDemoMode(saved === '1');
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', restore);
+  } else {
+    restore();
+  }
+})();
 function exportExcelWorkbook(){
   function sheetTable(headers, rows){
     return '<table border="1"><tr>' + headers.map(function(h){return '<th>'+escapeHtml(h)+'</th>';}).join('') + '</tr>' +
