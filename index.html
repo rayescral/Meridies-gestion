@@ -1902,7 +1902,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">Top designs par CA</span></div>
+      <div class="card-header"><span class="card-title">🔁 Nouveaux vs clients fidèles</span></div>
       <div id="ch2-wrap" style="position:relative;height:200px;">
         <div id="ch2-overlay" onclick="loadChart('ch2')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
         <canvas id="ch2" style="display:none;"></canvas>
@@ -1934,7 +1934,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
         <button class="btn btn-secondary btn-xs" id="top-art-btn-qte" onclick="renderTopArticles('qte')">Trier par Qté</button>
       </div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Article</th><th class="c">Taille</th><th class="r">Qté</th><th class="r">CA</th><th class="r">Marge</th><th class="r">Marge %</th><th style="min-width:120px;">Part du CA</th></tr></thead><tbody id="top-articles-body"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Référence</th><th>Article</th><th class="r">Qté</th><th class="r">CA</th><th class="r">Marge</th><th class="r">Marge %</th><th style="min-width:120px;">Part du CA</th></tr></thead><tbody id="top-articles-body"></tbody></table></div>
   </div>
 
   <div class="card" style="margin-bottom:16px;">
@@ -1961,11 +1961,11 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
 
   <div class="card" style="margin-bottom:16px;">
     <div class="card-header">
-      <span class="card-title">🎯 Performance produits — quantité vs marge</span>
+      <span class="card-title">💸 Remises accordées par canal</span>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Chaque bulle = un article. Plus à droite = vendu en volume · plus haut = marge élevée · grosse bulle = fort CA généré.</div>
-    <div id="ch-perf-wrap" style="position:relative;height:320px;">
-      <div id="ch-perf-overlay" onclick="loadChart('ch-perf')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">🎯</span>Cliquer pour afficher</div>
+    <div id="ch-perf-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px;"></div>
+    <div id="ch-perf-wrap" style="position:relative;height:260px;">
+      <div id="ch-perf-overlay" onclick="loadChart('ch-perf')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">💸</span>Cliquer pour afficher</div>
       <canvas id="ch-perf" style="display:none;"></canvas>
     </div>
   </div>
@@ -3895,6 +3895,42 @@ function paForCode(code, ref, paMap){
   return 0;
 }
 
+// Nettoie une désignation qui contiendrait parfois la taille collée dans le texte
+// (ex: import Shopify) : "Article Blanc / Rose - M" -> "Article Blanc / Rose"
+function stripSizeSuffix(text){
+  if(!text) return text;
+  return String(text).replace(/\s*[-–—]\s*(XXL|XL|XS|S|M|L|U)\s*$/i, '').trim();
+}
+// Retire le suffixe taille d'un code article pour retomber sur la référence
+// (ex: "LC-BLC-D06-RSE-008-M" -> "LC-BLC-D06-RSE-008")
+function stripSizeFromCode(code){
+  if(!code) return code;
+  return String(code).replace(/-(XXL|XL|XS|S|M|L|U)$/i, '');
+}
+
+// ── Helper prix catalogue (détection des remises) ──────────────
+function getCatalogPvMap(){
+  var m = {};
+  (DB.catalogue||[]).forEach(function(p){ if(p.code && m[p.code]===undefined) m[p.code] = p.pv||0; });
+  return m;
+}
+function pvForCode(code, ref, pvMap){
+  pvMap = pvMap || getCatalogPvMap();
+  if(code && pvMap[code]!==undefined) return pvMap[code];
+  if(ref){
+    var match = (DB.catalogue||[]).find(function(p){ return p.ref===ref; });
+    if(match) return match.pv||0;
+  }
+  return 0;
+}
+// Montant de remise réel sur une ligne de vente (0 si pas de remise détectable)
+function remiseAmountForLine(v, pvMap){
+  var refPv = (v.pvCatalogue!=null && v.pvCatalogue>0) ? v.pvCatalogue : pvForCode(v.code, v.ref, pvMap);
+  var pv = v.pv||0;
+  if(!refPv || refPv<=pv) return 0;
+  return (refPv - pv) * (v.qte||1);
+}
+
 // ── Comparatif mensuel (CA / marge / qté / panier moyen) ──────
 function renderMonthCompareStrip(){
   var el = document.getElementById('dash-month-compare');
@@ -3951,11 +3987,14 @@ function renderTopArticles(sortBy){
   ventes = ventes.filter(function(v){ return !v.don; });
   var paMap = getCatalogPaMap();
 
+  // Regroupement par article (référence produit), toutes tailles confondues
   var agg = {};
   ventes.forEach(function(v){
-    var key = v.code || (v.ref ? v.ref+'|'+(v.taille||'') : null) || v.designation || 'Article';
+    var ref = v.ref || stripSizeFromCode(v.code) || null;
+    var key = ref || stripSizeSuffix(v.designation) || v.designation || v.code || 'Article';
+    var cleanDesignation = stripSizeSuffix(v.designation || v.design || 'Article');
     if(!agg[key]){
-      agg[key] = { code:v.code||'—', designation:v.designation||v.design||'Article', taille:v.taille||'—', qte:0, ca:0, pa:0 };
+      agg[key] = { ref: ref || key, designation: cleanDesignation, qte:0, ca:0, pa:0 };
     }
     var pa = paForCode(v.code, v.ref, paMap);
     agg[key].qte += (v.qte||1);
@@ -3969,7 +4008,7 @@ function renderTopArticles(sortBy){
   rows = rows.slice(0,15);
 
   if(!rows.length){
-    body.innerHTML = '<tr><td colspan="9" class="empty-state">Aucune vente enregistrée pour l\'instant</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="empty-state">Aucune vente enregistrée pour l\'instant</td></tr>';
     return;
   }
 
@@ -3982,9 +4021,8 @@ function renderTopArticles(sortBy){
     var barPct = maxVal>0 ? Math.round((sortBy==='qte'?r.qte:r.ca)/maxVal*100) : 0;
     return '<tr>'+
       '<td class="mono" style="color:var(--muted);">'+(i+1)+'</td>'+
-      '<td class="mono" style="font-size:11px;">'+escapeHtml(r.code)+'</td>'+
+      '<td class="mono" style="font-size:11px;">'+escapeHtml(r.ref)+'</td>'+
       '<td style="font-weight:600;">'+escapeHtml(r.designation)+'</td>'+
-      '<td class="c">'+escapeHtml(r.taille)+'</td>'+
       '<td class="r mono">'+r.qte+'</td>'+
       '<td class="r mono" style="font-weight:700;">'+fmt(r.ca)+'</td>'+
       '<td class="r mono" style="color:'+(marge>=0?'var(--success)':'var(--danger)')+';">'+fmt(marge)+'</td>'+
@@ -4062,11 +4100,34 @@ function loadChart(id) {
         tooltip:{callbacks:{label:function(ctx){ var v=ctx.parsed; var pct=csTotal>0?Math.round(v/csTotal*100):0; return ' '+ctx.label+' : '+fmt(v)+' ('+pct+'%)'; }}}}
     });
   } else if(id==='ch2'){
-    var ds={};ventesReal.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]={ca:0,qte:0};ds[k].ca+=(v.pv||0)*(v.qte||1);ds[k].qte+=(v.qte||1);});
-    var da=Object.entries(ds).sort(function(a,b){return b[1].ca-a[1].ca;}).slice(0,8);
-    mkC('bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1].ca;}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:function(ctx){ var d=da[ctx.dataIndex][1]; return ' '+fmt(d.ca)+' · '+d.qte+' pièce(s)'; }}}},
-      scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:function(v){return v+'€';}}},y:{grid:{display:false}}}});
+    // Regrouper les lignes en transactions (une vente peut avoir plusieurs lignes)
+    var tx={};
+    ventesReal.forEach(function(v,idx){
+      var k=v.venteId||('legacy_'+(v.id||idx));
+      if(!tx[k]) tx[k]={ date:v.date||'', email:(v.email||'').trim().toLowerCase(), ca:0 };
+      tx[k].ca += (v.pv||0)*(v.qte||1);
+      if(v.date && (!tx[k].date || v.date < tx[k].date)) tx[k].date = v.date;
+    });
+    var byEmail={};
+    var sansEmail=0;
+    Object.values(tx).forEach(function(t){
+      if(!t.email){ sansEmail += t.ca; return; }
+      if(!byEmail[t.email]) byEmail[t.email]=[];
+      byEmail[t.email].push(t);
+    });
+    var nouveaux=0, fideles=0;
+    Object.keys(byEmail).forEach(function(email){
+      var list=byEmail[email].sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+      list.forEach(function(t,i){ if(i===0) nouveaux+=t.ca; else fideles+=t.ca; });
+    });
+    var segLabels=['Nouveaux clients','Clients fidèles','Ventes sans email'];
+    var segData=[nouveaux,fideles,sansEmail];
+    var segColors=['#2563EB','#059669','#94A3B8'];
+    var segTotal = nouveaux+fideles+sansEmail;
+    mkC('doughnut',segLabels,segData,segColors,{
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},padding:6}},
+        tooltip:{callbacks:{label:function(ctx){ var v=ctx.parsed; var pct=segTotal>0?Math.round(v/segTotal*100):0; return ' '+ctx.label+' : '+fmt(v)+' ('+pct+'%)'; }}}}
+    });
   } else if(id==='ch3'){
     var joursLabels=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
     var jd=[0,0,0,0,0,0,0];
@@ -4098,44 +4159,32 @@ function loadChart(id) {
         tooltip:{callbacks:{label:function(ctx){ var v=ctx.parsed; var pct=pmTotal>0?Math.round(v/pmTotal*100):0; return ' '+ctx.label+' : '+fmt(v)+' ('+pct+'%)'; }}}}
     });
   } else if(id==='ch-perf'){
-    var paMap = (typeof getCatalogPaMap==='function') ? getCatalogPaMap() : {};
-    var perf={};
+    var pvMap = getCatalogPvMap();
+    var remByCanal={};
+    var totalRemise=0, nbLignesRemise=0, nbLignesTotal=0;
     ventesReal.forEach(function(v){
-      var key = v.code || (v.ref?v.ref+'|'+(v.taille||''):null) || v.designation || 'Article';
-      if(!perf[key]) perf[key]={label:(v.designation||v.design||key)+(v.taille?' ('+v.taille+')':''),qte:0,ca:0,pa:0};
-      var pa = (typeof paForCode==='function') ? paForCode(v.code, v.ref, paMap) : 0;
-      perf[key].qte += (v.qte||1);
-      perf[key].ca += (v.pv||0)*(v.qte||1);
-      perf[key].pa += pa*(v.qte||1);
+      nbLignesTotal++;
+      var rem = remiseAmountForLine(v, pvMap);
+      if(rem>0){
+        totalRemise+=rem; nbLignesRemise++;
+        var k=v.canal||'Autre';
+        if(!remByCanal[k]) remByCanal[k]=0;
+        remByCanal[k]+=rem;
+      }
     });
-    var pts = Object.values(perf).filter(function(p){ return p.qte>0; }).map(function(p){
-      var margePct = p.ca>0 ? Math.round((1-p.pa/p.ca)*100) : 0;
-      return { x:p.qte, y:margePct, r:Math.max(5,Math.min(38,Math.sqrt(p.ca)*1.6)), label:p.label, ca:p.ca, qte:p.qte, margePct:margePct };
-    });
-    if(!pts.length){
-      el.style.display='none';
-      var msg=document.createElement('div');msg.className='empty-state';msg.style='padding-top:50px;font-size:12px;';msg.textContent='Enregistrez des ventes pour voir ce graphique';
-      el.parentNode.appendChild(msg);
-    } else {
-      if(el._c){try{el._c.destroy();}catch(e){}}
-      el._c = new Chart(el, {
-        type:'bubble',
-        data:{ datasets:[{ data:pts, backgroundColor:'rgba(201,168,76,0.55)', borderColor:'#C9A84C', borderWidth:1 }] },
-        options:{
-          responsive:true, maintainAspectRatio:false,
-          plugins:{ legend:{display:false},
-            tooltip:{ callbacks:{ label:function(ctx){
-              var p=ctx.raw;
-              return [p.label, 'Qté : '+p.qte, 'Marge : '+p.margePct+'%', 'CA : '+fmt(p.ca)];
-            }}}
-          },
-          scales:{
-            x:{ title:{display:true,text:'Quantité vendue',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'}, beginAtZero:true },
-            y:{ title:{display:true,text:'Marge (%)',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} }
-          }
-        }
-      });
+    var summaryEl = document.getElementById('ch-perf-summary');
+    if(summaryEl){
+      var pctLignes = nbLignesTotal>0 ? Math.round(nbLignesRemise/nbLignesTotal*100) : 0;
+      summaryEl.innerHTML = totalRemise>0
+        ? 'Total remises accordées : <strong>'+fmt(totalRemise)+'</strong> · '+nbLignesRemise+' ligne(s) sur '+nbLignesTotal+' ('+pctLignes+'%)'
+        : 'Aucune remise détectée sur la période.';
     }
+    var rc = Object.entries(remByCanal).sort(function(a,b){ return b[1]-a[1]; });
+    mkC('bar',rc.map(function(d){return d[0];}),rc.map(function(d){return d[1];}),['#DC2626'],{
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){ return ' '+fmt(ctx.parsed.y); }}}},
+      scales:{y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:function(v){return v+'€';}}},x:{grid:{display:false}}}
+    });
   }
 }
 
