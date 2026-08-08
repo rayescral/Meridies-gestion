@@ -1891,7 +1891,9 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
     <div id="dash-alerts-content"></div>
   </div>
 
-  <div class="grid2" style="margin-bottom:16px;">
+  <div class="metric-row" id="dash-month-compare" style="margin-bottom:16px;"></div>
+
+<div class="grid2" style="margin-bottom:16px;">
     <div class="card">
       <div class="card-header"><span class="card-title">CA par canal</span></div>
       <div id="ch1-wrap" style="position:relative;height:200px;">
@@ -1900,7 +1902,7 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">Top designs</span></div>
+      <div class="card-header"><span class="card-title">Top designs par CA</span></div>
       <div id="ch2-wrap" style="position:relative;height:200px;">
         <div id="ch2-overlay" onclick="loadChart('ch2')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
         <canvas id="ch2" style="display:none;"></canvas>
@@ -1909,9 +1911,9 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
   </div>
   <div class="grid2" style="margin-bottom:16px;">
     <div class="card">
-      <div class="card-header"><span class="card-title">Etat des stocks</span></div>
+      <div class="card-header"><span class="card-title">Ventes par jour de semaine</span></div>
       <div id="ch3-wrap" style="position:relative;height:200px;">
-        <div id="ch3-overlay" onclick="loadChart('ch3')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📊</span>Cliquer pour afficher</div>
+        <div id="ch3-overlay" onclick="loadChart('ch3')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">📅</span>Cliquer pour afficher</div>
         <canvas id="ch3" style="display:none;"></canvas>
       </div>
     </div>
@@ -1923,11 +1925,25 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       </div>
     </div>
   </div>
-  <!-- Graphique journalier CA -->
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <span class="card-title">🏆 Top 15 des articles les plus vendus</span>
+      <div class="section-actions" style="display:flex;gap:6px;">
+        <button class="btn btn-secondary btn-xs" id="top-art-btn-ca" onclick="renderTopArticles('ca')">Trier par CA</button>
+        <button class="btn btn-secondary btn-xs" id="top-art-btn-qte" onclick="renderTopArticles('qte')">Trier par Qté</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Article</th><th class="c">Taille</th><th class="r">Qté</th><th class="r">CA</th><th class="r">Marge</th><th class="r">Marge %</th><th style="min-width:120px;">Part du CA</th></tr></thead><tbody id="top-articles-body"></tbody></table></div>
+  </div>
+
   <div class="card" style="margin-bottom:16px;">
     <div class="card-header">
       <span class="card-title">CA journalier</span>
-      <div style="display:flex;gap:8px;align-items:center;">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;font-weight:600;">
+          <input type="checkbox" id="daily-chart-compare" onchange="loadDailyChart()" style="width:14px;height:14px;accent-color:var(--gold);">Comparer à la période précédente
+        </label>
         <select id="daily-chart-period" class="select input-sm" style="width:130px;" onchange="loadDailyChart()">
           <option value="7">7 derniers jours</option>
           <option value="14">14 derniers jours</option>
@@ -1941,6 +1957,31 @@ body.dark .calendar-event{background:#241E19;border-color:rgba(255,255,255,0.04)
       <canvas id="ch5"></canvas>
     </div>
     <div id="ch5-empty" style="display:none;padding:40px;text-align:center;font-size:12px;color:var(--muted);">Aucune vente sur cette période</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <span class="card-title">🎯 Performance produits — quantité vs marge</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Chaque bulle = un article. Plus à droite = vendu en volume · plus haut = marge élevée · grosse bulle = fort CA généré.</div>
+    <div id="ch-perf-wrap" style="position:relative;height:320px;">
+      <div id="ch-perf-overlay" onclick="loadChart('ch-perf')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">🎯</span>Cliquer pour afficher</div>
+      <canvas id="ch-perf" style="display:none;"></canvas>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header"><span class="card-title">💳 Moyens de paiement</span></div>
+      <div id="ch-pay-wrap" style="position:relative;height:200px;">
+        <div id="ch-pay-overlay" onclick="loadChart('ch-pay')" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;transition:background .15s;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='var(--surface2)'"><span style="font-size:24px;">💳</span>Cliquer pour afficher</div>
+        <canvas id="ch-pay" style="display:none;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">👑 Meilleurs clients</span></div>
+      <div id="dash-top-clients"></div>
+    </div>
   </div>
 
   <div class="grid2">
@@ -3798,7 +3839,7 @@ function renderDashboard() {
   // Si les données ont changé, invalider les graphiques déjà affichés pour forcer un re-render au prochain clic
   if (_newChartHash !== window._dashChartHash) {
     window._dashChartHash = _newChartHash;
-    ['ch1','ch2','ch3','ch4'].forEach(function(id){
+    ['ch1','ch2','ch3','ch4','ch-perf','ch-pay'].forEach(function(id){
       var el = document.getElementById(id);
       if (el && el._c) { try{el._c.destroy();}catch(e){} el._c = null; }
       // Réafficher l'overlay si le graphique était déjà chargé
@@ -3830,9 +3871,166 @@ function renderDashboard() {
   (DB.stockVierge||[]).forEach(function(i){var tot=(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);if(tot<=(i.seuil||0))alerts.push('Vierge '+i.ref+' '+i.couleur+' sous seuil');});
   document.getElementById('dash-alerts').innerHTML = alerts.length? alerts.slice(0,8).map(function(a){return '<div class="reco-item">'+escapeHtml(a)+'</div>';}).join('') : '<div class="empty-state"><div class="icon">✅</div>Aucune alerte stock</div>';
 
+  // ── Analytique ventes avancée ────────────────────────────
+  if(typeof renderMonthCompareStrip === 'function') renderMonthCompareStrip();
+  if(typeof renderTopArticles === 'function') renderTopArticles(window.__topArtSort || 'ca');
+  if(typeof renderTopClients === 'function') renderTopClients();
+
 }
 
 // ── Chargement lazy des graphiques du dashboard ──────────────
+// ── Helpers coût de revient (partagés dashboard) ──────────────
+function getCatalogPaMap(){
+  var m = {};
+  (DB.catalogue||[]).forEach(function(p){ if(p.code && m[p.code]===undefined) m[p.code] = p.pa||0; });
+  return m;
+}
+function paForCode(code, ref, paMap){
+  paMap = paMap || getCatalogPaMap();
+  if(code && paMap[code]!==undefined) return paMap[code];
+  if(ref){
+    var match = (DB.catalogue||[]).find(function(p){ return p.ref===ref; });
+    if(match) return match.pa||0;
+  }
+  return 0;
+}
+
+// ── Comparatif mensuel (CA / marge / qté / panier moyen) ──────
+function renderMonthCompareStrip(){
+  var el = document.getElementById('dash-month-compare');
+  if(!el) return;
+  var ventes = (typeof getDashboardSales === 'function') ? getDashboardSales() : (DB.ventes || []);
+  ventes = ventes.filter(function(v){ return !v.don; });
+  var paMap = getCatalogPaMap();
+
+  var now = new Date();
+  var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  var prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var ymPrev = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0');
+
+  function statsFor(ym_){
+    var lines = ventes.filter(function(v){ return (v.date||'').substring(0,7) === ym_; });
+    var ca = lines.reduce(function(s,v){ return s+(v.pv||0)*(v.qte||1); }, 0);
+    var pa = lines.reduce(function(s,v){ return s+paForCode(v.code,v.ref,paMap)*(v.qte||1); }, 0);
+    var qte = lines.reduce(function(s,v){ return s+(v.qte||1); }, 0);
+    var tx = {};
+    lines.forEach(function(v,idx){ var k=v.venteId||('legacy_'+(v.id||idx)); tx[k]=true; });
+    var nbTx = Object.keys(tx).length;
+    return { ca:ca, marge:ca-pa, qte:qte, panier: nbTx ? ca/nbTx : 0, nbTx:nbTx };
+  }
+
+  var cur = statsFor(ym), prev = statsFor(ymPrev);
+  function pct(a,b){ if(!b) return null; return Math.round((a-b)/b*100); }
+  function trendHtml(d){
+    if(d===null) return '';
+    return '<div class="kpi-trend '+(d>=0?'up':'down')+'">'+(d>=0?'▲':'▼')+' '+Math.abs(d)+'% vs mois préc.</div>';
+  }
+
+  el.innerHTML =
+    '<div class="metric-box"><div class="label">CA ce mois</div><div class="value">'+fmt(cur.ca)+'</div>'+trendHtml(pct(cur.ca,prev.ca))+'</div>'+
+    '<div class="metric-box"><div class="label">Marge ce mois</div><div class="value">'+fmt(cur.marge)+'</div>'+trendHtml(pct(cur.marge,prev.marge))+'</div>'+
+    '<div class="metric-box"><div class="label">Pièces vendues</div><div class="value">'+fmtN(cur.qte)+'</div>'+trendHtml(pct(cur.qte,prev.qte))+'</div>'+
+    '<div class="metric-box"><div class="label">Panier moyen</div><div class="value">'+fmt(cur.panier)+'</div>'+trendHtml(pct(cur.panier,prev.panier))+'</div>';
+}
+
+// ── Top 15 articles (SKU réels, triable Qté / CA) ──────────────
+window.__topArtSort = window.__topArtSort || 'ca';
+function renderTopArticles(sortBy){
+  window.__topArtSort = sortBy = sortBy || window.__topArtSort || 'ca';
+  var body = document.getElementById('top-articles-body');
+  if(!body) return;
+
+  var btnCa = document.getElementById('top-art-btn-ca');
+  var btnQte = document.getElementById('top-art-btn-qte');
+  if(btnCa) btnCa.style.background = (sortBy==='ca') ? 'var(--gold)' : '';
+  if(btnCa) btnCa.style.color = (sortBy==='ca') ? '#fff' : '';
+  if(btnQte) btnQte.style.background = (sortBy==='qte') ? 'var(--gold)' : '';
+  if(btnQte) btnQte.style.color = (sortBy==='qte') ? '#fff' : '';
+
+  var ventes = (typeof getDashboardSales === 'function') ? getDashboardSales() : (DB.ventes || []);
+  ventes = ventes.filter(function(v){ return !v.don; });
+  var paMap = getCatalogPaMap();
+
+  var agg = {};
+  ventes.forEach(function(v){
+    var key = v.code || (v.ref ? v.ref+'|'+(v.taille||'') : null) || v.designation || 'Article';
+    if(!agg[key]){
+      agg[key] = { code:v.code||'—', designation:v.designation||v.design||'Article', taille:v.taille||'—', qte:0, ca:0, pa:0 };
+    }
+    var pa = paForCode(v.code, v.ref, paMap);
+    agg[key].qte += (v.qte||1);
+    agg[key].ca += (v.pv||0)*(v.qte||1);
+    agg[key].pa += pa*(v.qte||1);
+  });
+
+  var rows = Object.values(agg);
+  var totalCa = rows.reduce(function(s,r){ return s+r.ca; }, 0);
+  rows.sort(function(a,b){ return sortBy==='qte' ? (b.qte-a.qte) : (b.ca-a.ca); });
+  rows = rows.slice(0,15);
+
+  if(!rows.length){
+    body.innerHTML = '<tr><td colspan="9" class="empty-state">Aucune vente enregistrée pour l\'instant</td></tr>';
+    return;
+  }
+
+  var maxVal = Math.max.apply(null, rows.map(function(r){ return sortBy==='qte' ? r.qte : r.ca; }));
+
+  body.innerHTML = rows.map(function(r,i){
+    var marge = r.ca - r.pa;
+    var margePct = r.ca>0 ? Math.round(marge/r.ca*100) : 0;
+    var partCa = totalCa>0 ? Math.round(r.ca/totalCa*100) : 0;
+    var barPct = maxVal>0 ? Math.round((sortBy==='qte'?r.qte:r.ca)/maxVal*100) : 0;
+    return '<tr>'+
+      '<td class="mono" style="color:var(--muted);">'+(i+1)+'</td>'+
+      '<td class="mono" style="font-size:11px;">'+escapeHtml(r.code)+'</td>'+
+      '<td style="font-weight:600;">'+escapeHtml(r.designation)+'</td>'+
+      '<td class="c">'+escapeHtml(r.taille)+'</td>'+
+      '<td class="r mono">'+r.qte+'</td>'+
+      '<td class="r mono" style="font-weight:700;">'+fmt(r.ca)+'</td>'+
+      '<td class="r mono" style="color:'+(marge>=0?'var(--success)':'var(--danger)')+';">'+fmt(marge)+'</td>'+
+      '<td class="r mono">'+margePct+'%</td>'+
+      '<td><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;background:var(--surface2);border-radius:4px;height:8px;overflow:hidden;"><div style="width:'+barPct+'%;background:var(--gold);height:100%;"></div></div><span style="font-size:10px;color:var(--muted);min-width:28px;text-align:right;">'+partCa+'%</span></div></td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ── Top 5 meilleurs clients (basé sur email de commande) ───────
+function renderTopClients(){
+  var el = document.getElementById('dash-top-clients');
+  if(!el) return;
+  var ventes = (typeof getDashboardSales === 'function') ? getDashboardSales() : (DB.ventes || []);
+  ventes = ventes.filter(function(v){ return !v.don && v.email; });
+
+  var byEmail = {};
+  ventes.forEach(function(v,idx){
+    var key = String(v.email).trim().toLowerCase();
+    if(!key) return;
+    if(!byEmail[key]) byEmail[key] = { email:v.email, spent:0, orders:{}, lastDate:'' };
+    byEmail[key].spent += (v.pv||0)*(v.qte||1);
+    var txKey = v.venteId || ('legacy_'+(v.id||idx));
+    byEmail[key].orders[txKey] = true;
+    if((v.date||'') > byEmail[key].lastDate) byEmail[key].lastDate = v.date||'';
+  });
+
+  var list = Object.values(byEmail).map(function(c){
+    return { email:c.email, spent:c.spent, orders:Object.keys(c.orders).length, lastDate:c.lastDate };
+  }).sort(function(a,b){ return b.spent-a.spent; }).slice(0,5);
+
+  if(!list.length){
+    el.innerHTML = '<div class="empty-state"><div class="icon">👤</div>Pas encore assez de ventes avec email client</div>';
+    return;
+  }
+
+  var medals = ['🥇','🥈','🥉','4.','5.'];
+  el.innerHTML = '<div class="reco-list">' + list.map(function(c,i){
+    return '<div class="reco-item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">'+
+      '<div><span style="margin-right:6px;">'+medals[i]+'</span><strong>'+escapeHtml(c.email)+'</strong>'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+c.orders+' commande'+(c.orders>1?'s':'')+' · dernière le '+(c.lastDate?formatDate(c.lastDate):'—')+'</div></div>'+
+      '<div class="mono" style="font-weight:700;">'+fmt(c.spent)+'</div>'+
+    '</div>';
+  }).join('') + '</div>';
+}
+
 function loadChart(id) {
   var overlay = document.getElementById(id+'-overlay');
   var el = document.getElementById(id);
@@ -3854,22 +4052,90 @@ function loadChart(id) {
     el._c=new Chart(el,{type:type,data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderRadius:type==='bar'?6:0,borderWidth:type==='bar'?0:2,label:''}]},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='bar',position:'bottom',labels:{font:{size:10},padding:6}}}},extra||{})});
   }
 
+  var ventesReal = ventes.filter(function(v){ return !v.don; });
+
   if(id==='ch1'){
-    var cs={};ventes.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
-    mkC('doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length));
+    var cs={};ventesReal.forEach(function(v){var k=v.canal||'Autre';if(!cs[k])cs[k]=0;cs[k]+=(v.pv||0)*(v.qte||1);});
+    var csTotal = Object.values(cs).reduce(function(s,v){return s+v;},0);
+    mkC('doughnut',Object.keys(cs),Object.values(cs),C.slice(0,Object.keys(cs).length),{
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},padding:6}},
+        tooltip:{callbacks:{label:function(ctx){ var v=ctx.parsed; var pct=csTotal>0?Math.round(v/csTotal*100):0; return ' '+ctx.label+' : '+fmt(v)+' ('+pct+'%)'; }}}}
+    });
   } else if(id==='ch2'){
-    var ds={};ventes.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]=0;ds[k]+=(v.qte||1);});
-    var da=Object.entries(ds).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-    mkC('bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1];}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}});
+    var ds={};ventesReal.forEach(function(v){var k=v.design||'Autre';if(!ds[k])ds[k]={ca:0,qte:0};ds[k].ca+=(v.pv||0)*(v.qte||1);ds[k].qte+=(v.qte||1);});
+    var da=Object.entries(ds).sort(function(a,b){return b[1].ca-a[1].ca;}).slice(0,8);
+    mkC('bar',da.map(function(d){return d[0];}),da.map(function(d){return d[1].ca;}),['#C9A84C'],{indexAxis:'y',plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:function(ctx){ var d=da[ctx.dataIndex][1]; return ' '+fmt(d.ca)+' · '+d.qte+' pièce(s)'; }}}},
+      scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:function(v){return v+'€';}}},y:{grid:{display:false}}}});
   } else if(id==='ch3'){
-    var sf=(DB.stockFini||[]).reduce(function(s,i){return s+(i.stock||0);},0);
-    var dt=(DB.stockDTF||[]).reduce(function(s,i){return s+(i.stock||0);},0);
-    var vt=(DB.stockVierge||[]).reduce(function(s,i){return s+(i.xs||0)+(i.s||0)+(i.m||0)+(i.l||0)+(i.xl||0)+(i.xxl||0);},0);
-    mkC('bar',['Produits finis','Vierges','Designs'],[sf,vt,dt],['#059669','#2563EB','#C9A84C'],{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}});
+    var joursLabels=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+    var jd=[0,0,0,0,0,0,0];
+    ventesReal.forEach(function(v){
+      if(!v.date) return;
+      var d=new Date(v.date+'T12:00:00');
+      if(isNaN(d.getTime())) return;
+      var idx=(d.getDay()+6)%7;
+      jd[idx]+=(v.pv||0)*(v.qte||1);
+    });
+    mkC('bar',joursLabels,jd,['#7C3AED'],{plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:function(ctx){ return ' '+fmt(ctx.parsed.y||ctx.parsed); }}}},
+      scales:{y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:function(v){return v+'€';}}},x:{grid:{display:false}}}});
   } else if(id==='ch4'){
-    var ts={};ventes.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
+    var ts={};ventesReal.forEach(function(v){var k=v.taille||'?';if(!ts[k])ts[k]=0;ts[k]+=(v.qte||1);});
     var ta=['XS','S','M','L','XL','XXL','U'].filter(function(t){return ts[t];});
-    mkC('pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length));
+    var taTotal = ta.reduce(function(s,t){return s+ts[t];},0);
+    mkC('pie',ta,ta.map(function(t){return ts[t];}),C.slice(0,ta.length),{
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},padding:6}},
+        tooltip:{callbacks:{label:function(ctx){ var v=ctx.parsed; var pct=taTotal>0?Math.round(v/taTotal*100):0; return ' '+ctx.label+' : '+v+' pièce(s) ('+pct+'%)'; }}}}
+    });
+  } else if(id==='ch-pay'){
+    var pm={};ventesReal.forEach(function(v){var k=v.paiement||'Non renseigné';if(!pm[k])pm[k]=0;pm[k]+=(v.pv||0)*(v.qte||1);});
+    var pmTotal = Object.values(pm).reduce(function(s,v){return s+v;},0);
+    var PMC={'Espèces':'#059669','Carte':'#2563EB','Virement':'#C9A84C','Internet':'#7C3AED','Autre':'#EA580C','Non renseigné':'#94A3B8'};
+    var pmKeys = Object.keys(pm);
+    mkC('doughnut',pmKeys,pmKeys.map(function(k){return pm[k];}),pmKeys.map(function(k){return PMC[k]||'#94A3B8';}),{
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},padding:6}},
+        tooltip:{callbacks:{label:function(ctx){ var v=ctx.parsed; var pct=pmTotal>0?Math.round(v/pmTotal*100):0; return ' '+ctx.label+' : '+fmt(v)+' ('+pct+'%)'; }}}}
+    });
+  } else if(id==='ch-perf'){
+    var paMap = (typeof getCatalogPaMap==='function') ? getCatalogPaMap() : {};
+    var perf={};
+    ventesReal.forEach(function(v){
+      var key = v.code || (v.ref?v.ref+'|'+(v.taille||''):null) || v.designation || 'Article';
+      if(!perf[key]) perf[key]={label:(v.designation||v.design||key)+(v.taille?' ('+v.taille+')':''),qte:0,ca:0,pa:0};
+      var pa = (typeof paForCode==='function') ? paForCode(v.code, v.ref, paMap) : 0;
+      perf[key].qte += (v.qte||1);
+      perf[key].ca += (v.pv||0)*(v.qte||1);
+      perf[key].pa += pa*(v.qte||1);
+    });
+    var pts = Object.values(perf).filter(function(p){ return p.qte>0; }).map(function(p){
+      var margePct = p.ca>0 ? Math.round((1-p.pa/p.ca)*100) : 0;
+      return { x:p.qte, y:margePct, r:Math.max(5,Math.min(38,Math.sqrt(p.ca)*1.6)), label:p.label, ca:p.ca, qte:p.qte, margePct:margePct };
+    });
+    if(!pts.length){
+      el.style.display='none';
+      var msg=document.createElement('div');msg.className='empty-state';msg.style='padding-top:50px;font-size:12px;';msg.textContent='Enregistrez des ventes pour voir ce graphique';
+      el.parentNode.appendChild(msg);
+    } else {
+      if(el._c){try{el._c.destroy();}catch(e){}}
+      el._c = new Chart(el, {
+        type:'bubble',
+        data:{ datasets:[{ data:pts, backgroundColor:'rgba(201,168,76,0.55)', borderColor:'#C9A84C', borderWidth:1 }] },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false},
+            tooltip:{ callbacks:{ label:function(ctx){
+              var p=ctx.raw;
+              return [p.label, 'Qté : '+p.qte, 'Marge : '+p.margePct+'%', 'CA : '+fmt(p.ca)];
+            }}}
+          },
+          scales:{
+            x:{ title:{display:true,text:'Quantité vendue',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'}, beginAtZero:true },
+            y:{ title:{display:true,text:'Marge (%)',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} }
+          }
+        }
+      });
+    }
   }
 }
 
@@ -3884,11 +4150,15 @@ function loadDailyChart() {
 
   if (overlayEl) overlayEl.style.display = 'none';
 
+  var compareEl = document.getElementById('daily-chart-compare');
+  var compare = compareEl ? compareEl.checked : false;
+
   var ventes = (typeof getDashboardSales === 'function') ? getDashboardSales() : (DB.ventes || []);
+  ventes = ventes.filter(function(v){ return !v.don; });
 
   // Générer les N derniers jours
   var now = new Date();
-  var labels = [], dataCA = [], dataQte = [];
+  var labels = [], dataCA = [], dataQte = [], dataCAPrev = [];
   for (var i = days - 1; i >= 0; i--) {
     var d = new Date(now);
     d.setDate(d.getDate() - i);
@@ -3896,6 +4166,16 @@ function loadDailyChart() {
     var dayVentes = ventes.filter(function(v){ return (v.date || '').substring(0, 10) === key; });
     var ca = dayVentes.reduce(function(s, v){ return s + (v.pv || 0) * (v.qte || 1); }, 0);
     var qte = dayVentes.reduce(function(s, v){ return s + (v.qte || 1); }, 0);
+
+    if (compare) {
+      var dPrev = new Date(now);
+      dPrev.setDate(dPrev.getDate() - i - days);
+      var keyPrev = dPrev.toISOString().substring(0, 10);
+      var dayVentesPrev = ventes.filter(function(v){ return (v.date || '').substring(0, 10) === keyPrev; });
+      var caPrev = dayVentesPrev.reduce(function(s, v){ return s + (v.pv || 0) * (v.qte || 1); }, 0);
+      dataCAPrev.push(Math.round(caPrev * 100) / 100);
+    }
+
     // Label court selon période
     var label = days <= 14
       ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
@@ -3907,7 +4187,7 @@ function loadDailyChart() {
     dataQte.push(qte);
   }
 
-  var hasData = dataCA.some(function(v){ return v > 0; });
+  var hasData = dataCA.some(function(v){ return v > 0; }) || dataCAPrev.some(function(v){ return v > 0; });
   if (!hasData) {
     if (wrap) wrap.style.display = 'none';
     if (emptyEl) emptyEl.style.display = 'block';
@@ -3916,34 +4196,54 @@ function loadDailyChart() {
   if (wrap) wrap.style.display = 'block';
   if (emptyEl) emptyEl.style.display = 'none';
 
+  var datasets = [
+    {
+      label: 'CA (€)',
+      data: dataCA,
+      backgroundColor: 'rgba(201,168,76,0.75)',
+      borderColor: '#C9A84C',
+      borderWidth: 1,
+      borderRadius: 4,
+      yAxisID: 'y',
+      order: 2
+    },
+    {
+      label: 'Qté vendus',
+      data: dataQte,
+      type: 'line',
+      borderColor: '#2563EB',
+      backgroundColor: 'rgba(37,99,235,0.12)',
+      borderWidth: 2,
+      pointRadius: days > 30 ? 2 : 3,
+      tension: 0.3,
+      fill: false,
+      yAxisID: 'y2',
+      order: 1
+    }
+  ];
+  if (compare) {
+    datasets.push({
+      label: 'CA période précédente (€)',
+      data: dataCAPrev,
+      type: 'line',
+      borderColor: '#94A3B8',
+      backgroundColor: 'rgba(148,163,184,0.08)',
+      borderWidth: 2,
+      borderDash: [6,4],
+      pointRadius: 0,
+      tension: 0.3,
+      fill: false,
+      yAxisID: 'y',
+      order: 0
+    });
+  }
+
   if (el._c) { try { el._c.destroy(); } catch(e) {} }
   el._c = new Chart(el, {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: 'CA (€)',
-          data: dataCA,
-          backgroundColor: 'rgba(201,168,76,0.75)',
-          borderColor: '#C9A84C',
-          borderWidth: 1,
-          borderRadius: 4,
-          yAxisID: 'y'
-        },
-        {
-          label: 'Qté vendus',
-          data: dataQte,
-          type: 'line',
-          borderColor: '#2563EB',
-          backgroundColor: 'rgba(37,99,235,0.12)',
-          borderWidth: 2,
-          pointRadius: days > 30 ? 2 : 3,
-          tension: 0.3,
-          fill: false,
-          yAxisID: 'y2'
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,
@@ -3954,8 +4254,8 @@ function loadDailyChart() {
         tooltip: {
           callbacks: {
             label: function(ctx) {
-              if (ctx.datasetIndex === 0) return ' CA : ' + ctx.parsed.y.toFixed(2) + ' €';
-              return ' Qté : ' + ctx.parsed.y;
+              if (ctx.dataset.yAxisID === 'y2') return ' Qté : ' + ctx.parsed.y;
+              return ' ' + ctx.dataset.label + ' : ' + ctx.parsed.y.toFixed(2) + ' €';
             }
           }
         }
